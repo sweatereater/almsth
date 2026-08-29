@@ -1,0 +1,947 @@
+{
+  "abilities": [
+    {
+      "id": "basic_attack",
+      "name": {
+        "en": "Basic Attack",
+        "ru": "Базовая атака"
+      },
+      "required_stage": "skeleton",
+      "slot_kind": "attack",
+      "target_kind": "adjacent_enemy"
+    },
+    {
+      "id": "circular_attack",
+      "name": {
+        "en": "Circular Attack",
+        "ru": "Круговая атака"
+      },
+      "required_stage": "almost_human",
+      "slot_kind": "attack",
+      "target_kind": "adjacent_area"
+    },
+    {
+      "id": "dash",
+      "name": {
+        "en": "Dash",
+        "ru": "Рывок"
+      },
+      "required_stage": "ghoul",
+      "slot_kind": "active",
+      "target_kind": "dash_cell"
+    },
+    {
+      "id": "double_attack",
+      "name": {
+        "en": "Double Attack",
+        "ru": "Двойная атака"
+      },
+      "required_stage": "ghoul",
+      "slot_kind": "attack",
+      "target_kind": "adjacent_enemy"
+    },
+    {
+      "id": "magic_missile",
+      "name": {
+        "en": "Magic Missile",
+        "ru": "Магическая стрела"
+      },
+      "required_stage": "skeleton",
+      "slot_kind": "active",
+      "target_kind": "visible_enemy"
+    }
+  ],
+  "camp_upgrades": [
+    {
+      "cost": {
+        "cloth": 0,
+        "stone": 3,
+        "wood": 3
+      },
+      "id": "campfire",
+      "name": {
+        "en": "Campfire",
+        "ru": "Костёр"
+      }
+    },
+    {
+      "cost": {
+        "cloth": 0,
+        "stone": 5,
+        "wood": 5
+      },
+      "id": "crusher",
+      "name": {
+        "en": "Crusher",
+        "ru": "Дробилка"
+      }
+    },
+    {
+      "cost": {
+        "cloth": 5,
+        "stone": 10,
+        "wood": 10
+      },
+      "id": "ritual_table",
+      "name": {
+        "en": "Ritual Table",
+        "ru": "Ритуальный стол"
+      }
+    },
+    {
+      "cost": {
+        "cloth": 5,
+        "stone": 10,
+        "wood": 10
+      },
+      "id": "whetstone",
+      "name": {
+        "en": "Whetstone",
+        "ru": "Точильный камень"
+      }
+    }
+  ],
+  "counts": {
+    "abilities": 5,
+    "camp_upgrades": 4,
+    "enemies": 5,
+    "equipment": 8,
+    "forms": 5,
+    "skills": 12
+  },
+  "enemies": [
+    {
+      "abilities": [],
+      "accuracy": 2,
+      "attack_type": "melee",
+      "damage": 1,
+      "dodge": 2,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "r",
+        "ru": "к"
+      },
+      "id": "grave_rat",
+      "max_hp": 2,
+      "meat": true,
+      "min_depth": 0,
+      "name": {
+        "en": "Grave Rat",
+        "ru": "Могильная крыса"
+      },
+      "range": 1,
+      "souls": 1,
+      "vision": 3
+    },
+    {
+      "abilities": [],
+      "accuracy": 3,
+      "attack_type": "melee",
+      "damage": 1,
+      "dodge": 1,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "g",
+        "ru": "с"
+      },
+      "id": "hollow_guard",
+      "max_hp": 4,
+      "meat": false,
+      "min_depth": 6,
+      "name": {
+        "en": "Hollow Guard",
+        "ru": "Пустой страж"
+      },
+      "range": 1,
+      "souls": 2,
+      "vision": 5
+    },
+    {
+      "abilities": [
+        "dash"
+      ],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
+      "dodge": 0,
+      "fixed_floor": 90,
+      "glyph": {
+        "en": "M",
+        "ru": "М"
+      },
+      "id": "minotaur",
+      "max_hp": 36,
+      "meat": true,
+      "min_depth": null,
+      "name": {
+        "en": "Minotaur",
+        "ru": "Минотавр"
+      },
+      "range": 1,
+      "souls": 12,
+      "vision": 6
+    },
+    {
+      "abilities": [],
+      "accuracy": 3,
+      "attack_type": "ranged",
+      "damage": 1,
+      "dodge": 1,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "a",
+        "ru": "л"
+      },
+      "id": "skeletal_archer",
+      "max_hp": 4,
+      "meat": false,
+      "min_depth": 6,
+      "name": {
+        "en": "Skeletal Archer",
+        "ru": "Скелет-лучник"
+      },
+      "range": 5,
+      "souls": 2,
+      "vision": 6
+    },
+    {
+      "abilities": [],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
+      "dodge": 2,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "l",
+        "ru": "д"
+      },
+      "id": "soul_leech",
+      "max_hp": 5,
+      "meat": false,
+      "min_depth": 15,
+      "name": {
+        "en": "Soul Leech",
+        "ru": "Душеед"
+      },
+      "range": 1,
+      "souls": 3,
+      "vision": 4
+    }
+  ],
+  "enemy_depth_scaling": {
+    "accuracy": "base.accuracy + floor(depth / 25)",
+    "damage": "base.damage + floor(depth / 35)",
+    "depth": "depth = 100 - floor_number",
+    "dodge": "base.dodge + floor(depth / 30)",
+    "enemy_count": "min(9, 4 + floor(depth / 12))",
+    "max_hp": "base.max_hp + floor(depth / 20)",
+    "note": "Floor 90 is hand-authored and uses the Minotaur base values without these bonuses.",
+    "scope": "regular_generated_floors",
+    "souls": "base.souls + floor(depth / 30)",
+    "source": "scripts/world/floor_generator.gd:_spawn_enemies",
+    "vision": "base.vision"
+  },
+  "equipment": [
+    {
+      "id": "bone_bow",
+      "min_depth": 0,
+      "name": {
+        "en": "Bone Bow",
+        "ru": "Костяной лук"
+      },
+      "salvage": {
+        "cloth": 1,
+        "wood": 2
+      },
+      "slot": "weapon",
+      "stats": {
+        "range": 5,
+        "ranged_damage": 1,
+        "weapon_type": "ranged"
+      }
+    },
+    {
+      "id": "bone_knife",
+      "min_depth": 0,
+      "name": {
+        "en": "Bone Knife",
+        "ru": "Костяной нож"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slot": "weapon",
+      "stats": {
+        "accuracy": 1,
+        "damage": 1
+      }
+    },
+    {
+      "id": "grave_mace",
+      "min_depth": 8,
+      "name": {
+        "en": "Grave Mace",
+        "ru": "Могильная булава"
+      },
+      "salvage": {
+        "stone": 2,
+        "wood": 1
+      },
+      "slot": "weapon",
+      "stats": {
+        "accuracy": -1,
+        "damage": 2
+      }
+    },
+    {
+      "id": "hollow_lantern",
+      "min_depth": 18,
+      "name": {
+        "en": "Hollow Lantern",
+        "ru": "Пустотный фонарь"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slot": "relic",
+      "stats": {
+        "mana": 10,
+        "max_hp": 2,
+        "soul_bonus": 1,
+        "spell_power": 1
+      }
+    },
+    {
+      "id": "leather_gloves",
+      "min_depth": 10,
+      "name": {
+        "en": "Leather Gloves",
+        "ru": "Кожаные перчатки"
+      },
+      "salvage": {
+        "cloth": 1
+      },
+      "slot": "hands",
+      "stats": {
+        "accuracy": 1,
+        "max_hp": 1
+      }
+    },
+    {
+      "id": "pilgrim_shield",
+      "min_depth": 28,
+      "name": {
+        "en": "Pilgrim Shield",
+        "ru": "Щит паломника"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 2
+      },
+      "slot": "offhand",
+      "stats": {
+        "dodge": -1,
+        "max_hp": 4
+      }
+    },
+    {
+      "id": "rotting_mail",
+      "min_depth": 3,
+      "name": {
+        "en": "Stitched Carapace",
+        "ru": "Сшитый панцирь"
+      },
+      "salvage": {
+        "cloth": 2
+      },
+      "slot": "armor",
+      "stats": {
+        "dodge": -1,
+        "max_hp": 3
+      }
+    },
+    {
+      "id": "soul_locket",
+      "min_depth": 0,
+      "name": {
+        "en": "Soulcatcher Locket",
+        "ru": "Медальон ловца"
+      },
+      "salvage": {
+        "stone": 1
+      },
+      "slot": "charm",
+      "stats": {
+        "mana": 5,
+        "soul_bonus": 1,
+        "spell_power": 1
+      }
+    }
+  ],
+  "forms": [
+    {
+      "damage": 0,
+      "evolution_cost_to_next": 10,
+      "id": "skeleton",
+      "max_hp": 6,
+      "name": {
+        "en": "Skeleton",
+        "ru": "Скелет"
+      },
+      "regeneration": 0,
+      "slot_ids": [
+        "weapon",
+        "charm"
+      ],
+      "slots": [
+        {
+          "id": "weapon",
+          "name": {
+            "en": "Weapon",
+            "ru": "Оружие"
+          }
+        },
+        {
+          "id": "charm",
+          "name": {
+            "en": "Charm",
+            "ru": "Талисман"
+          }
+        }
+      ],
+      "threshold": 0
+    },
+    {
+      "damage": 0,
+      "evolution_cost_to_next": 14,
+      "id": "zombie",
+      "max_hp": 9,
+      "name": {
+        "en": "Zombie",
+        "ru": "Зомби"
+      },
+      "regeneration": 1,
+      "slot_ids": [
+        "weapon",
+        "charm",
+        "armor"
+      ],
+      "slots": [
+        {
+          "id": "weapon",
+          "name": {
+            "en": "Weapon",
+            "ru": "Оружие"
+          }
+        },
+        {
+          "id": "charm",
+          "name": {
+            "en": "Charm",
+            "ru": "Талисман"
+          }
+        },
+        {
+          "id": "armor",
+          "name": {
+            "en": "Armor",
+            "ru": "Броня"
+          }
+        }
+      ],
+      "threshold": 10
+    },
+    {
+      "damage": 1,
+      "evolution_cost_to_next": 24,
+      "id": "ghoul",
+      "max_hp": 11,
+      "name": {
+        "en": "Ghoul",
+        "ru": "Гуль"
+      },
+      "regeneration": 1,
+      "slot_ids": [
+        "weapon",
+        "charm",
+        "armor",
+        "hands"
+      ],
+      "slots": [
+        {
+          "id": "weapon",
+          "name": {
+            "en": "Weapon",
+            "ru": "Оружие"
+          }
+        },
+        {
+          "id": "charm",
+          "name": {
+            "en": "Charm",
+            "ru": "Талисман"
+          }
+        },
+        {
+          "id": "armor",
+          "name": {
+            "en": "Armor",
+            "ru": "Броня"
+          }
+        },
+        {
+          "id": "hands",
+          "name": {
+            "en": "Hands",
+            "ru": "Кисти"
+          }
+        }
+      ],
+      "threshold": 24
+    },
+    {
+      "damage": 1,
+      "evolution_cost_to_next": 32,
+      "id": "revenant",
+      "max_hp": 13,
+      "name": {
+        "en": "Revenant",
+        "ru": "Ревенант"
+      },
+      "regeneration": 1,
+      "slot_ids": [
+        "weapon",
+        "charm",
+        "armor",
+        "hands",
+        "relic"
+      ],
+      "slots": [
+        {
+          "id": "weapon",
+          "name": {
+            "en": "Weapon",
+            "ru": "Оружие"
+          }
+        },
+        {
+          "id": "charm",
+          "name": {
+            "en": "Charm",
+            "ru": "Талисман"
+          }
+        },
+        {
+          "id": "armor",
+          "name": {
+            "en": "Armor",
+            "ru": "Броня"
+          }
+        },
+        {
+          "id": "hands",
+          "name": {
+            "en": "Hands",
+            "ru": "Кисти"
+          }
+        },
+        {
+          "id": "relic",
+          "name": {
+            "en": "Relic",
+            "ru": "Реликвия"
+          }
+        }
+      ],
+      "threshold": 48
+    },
+    {
+      "damage": 2,
+      "evolution_cost_to_next": null,
+      "id": "almost_human",
+      "max_hp": 16,
+      "name": {
+        "en": "Almost Human",
+        "ru": "Почти человек"
+      },
+      "regeneration": 1,
+      "slot_ids": [
+        "weapon",
+        "charm",
+        "armor",
+        "hands",
+        "relic",
+        "offhand"
+      ],
+      "slots": [
+        {
+          "id": "weapon",
+          "name": {
+            "en": "Weapon",
+            "ru": "Оружие"
+          }
+        },
+        {
+          "id": "charm",
+          "name": {
+            "en": "Charm",
+            "ru": "Талисман"
+          }
+        },
+        {
+          "id": "armor",
+          "name": {
+            "en": "Armor",
+            "ru": "Броня"
+          }
+        },
+        {
+          "id": "hands",
+          "name": {
+            "en": "Hands",
+            "ru": "Кисти"
+          }
+        },
+        {
+          "id": "relic",
+          "name": {
+            "en": "Relic",
+            "ru": "Реликвия"
+          }
+        },
+        {
+          "id": "offhand",
+          "name": {
+            "en": "Off hand",
+            "ru": "Вторая рука"
+          }
+        }
+      ],
+      "threshold": 80
+    }
+  ],
+  "generated_from": [
+    "scripts/game/game_rules.gd",
+    "scripts/game/skill_system.gd",
+    "scripts/localization/localization.gd",
+    "scripts/world/floor_generator.gd",
+    "scripts/world/fixed_floor_90.gd"
+  ],
+  "rule_constants": {
+    "campfire_max_hp_bonus": 1,
+    "cradle_base_chance": 0.05,
+    "cradle_miss_bonus": 0.05,
+    "item_binding_soul_cost": 25,
+    "magic_missile_base_damage": 3,
+    "magic_missile_base_range": 3,
+    "magic_missile_mana_cost": 10,
+    "magic_missile_range_bonus": 2,
+    "magic_ricochet_base_chance": 0.2,
+    "magic_ricochet_level_bonus": 0.05,
+    "magic_ricochet_range": 4,
+    "mana_regeneration_base_percent": 2,
+    "mana_regeneration_wisdom_step": 5,
+    "player_vision_base_radius": 4,
+    "sharp_vision_bonus_per_level": 1,
+    "weapon_upgrade_chances": {
+      "1": 1.0,
+      "2": 0.5,
+      "3": 0.15
+    },
+    "weapon_upgrade_cost": {
+      "cloth": 1,
+      "stone": 10,
+      "wood": 2
+    }
+  },
+  "schema_version": 1,
+  "skills": [
+    {
+      "ability_id": "",
+      "base_cost": 50,
+      "cost_step": 10,
+      "costs": [
+        50,
+        60,
+        70,
+        80,
+        90,
+        100,
+        110,
+        120,
+        130,
+        140,
+        150
+      ],
+      "description": {
+        "en": "10% +2 pp/lvl to repeat a basic attack",
+        "ru": "10% +2 п.п./ур. повторить обычную атаку"
+      },
+      "id": "almost_double_strike",
+      "kind": "passive",
+      "max_level": 11,
+      "name": {
+        "en": "Follow-up Strike",
+        "ru": "Повторный удар"
+      },
+      "requires": {},
+      "stage": "almost_human"
+    },
+    {
+      "ability_id": "circular_attack",
+      "base_cost": 100,
+      "cost_step": 0,
+      "costs": [
+        100
+      ],
+      "description": {
+        "en": "A separate strike into all 8 adjacent cells",
+        "ru": "Отдельный удар по всем 8 соседним клеткам"
+      },
+      "id": "circular_attack",
+      "kind": "active",
+      "max_level": 1,
+      "name": {
+        "en": "Circular Attack",
+        "ru": "Круговая атака"
+      },
+      "requires": {},
+      "stage": "almost_human"
+    },
+    {
+      "ability_id": "dash",
+      "base_cost": 50,
+      "cost_step": 0,
+      "costs": [
+        50
+      ],
+      "description": {
+        "en": "Move 1–3 cells in a straight line, including diagonals",
+        "ru": "1–3 клетки по прямой, включая диагонали"
+      },
+      "id": "dash",
+      "kind": "active",
+      "max_level": 1,
+      "name": {
+        "en": "Dash",
+        "ru": "Рывок"
+      },
+      "requires": {},
+      "stage": "ghoul"
+    },
+    {
+      "ability_id": "double_attack",
+      "base_cost": 75,
+      "cost_step": 0,
+      "costs": [
+        75
+      ],
+      "description": {
+        "en": "Two independent strikes against one target in one turn",
+        "ru": "Два независимых удара по одной цели за ход"
+      },
+      "id": "double_attack",
+      "kind": "active",
+      "max_level": 1,
+      "name": {
+        "en": "Double Attack",
+        "ru": "Двойная атака"
+      },
+      "requires": {},
+      "stage": "ghoul"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 20,
+      "cost_step": 0,
+      "costs": [
+        20
+      ],
+      "description": {
+        "en": "Activates healing from regeneration (zombie base: +1)",
+        "ru": "Активирует лечение по параметру регенерации (база зомби: +1)"
+      },
+      "id": "flesh_regeneration",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Regeneration",
+        "ru": "Регенерация"
+      },
+      "requires": {},
+      "stage": "zombie"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 25,
+      "cost_step": 0,
+      "costs": [
+        25
+      ],
+      "description": {
+        "en": "+5 free attribute points",
+        "ru": "+5 свободных очков характеристик"
+      },
+      "id": "fundamentals",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Develop Fundamentals",
+        "ru": "Развитие основ"
+      },
+      "requires": {
+        "strong_bones": 1
+      },
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 40,
+      "cost_step": 0,
+      "costs": [
+        40
+      ],
+      "description": {
+        "en": "+5 mana and access to the magic branch",
+        "ru": "+5 маны и доступ к магической ветке"
+      },
+      "id": "magic_awakening",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Magic Awakening",
+        "ru": "Пробуждение магии"
+      },
+      "requires": {},
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "magic_missile",
+      "base_cost": 30,
+      "cost_step": 15,
+      "costs": [
+        30,
+        45,
+        60
+      ],
+      "description": {
+        "en": "10 mana · 3 damage +1/lvl · range 3",
+        "ru": "10 маны · урон 3 +1/ур. · дальность 3"
+      },
+      "id": "magic_missile",
+      "kind": "active",
+      "max_level": 3,
+      "name": {
+        "en": "Magic Missile",
+        "ru": "Магическая стрела"
+      },
+      "requires": {
+        "magic_awakening": 1
+      },
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 50,
+      "cost_step": 0,
+      "costs": [
+        50
+      ],
+      "description": {
+        "en": "+2 cells of Magic Missile range",
+        "ru": "+2 клетки дальности Магической стрелы"
+      },
+      "id": "magic_missile_range",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Long Missile",
+        "ru": "Дальняя стрела"
+      },
+      "requires": {
+        "magic_missile": 1
+      },
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 60,
+      "cost_step": 20,
+      "costs": [
+        60,
+        80,
+        100,
+        120
+      ],
+      "description": {
+        "en": "20% +5%/lvl · jumps to an enemy within 4",
+        "ru": "20% +5%/ур. · прыжок к врагу в радиусе 4"
+      },
+      "id": "magic_ricochet",
+      "kind": "passive",
+      "max_level": 4,
+      "name": {
+        "en": "Ricochet",
+        "ru": "Рикошет"
+      },
+      "requires": {
+        "magic_missile_range": 1
+      },
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 80,
+      "cost_step": 40,
+      "costs": [
+        80,
+        120
+      ],
+      "description": {
+        "en": "+1 vision cell per level",
+        "ru": "+1 клетка обзора за уровень"
+      },
+      "id": "sharp_vision",
+      "kind": "passive",
+      "max_level": 2,
+      "name": {
+        "en": "Sharp Vision",
+        "ru": "Острое зрение"
+      },
+      "requires": {},
+      "stage": "revenant"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 5,
+      "cost_step": 5,
+      "costs": [
+        5,
+        10,
+        15,
+        20,
+        25,
+        30,
+        35,
+        40,
+        45,
+        50
+      ],
+      "description": {
+        "en": "+3 maximum HP per level",
+        "ru": "+3 максимального HP за уровень"
+      },
+      "id": "strong_bones",
+      "kind": "passive",
+      "max_level": 10,
+      "name": {
+        "en": "Sturdy Bones",
+        "ru": "Крепкие кости"
+      },
+      "requires": {},
+      "stage": "skeleton"
+    }
+  ]
+}

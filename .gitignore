@@ -1,0 +1,18 @@
+# Godot generated files
+.godot/
+
+# Exported builds
+builds/
+exports/
+
+# Local tools and editor settings
+.tools/
+.tmp/
+.vscode/
+.idea/
+.pnpm-store/
+**/node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

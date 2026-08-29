@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101518" />
+    <meta name="description" content="Локальная developer-wiki пошагового dungeon crawler Almsth" />
+    <title>Almsth · Codex восхождения</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#wiki-article">К содержанию</a>
+    <div class="shell" id="app">
+      <aside class="sidebar" id="sidebar" aria-label="Навигация по вики">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">A</div>
+          <div>
+            <p class="eyebrow">Codex восхождения</p>
+            <p class="brand-name">ALMSTH</p>
+          </div>
+        </div>
+
+        <label class="search-box" for="wiki-search">
+          <span class="search-glyph" aria-hidden="true">⌕</span>
+          <span class="visually-hidden">Поиск по вики</span>
+          <input id="wiki-search" type="search" placeholder="Поиск по механикам…" autocomplete="off" />
+          <kbd>Ctrl K</kbd>
+        </label>
+
+        <section class="filters" aria-labelledby="filter-title">
+          <div class="section-caption" id="filter-title">Статус</div>
+          <div class="status-filters" id="status-filters"></div>
+        </section>
+
+        <nav class="wiki-nav" id="wiki-nav" aria-label="Разделы"></nav>
+
+        <div class="local-note">
+          <span class="local-dot" aria-hidden="true"></span>
+          Локально · без сети
+        </div>
+      </aside>
+
+      <button class="scrim" id="scrim" aria-label="Закрыть меню" tabindex="-1"></button>
+
+      <main class="main">
+        <header class="topbar">
+          <button class="menu-button" id="menu-button" type="button" aria-controls="sidebar" aria-expanded="false">
+            <span aria-hidden="true">☰</span><span class="visually-hidden">Открыть меню</span>
+          </button>
+          <div class="breadcrumb" id="breadcrumb">Almsth Wiki</div>
+          <div class="top-actions">
+            <button class="copy-button" type="button" data-copy-page="current-snapshot">Копировать срез</button>
+            <button class="copy-button quiet" type="button" data-copy-page="prompt-template">Шаблон промта</button>
+          </div>
+        </header>
+
+        <div class="reading-frame">
+          <div class="loading" id="loading" role="status">Открываем кодекс…</div>
+          <section class="search-results" id="search-results" hidden aria-live="polite"></section>
+          <article class="wiki-article" id="wiki-article" tabindex="-1" hidden></article>
+        </div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
