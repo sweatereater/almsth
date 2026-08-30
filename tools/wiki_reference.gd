@@ -3,6 +3,7 @@ extends RefCounted
 
 const Rules := preload("res://scripts/game/game_rules.gd")
 const Abilities := preload("res://scripts/game/skill_system.gd")
+const Statuses := preload("res://scripts/game/status_system.gd")
 const Localization := preload("res://scripts/localization/localization.gd")
 const Floors := preload("res://scripts/world/floor_generator.gd")
 const FixedFloor := preload("res://scripts/world/fixed_floor_90.gd")
@@ -77,12 +78,33 @@ static func validate_contract() -> Array[String]:
 		if String(ability.get("slot_kind", "")) not in ["attack", "active"]:
 			failures.append("Ability %s has an unknown slot kind" % ability_id)
 
+	for status_id in Statuses.STATUS_ORDER:
+		if not Statuses.STATUSES.has(status_id):
+			failures.append("STATUS_ORDER references unknown status: %s" % status_id)
+			continue
+		var status: Dictionary = Statuses.STATUSES[status_id]
+		_validate_localization_key(String(status.get("name", "")), "status %s" % status_id, failures)
+		_validate_localization_key(String(status.get("description", "")), "status %s description" % status_id, failures)
+	for status_id in Statuses.STATUSES:
+		if not Statuses.STATUS_ORDER.has(status_id):
+			failures.append("Status registry entry is absent from STATUS_ORDER: %s" % status_id)
+
+	for feature_id in Rules.INTRINSIC_FEATURES:
+		var feature: Dictionary = Rules.INTRINSIC_FEATURES[feature_id]
+		_validate_localization_key(String(feature.get("name", "")), "feature %s" % feature_id, failures)
+		_validate_localization_key(String(feature.get("description", "")), "feature %s description" % feature_id, failures)
+		if not Rules.FORMS.has(String(feature.get("stage", ""))):
+			failures.append("Intrinsic feature %s references an unknown stage" % feature_id)
+
 	for item_id in Rules.EQUIPMENT:
 		var item: Dictionary = Rules.EQUIPMENT[item_id]
 		_validate_localization_key(String(item.get("name", "")), "item %s" % item_id, failures)
-		var slot_id := String(item.get("slot", ""))
-		if not Rules.SLOT_NAMES.has(slot_id):
-			failures.append("Item %s references unknown slot: %s" % [item_id, slot_id])
+		var compatible_slots: Array[String] = Rules.compatible_slots(item_id)
+		if compatible_slots.is_empty():
+			failures.append("Item %s has no compatible physical slots" % item_id)
+		for slot_id in compatible_slots:
+			if not Rules.SLOT_NAMES.has(slot_id):
+				failures.append("Item %s references unknown slot: %s" % [item_id, slot_id])
 		for resource_id in item.get("salvage", {}):
 			if resource_id not in RESOURCE_IDS:
 				failures.append("Item %s salvages unknown resource: %s" % [item_id, resource_id])
@@ -209,6 +231,7 @@ static func build_reference() -> Dictionary:
 		"generated_from": [
 			"scripts/game/game_rules.gd",
 			"scripts/game/skill_system.gd",
+			"scripts/game/status_system.gd",
 			"scripts/localization/localization.gd",
 			"scripts/world/floor_generator.gd",
 			"scripts/world/fixed_floor_90.gd",
@@ -217,6 +240,7 @@ static func build_reference() -> Dictionary:
 			"forms": Rules.FORMS.size(),
 			"skills": Rules.SKILLS.size(),
 			"abilities": Abilities.ABILITIES.size(),
+			"statuses": Statuses.STATUSES.size(),
 			"equipment": Rules.EQUIPMENT.size(),
 			"enemies": Rules.ENEMIES.size(),
 			"camp_upgrades": Rules.CAMP_UPGRADES.size(),
@@ -224,14 +248,18 @@ static func build_reference() -> Dictionary:
 		"forms": _forms(),
 		"skills": _skills(),
 		"abilities": _abilities(),
+		"statuses": _statuses(),
 		"equipment": _equipment(),
 		"enemies": _enemies(),
 		"enemy_depth_scaling": _enemy_depth_scaling(),
 		"camp_upgrades": _camp_upgrades(),
 		"rule_constants": {
+			"soul_level_start": Rules.SOUL_LEVEL_START,
+			"campfire_soul_level_bonus": Rules.CAMPFIRE_SOUL_LEVEL_BONUS,
 			"cradle_base_chance": Rules.CRADLE_BASE_CHANCE,
 			"cradle_miss_bonus": Rules.CRADLE_MISS_BONUS,
 			"player_vision_base_radius": Rules.PLAYER_VISION_BASE_RADIUS,
+			"player_hearing_radius_offset": Rules.PLAYER_HEARING_RADIUS_OFFSET,
 			"sharp_vision_bonus_per_level": Rules.SHARP_VISION_BONUS_PER_LEVEL,
 			"mana_regeneration_base_percent": Rules.MANA_REGENERATION_BASE_PERCENT,
 			"mana_regeneration_wisdom_step": Rules.MANA_REGENERATION_WISDOM_STEP,
@@ -245,7 +273,6 @@ static func build_reference() -> Dictionary:
 			"weapon_upgrade_chances": _string_key_dictionary(Rules.WEAPON_UPGRADE_CHANCES),
 			"weapon_upgrade_cost": _sorted_dictionary(Rules.WEAPON_UPGRADE_COST),
 			"item_binding_soul_cost": Rules.ITEM_BINDING_SOUL_COST,
-			"campfire_max_hp_bonus": Rules.CAMPFIRE_MAX_HP_BONUS,
 		},
 	}
 
@@ -266,12 +293,12 @@ static func build_markdown() -> String:
 		"",
 		"## Формы",
 		"",
-		"| ID | RU / EN | Порог `absorbed_souls` | Цена следующей формы | HP | Урон | Регенерация | Слоты |",
-		"| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
+		"| ID | RU / EN | Уровень души | Порог `absorbed_souls` | Цена следующей формы | HP | Урон | Регенерация | Слоты |",
+		"| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
 	])
 	for form in reference["forms"]:
-		lines.append("| `%s` | %s / %s | %d | %s | %d | %d | %d | %s |" % [
-			form["id"], _md(form["name"]["ru"]), _md(form["name"]["en"]), form["threshold"],
+		lines.append("| `%s` | %s / %s | %d | %d | %s | %d | %d | %d | %s |" % [
+			form["id"], _md(form["name"]["ru"]), _md(form["name"]["en"]), form["required_soul_level"], form["threshold"],
 			"—" if form["evolution_cost_to_next"] == null else str(form["evolution_cost_to_next"]),
 			form["max_hp"], form["damage"], form["regeneration"],
 			", ".join(form["slot_ids"]),
@@ -290,22 +317,33 @@ static func build_markdown() -> String:
 		])
 	lines.append_array(PackedStringArray([
 		"", "## Способности", "",
-		"| ID | RU / EN | Слот | Цель | Требуемая форма |",
-		"| --- | --- | --- | --- | --- |",
+		"| ID | RU / EN | Слот | Цель | Требуемая форма | Перезарядка |",
+		"| --- | --- | --- | --- | --- | ---: |",
 	]))
 	for ability in reference["abilities"]:
-		lines.append("| `%s` | %s / %s | `%s` | `%s` | `%s` |" % [
+		lines.append("| `%s` | %s / %s | `%s` | `%s` | `%s` | %d |" % [
 			ability["id"], _md(ability["name"]["ru"]), _md(ability["name"]["en"]),
-			ability["slot_kind"], ability["target_kind"], ability["required_stage"],
+			ability["slot_kind"], ability["target_kind"], ability["required_stage"], ability["cooldown"],
+		])
+	lines.append_array(PackedStringArray([
+		"", "## Статусы", "",
+		"| ID | RU / EN | Длительность | Временные HP | Модификаторы | Сокращение перезарядки |",
+		"| --- | --- | ---: | ---: | --- | --- |",
+	]))
+	for status in reference["statuses"]:
+		lines.append("| `%s` | %s / %s | %d | %d | %s | %s |" % [
+			status["id"], _md(status["name"]["ru"]), _md(status["name"]["en"]),
+			status["default_duration"], status["temporary_hp_grant"],
+			_format_dictionary(status["modifiers"]), _format_dictionary(status["cooldown_reduction"]),
 		])
 	lines.append_array(PackedStringArray([
 		"", "## Предметы", "",
-		"| ID | RU / EN | Слот | Min depth | Параметры | Разбор |",
+		"| ID | RU / EN | Слоты | Min depth | Параметры | Разбор |",
 		"| --- | --- | --- | ---: | --- | --- |",
 	]))
 	for item in reference["equipment"]:
 		lines.append("| `%s` | %s / %s | `%s` | %d | %s | %s |" % [
-			item["id"], _md(item["name"]["ru"]), _md(item["name"]["en"]), item["slot"],
+			item["id"], _md(item["name"]["ru"]), _md(item["name"]["en"]), ", ".join(item["slots"]),
 			item["min_depth"], _format_dictionary(item["stats"]), _format_dictionary(item["salvage"]),
 		])
 	lines.append_array(PackedStringArray([
@@ -342,6 +380,7 @@ static func build_markdown() -> String:
 		"", "## Источник истины", "",
 		"- `scripts/game/game_rules.gd` — формы, навыки, предметы, враги, постройки и числовые правила.",
 		"- `scripts/game/skill_system.gd` — реестр способностей и совместимость слотов.",
+		"- `scripts/game/status_system.gd` — реестр статусов, их модификаторов и длительности.",
 		"- `scripts/localization/localization.gd` — RU/EN названия и описания.",
 		"- `scripts/world/floor_generator.gd` — runtime-константы глубинного усиления обычных врагов.",
 		"- `scripts/world/fixed_floor_90.gd` — номер и контракт фиксированной арены.",
@@ -401,6 +440,7 @@ static func _forms() -> Array:
 			"id": form_id,
 			"name": _localized(String(form["name"])),
 			"threshold": int(form["threshold"]),
+			"required_soul_level": Rules.required_soul_level(form_id),
 			"evolution_cost_to_next": null if next.is_empty() else Rules.evolution_cost(form_id),
 			"max_hp": int(form["max_hp"]),
 			"damage": int(form["damage"]),
@@ -448,6 +488,26 @@ static func _abilities() -> Array:
 			"slot_kind": String(ability["slot_kind"]),
 			"target_kind": String(ability["target_kind"]),
 			"required_stage": String(ability["required_stage"]),
+			"cooldown": Abilities.base_cooldown(ability_id),
+		})
+	return result
+
+
+static func _statuses() -> Array:
+	var result: Array = []
+	for status_id in Statuses.STATUS_ORDER:
+		var status: Dictionary = Statuses.STATUSES[status_id]
+		result.append({
+			"id": status_id,
+			"name": _localized(String(status["name"])),
+			"description": _localized(String(status["description"])),
+			"icon": String(status.get("icon", "")),
+			"priority": int(status.get("priority", 0)),
+			"default_duration": int(status.get("default_duration", 0)),
+			"max_duration": int(status.get("max_duration", 0)),
+			"temporary_hp_grant": int(status.get("temporary_hp_grant", 0)),
+			"modifiers": _sorted_dictionary(status.get("modifiers", {})),
+			"cooldown_reduction": _sorted_dictionary(status.get("cooldown_reduction", {})),
 		})
 	return result
 
@@ -457,7 +517,7 @@ static func _equipment() -> Array:
 	var ids := Rules.EQUIPMENT.keys()
 	ids.sort()
 	var stat_keys := [
-		"weapon_type", "range", "damage", "ranged_damage", "max_hp", "soul_bonus",
+		"weapon_type", "range", "damage", "ranged_damage", "max_hp", "soul_bonus", "soul_level_bonus",
 		"accuracy", "dodge", "mana", "spell_power", "regeneration",
 	]
 	for item_id in ids:
@@ -475,7 +535,8 @@ static func _equipment() -> Array:
 		result.append({
 			"id": item_id,
 			"name": _localized(String(item["name"])),
-			"slot": String(item["slot"]),
+			"category": Rules.item_category(item_id),
+			"slots": Rules.compatible_slots(item_id),
 			"min_depth": int(item["min_depth"]),
 			"stats": _sorted_dictionary(stats),
 			"salvage": _sorted_dictionary(item.get("salvage", {})),

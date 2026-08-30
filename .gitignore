@@ -8,6 +8,7 @@ exports/
 # Local tools and editor settings
 .tools/
 .tmp/
+tmp/
 .vscode/
 .idea/
 .pnpm-store/

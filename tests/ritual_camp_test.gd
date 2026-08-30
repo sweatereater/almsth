@@ -45,7 +45,7 @@ func _test_bound_item_model() -> void:
 	)
 	_expect(state.equip_from_inventory("bone_knife@0:bound")["ok"], "A bound item must remain equippable")
 	_expect(
-		state.unequip("weapon")["ok"]
+		state.unequip("right_hand")["ok"]
 		and int(state.inventory.get("bone_knife@0:bound", 0)) == 1,
 		"Unequipping must preserve the bound identity",
 	)
@@ -89,12 +89,14 @@ func _test_death_and_campfire() -> void:
 	fire.add_resources({"wood": 3, "stone": 3})
 	var old_max_hp := fire.get_max_hp()
 	var old_hp := fire.hp
+	var old_soul_level := fire.soul_level
 	var built := fire.build_camp_upgrade("campfire")
 	_expect(
 		bool(built.get("ok", false))
-		and fire.get_max_hp() == old_max_hp + 1
-		and fire.hp == old_hp + 1,
-		"The one-time Campfire must add one maximum HP and fill the new point",
+		and fire.get_max_hp() == old_max_hp
+		and fire.hp == old_hp
+		and fire.soul_level == old_soul_level + 1,
+		"The one-time Campfire must add one Soul Level without HP or healing",
 	)
 	_expect(
 		not bool(fire.build_camp_upgrade("campfire").get("ok", false))
@@ -117,16 +119,16 @@ func _test_death_and_campfire() -> void:
 	dying.banked_souls = 100
 	dying.add_item("bone_knife")
 	dying.equip_from_inventory("bone_knife@0")
-	dying.bind_item("bone_knife@0", "equipped", "weapon")
+	dying.bind_item("bone_knife@0", "equipped", "right_hand")
 	dying.add_item("rotting_mail")
 	dying.equip_from_inventory("rotting_mail@0")
-	dying.bind_item("rotting_mail@0", "equipped", "armor")
+	dying.bind_item("rotting_mail@0", "equipped", "body")
 	dying.add_item("grave_mace", 0, 2)
 	dying.carried_souls = 7
 	var losses := dying.die()
 	_expect(
 		losses == {"souls": 7, "items": 2}
-		and dying.loadout.get("weapon", "") == "bone_knife@0:bound"
+		and dying.loadout.get("right_hand", "") == "bone_knife@0:bound"
 		and int(dying.inventory.get("rotting_mail@0:bound", 0)) == 1
 		and not dying.inventory.has("grave_mace@0"),
 		"Death must keep bound gear, move locked-form gear to inventory and lose ordinary loot",
@@ -154,7 +156,7 @@ func _test_ritual_interface(tree: SceneTree) -> void:
 	main.state.add_resources({"wood": 30, "stone": 30, "cloth": 10})
 	main.state.banked_souls = 50
 	main.state.add_item("bone_bow", 2)
-	main.state.loadout["weapon"] = "bone_knife@1"
+	main.state.loadout["right_hand"] = "bone_knife@1"
 	main._on_build_camp_upgrade("ritual_table")
 	main._on_upgrade_pressed()
 	_expect(

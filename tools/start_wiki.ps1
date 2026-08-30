@@ -13,12 +13,12 @@ if (-not $nodePath -and $env:USERPROFILE) {
 }
 
 if (-not $nodePath) {
-    throw "Node.js не найден. Установите Node.js 20+ или запустите viewer из приложения Codex с доступным bundled runtime."
+    throw "Node.js was not found. Install Node.js 20+ or run the viewer from Codex with its bundled runtime."
 }
 
 Write-Host "Almsth Wiki: http://127.0.0.1:4173"
-Write-Host "Для остановки нажмите Ctrl+C."
+Write-Host "Press Ctrl+C to stop."
 & $nodePath (Join-Path $siteRoot "scripts\serve.mjs")
 if ($LASTEXITCODE -ne 0) {
-    throw "Almsth Wiki viewer завершился с кодом $LASTEXITCODE."
+    throw "Almsth Wiki viewer exited with code $LASTEXITCODE."
 }

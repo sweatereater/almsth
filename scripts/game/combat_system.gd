@@ -29,5 +29,7 @@ static func is_ranged_target_valid(
 	return (
 		distance >= 1
 		and distance <= maximum_range
-		and GridNavigation.has_clear_line(tiles, from, to)
+		# Creature occupancy intentionally stays empty for arrows: current ranged
+		# balance allows projectiles to pass through intervening actors.
+		and GridNavigation.has_clear_line(tiles, from, to, {})
 	)

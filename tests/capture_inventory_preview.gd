@@ -43,7 +43,7 @@ func _capture() -> void:
 	main.state.add_item("leather_gloves")
 	main.state.add_item("hollow_lantern")
 	main.state.add_item("pilgrim_shield")
-	main.state.loadout["weapon"] = "bone_knife@3"
+	main.state.loadout["right_hand"] = "bone_knife@3"
 	main._show_character()
 	main._select_character_panel("inventory")
 	main.inventory_panel.set_filter("all")
@@ -61,7 +61,7 @@ func _capture() -> void:
 
 	main._close_character()
 	main._open_inventory_service("crusher")
-	main.inventory_panel.set_filter("armor")
+	main.inventory_panel.set_filter("body")
 	main.inventory_panel.select_visible_index(0)
 	await _save(main, "crusher")
 	main._on_inventory_dismantle_all_pressed()
@@ -73,11 +73,11 @@ func _capture() -> void:
 	main._open_inventory_service("whetstone")
 	main.inventory_panel.select_item("bone_bow@2", "inventory")
 	await _save(main, "whetstone-inventory")
-	main.inventory_panel.select_item("bone_knife@3", "equipped", "weapon")
+	main.inventory_panel.select_item("bone_knife@3", "equipped", "right_hand")
 	await _save(main, "whetstone-equipped-max")
-	main.state.loadout["weapon"] = "bone_knife@1"
+	main.state.loadout["right_hand"] = "bone_knife@1"
 	main.state.resources = {"wood": 0, "stone": 0, "cloth": 0}
-	main.inventory_panel.select_item("bone_knife@1", "equipped", "weapon")
+	main.inventory_panel.select_item("bone_knife@1", "equipped", "right_hand")
 	main.inventory_panel.refresh()
 	await _save(main, "whetstone-no-resources")
 	main._close_inventory_service()

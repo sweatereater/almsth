@@ -2,11 +2,12 @@ class_name DungeonViewport
 extends Control
 
 const Renderer := preload("res://scripts/ui/game_renderer.gd")
+const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
 
 signal world_cell_pressed(cell: Vector2i)
 
 const VIEW_RECT := Renderer.DUNGEON_VIEW_RECT
-const CELL_SIZE := Renderer.CELL_SIZE
+const CELL_SIZE := PresentationSettings.DEFAULT_CELL_SIZE
 
 
 class DungeonCanvas extends Control:
@@ -30,6 +31,7 @@ var padding := Vector2.ZERO
 var map_size := Vector2i.ZERO
 var player_cell := Vector2i.ZERO
 var presentation: Dictionary = {}
+var runtime_cell_size := CELL_SIZE
 
 
 func _ready() -> void:
@@ -62,7 +64,12 @@ func set_presentation(
 	has_inspection: bool,
 	manual_inspection: bool,
 	ability_target_cells: Array[Vector2i],
+	ability_unavailable_cells: Dictionary,
 	ability_target_cursor: Vector2i,
+	enemy_hit_flashes: Dictionary = {},
+	player_hit_flash_remaining := 0.0,
+	lethal_hit_afterimages: Array[Dictionary] = [],
+	hearing_contact_cells: Array[Vector2i] = [],
 ) -> void:
 	presentation = {
 		"floor_data": floor_data,
@@ -73,13 +80,28 @@ func set_presentation(
 		"has_inspection": has_inspection,
 		"manual_inspection": manual_inspection,
 		"ability_target_cells": ability_target_cells,
+		"ability_unavailable_cells": ability_unavailable_cells,
 		"ability_target_cursor": ability_target_cursor,
+		"enemy_hit_flashes": enemy_hit_flashes,
+		"player_hit_flash_remaining": player_hit_flash_remaining,
+		"lethal_hit_afterimages": lethal_hit_afterimages,
+		"hearing_contact_cells": hearing_contact_cells,
 	}
 	map_size = Vector2i(
 		int(floor_data.get("width", 0)),
 		int(floor_data.get("height", 0)),
 	)
 	player_cell = player_pos
+	_update_transform()
+	world_canvas.queue_redraw()
+
+
+func set_cell_size(value: int) -> void:
+	var sanitized := PresentationSettings.sanitize_cell_size(value)
+	if runtime_cell_size == sanitized:
+		return
+	runtime_cell_size = sanitized
+	Renderer.set_runtime_cell_size(runtime_cell_size)
 	_update_transform()
 	world_canvas.queue_redraw()
 
@@ -92,12 +114,17 @@ func clear_presentation() -> void:
 	world_canvas.queue_redraw()
 
 
-static func world_pixel_size(map_dimensions: Vector2i) -> Vector2:
-	return Vector2(maxi(map_dimensions.x, 0), maxi(map_dimensions.y, 0)) * CELL_SIZE
+static func world_pixel_size(map_dimensions: Vector2i, cell_size := CELL_SIZE) -> Vector2:
+	var safe_size := PresentationSettings.sanitize_cell_size(cell_size)
+	return Vector2(maxi(map_dimensions.x, 0), maxi(map_dimensions.y, 0)) * safe_size
 
 
-static func max_camera(map_dimensions: Vector2i, view_size := VIEW_RECT.size) -> Vector2:
-	var world_size := world_pixel_size(map_dimensions)
+static func max_camera(
+	map_dimensions: Vector2i,
+	view_size := VIEW_RECT.size,
+	cell_size := CELL_SIZE,
+) -> Vector2:
+	var world_size := world_pixel_size(map_dimensions, cell_size)
 	return Vector2(
 		maxf(world_size.x - view_size.x, 0.0),
 		maxf(world_size.y - view_size.y, 0.0),
@@ -108,17 +135,23 @@ static func camera_for(
 	map_dimensions: Vector2i,
 	focus_cell: Vector2i,
 	view_size := VIEW_RECT.size,
+	cell_size := CELL_SIZE,
 ) -> Vector2:
-	var desired := (Vector2(focus_cell) + Vector2(0.5, 0.5)) * CELL_SIZE - view_size * 0.5
-	var maximum := max_camera(map_dimensions, view_size)
+	var safe_size := PresentationSettings.sanitize_cell_size(cell_size)
+	var desired := (Vector2(focus_cell) + Vector2(0.5, 0.5)) * safe_size - view_size * 0.5
+	var maximum := max_camera(map_dimensions, view_size, safe_size)
 	return Vector2(
 		roundf(clampf(desired.x, 0.0, maximum.x)),
 		roundf(clampf(desired.y, 0.0, maximum.y)),
 	)
 
 
-static func padding_for(map_dimensions: Vector2i, view_size := VIEW_RECT.size) -> Vector2:
-	var world_size := world_pixel_size(map_dimensions)
+static func padding_for(
+	map_dimensions: Vector2i,
+	view_size := VIEW_RECT.size,
+	cell_size := CELL_SIZE,
+) -> Vector2:
+	var world_size := world_pixel_size(map_dimensions, cell_size)
 	return Vector2(
 		maxf((view_size.x - world_size.x) * 0.5, 0.0),
 		maxf((view_size.y - world_size.y) * 0.5, 0.0),
@@ -129,9 +162,10 @@ static func child_origin_for(
 	map_dimensions: Vector2i,
 	focus_cell: Vector2i,
 	view_size := VIEW_RECT.size,
+	cell_size := CELL_SIZE,
 ) -> Vector2:
-	return padding_for(map_dimensions, view_size) - camera_for(
-		map_dimensions, focus_cell, view_size,
+	return padding_for(map_dimensions, view_size, cell_size) - camera_for(
+		map_dimensions, focus_cell, view_size, cell_size,
 	)
 
 
@@ -140,38 +174,42 @@ static func world_cell_from_screen(
 	view_rect: Rect2,
 	map_dimensions: Vector2i,
 	focus_cell: Vector2i,
+	cell_size := CELL_SIZE,
 ) -> Vector2i:
 	var local := screen_position - view_rect.position
 	# Rect2.has_point follows the required exclusive right/bottom convention, but
 	# keep it explicit here because this helper is also the input contract.
 	if local.x < 0.0 or local.y < 0.0 or local.x >= view_rect.size.x or local.y >= view_rect.size.y:
 		return Vector2i(-1, -1)
-	var origin := child_origin_for(map_dimensions, focus_cell, view_rect.size)
+	var safe_size := PresentationSettings.sanitize_cell_size(cell_size)
+	var origin := child_origin_for(map_dimensions, focus_cell, view_rect.size, safe_size)
 	var world_pixel := local - origin
-	var world_size := world_pixel_size(map_dimensions)
+	var world_size := world_pixel_size(map_dimensions, safe_size)
 	if (
 		world_pixel.x < 0.0 or world_pixel.y < 0.0
 		or world_pixel.x >= world_size.x or world_pixel.y >= world_size.y
 	):
 		return Vector2i(-1, -1)
-	return Vector2i(floori(world_pixel.x / CELL_SIZE), floori(world_pixel.y / CELL_SIZE))
+	return Vector2i(floori(world_pixel.x / safe_size), floori(world_pixel.y / safe_size))
 
 
 func world_to_screen_center(cell: Vector2i) -> Vector2:
-	return global_position + world_canvas.position + (Vector2(cell) + Vector2(0.5, 0.5)) * CELL_SIZE
+	return global_position + world_canvas.position + (Vector2(cell) + Vector2(0.5, 0.5)) * runtime_cell_size
 
 
 func screen_to_world_cell(screen_position: Vector2) -> Vector2i:
-	return world_cell_from_screen(screen_position, Rect2(global_position, size), map_size, player_cell)
+	return world_cell_from_screen(
+		screen_position, Rect2(global_position, size), map_size, player_cell, runtime_cell_size,
+	)
 
 
 func _update_transform() -> void:
 	if world_canvas == null:
 		return
-	camera = camera_for(map_size, player_cell, size)
-	padding = padding_for(map_size, size)
+	camera = camera_for(map_size, player_cell, size, runtime_cell_size)
+	padding = padding_for(map_size, size, runtime_cell_size)
 	world_canvas.position = padding - camera
-	world_canvas.size = world_pixel_size(map_size)
+	world_canvas.size = world_pixel_size(map_size, runtime_cell_size)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -210,5 +248,10 @@ func _draw_world(canvas: CanvasItem) -> void:
 		presentation["has_inspection"],
 		presentation["manual_inspection"],
 		presentation["ability_target_cells"],
+		presentation.get("ability_unavailable_cells", {}),
 		presentation["ability_target_cursor"],
+		presentation.get("enemy_hit_flashes", {}),
+		float(presentation.get("player_hit_flash_remaining", 0.0)),
+		presentation.get("lethal_hit_afterimages", []),
+		presentation.get("hearing_contact_cells", []),
 	)

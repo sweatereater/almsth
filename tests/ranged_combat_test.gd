@@ -36,16 +36,16 @@ func _test_weapon_rules_and_save() -> void:
 	)
 	var attributes := GameRules.default_attributes()
 	var bow_zero := GameRules.calculate_derived_stats(
-		attributes, "skeleton", {"weapon": "bone_bow@0"},
+		attributes, "skeleton", {"right_hand": "bone_bow@0"},
 	)
 	var bow_three := GameRules.calculate_derived_stats(
-		attributes, "skeleton", {"weapon": "bone_bow@3"},
+		attributes, "skeleton", {"right_hand": "bone_bow@3"},
 	)
 	var knife_zero := GameRules.calculate_derived_stats(
-		attributes, "skeleton", {"weapon": "bone_knife@0"},
+		attributes, "skeleton", {"right_hand": "bone_knife@0"},
 	)
 	var knife_three := GameRules.calculate_derived_stats(
-		attributes, "skeleton", {"weapon": "bone_knife@3"},
+		attributes, "skeleton", {"right_hand": "bone_knife@3"},
 	)
 	_expect(
 		int(bow_three["ranged_damage"]) == int(bow_zero["ranged_damage"]) + 3
@@ -58,14 +58,14 @@ func _test_weapon_rules_and_save() -> void:
 
 	var original := RunState.new()
 	original.character_name = "Bow save"
-	original.loadout["weapon"] = "bone_bow@2"
+	original.loadout["right_hand"] = "bone_bow@2"
 	original.add_item("bone_bow", 3, 2)
 	var saved := original.to_save_data()
 	var restored := RunState.new()
 	_expect(
 		not saved.has("ammo")
 		and restored.restore_save_data(saved)
-		and restored.loadout.get("weapon", "") == "bone_bow@2"
+		and restored.loadout.get("right_hand", "") == "bone_bow@2"
 		and int(restored.inventory.get("bone_bow@3", 0)) == 2
 		and restored.has_ranged_weapon()
 		and restored.get_ranged_range() == 5,
@@ -111,7 +111,7 @@ func _test_combat_primitives() -> void:
 
 func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
-	main.state.loadout["weapon"] = "bone_bow@0"
+	main.state.loadout["right_hand"] = "bone_bow@0"
 	main.floor_data = _floor_fixture(12, 9)
 	main.player_pos = Vector2i(3, 4)
 	_reveal_floor(main)
@@ -247,7 +247,7 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 		and main._effective_attack_ability() == "basic_attack",
 		"A bow must safely fall back to one Basic Shot without passive repeats or loadout loss",
 	)
-	main.state.loadout["weapon"] = "bone_knife@0"
+	main.state.loadout["right_hand"] = "bone_knife@0"
 	_expect(
 		main._effective_attack_ability() == "circular_attack",
 		"The assigned physical attack must return immediately after equipping a melee weapon",
@@ -270,7 +270,7 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 
 func _test_ranged_boss_reward(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
-	main.state.loadout["weapon"] = "bone_bow@0"
+	main.state.loadout["right_hand"] = "bone_bow@0"
 	main.state.attributes["perception"] = 20
 	main.floor_data = _floor_fixture(12, 9)
 	main.player_pos = Vector2i(3, 4)
@@ -428,7 +428,7 @@ func _test_trace_lifecycle_and_ui(tree: SceneTree) -> void:
 		"Projectile traces must expire after approximately 0.45 seconds",
 	)
 
-	main.state.loadout["weapon"] = "bone_bow@2"
+	main.state.loadout["right_hand"] = "bone_bow@2"
 	main.state.add_item("bone_bow", 2)
 	main.selected_inventory_key = "bone_bow@2"
 	main.selected_equipment_slot = ""

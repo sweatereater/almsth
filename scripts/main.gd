@@ -8,14 +8,22 @@ const Ui := preload("res://scripts/ui/ui_factory.gd")
 const Renderer := preload("res://scripts/ui/game_renderer.gd")
 const ControlsPanel := preload("res://scripts/ui/controls_remap_panel.gd")
 const InventoryPanelClass := preload("res://scripts/ui/inventory_panel.gd")
+const SaveMenuPanelClass := preload("res://scripts/ui/save_menu_panel.gd")
+const AppearanceChoicePanelClass := preload("res://scripts/ui/appearance_choice_panel.gd")
 const AudioManagerClass := preload("res://scripts/audio/audio_manager.gd")
 const DungeonViewportClass := preload("res://scripts/ui/dungeon_viewport.gd")
+const StatusStripClass := preload("res://scripts/ui/status_strip.gd")
+const InventorySlotIconClass := preload("res://scripts/ui/inventory_slot_icon.gd")
+const SkillTreePanelClass := preload("res://scripts/ui/skill_tree_panel.gd")
+const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
+const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
 const GridNavigation := preload("res://scripts/world/grid_navigation.gd")
 const BossFloor90 := preload("res://scripts/world/fixed_floor_90.gd")
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 const CombatSystem := preload("res://scripts/game/combat_system.gd")
+const HearingContactSystemClass := preload("res://scripts/game/hearing_contact_system.gd")
 
-enum Screen { NAME_CREATION, STAT_CREATION, STORY, BASE, DUNGEON, CHARACTER, VICTORY }
+enum Screen { NAME_CREATION, STAT_CREATION, STORY, BASE, DUNGEON, CHARACTER, VICTORY, STARTUP }
 
 const CAMP_ART: Texture2D = Renderer.CAMP_ART
 const INTRO_ART: Array[Texture2D] = Renderer.INTRO_ART
@@ -42,6 +50,8 @@ const MIN_INSPECTION_RADIUS := 1
 const MAX_INSPECTION_RADIUS := 12
 const DEFAULT_BACKGROUND_VOLUME := AudioManagerClass.DEFAULT_BACKGROUND_VOLUME
 const DEFAULT_ACTIONS_VOLUME := AudioManagerClass.DEFAULT_ACTIONS_VOLUME
+const HIT_FLASH_DURATION := 0.18
+const LETHAL_AFTERIMAGE_DURATION := 0.22
 
 const COLOR_BACKGROUND := Renderer.COLOR_BACKGROUND
 const COLOR_PANEL := Renderer.COLOR_PANEL
@@ -78,11 +88,20 @@ var inspection_radius := DEFAULT_INSPECTION_RADIUS
 var inspected_target: Dictionary = {}
 var magic_traces: Array[Dictionary] = []
 var projectile_traces: Array[Dictionary] = []
+var enemy_hit_flashes: Dictionary = {}
+var player_hit_flash_remaining := 0.0
+var lethal_hit_afterimages: Array[Dictionary] = []
 var incoming_ranged_attack_this_turn := false
+var hearing_contacts := HearingContactSystemClass.new()
+var hidden_attack_heard_this_enemy_phase := false
 var ability_targeting_id := ""
 var ability_target_cells: Array[Vector2i] = []
+var ability_unavailable_cells: Dictionary = {}
 var ability_target_cursor := Vector2i(-1, -1)
 var settings_open := false
+var main_menu_open := false
+var settings_return_to_main_menu := false
+var dungeon_cell_size := PresentationSettings.DEFAULT_CELL_SIZE
 var fullscreen_enabled := false
 var audio_muted := false
 var background_volume := DEFAULT_BACKGROUND_VOLUME
@@ -92,6 +111,18 @@ var store_gateway: RefCounted
 var story_kind := ""
 var story_index := 0
 var story_completion_message := ""
+var active_save_slot_id := ""
+var active_save_detached_by_delete := false
+var active_save_detached_can_resave := false
+var save_policy_overwrite := true
+var save_slots_directory := SaveSystem.SAVES_DIR
+var legacy_save_path := SaveSystem.SAVE_PATH
+var save_time_provider := Callable()
+var save_id_factory := Callable()
+var save_fault_injector := Callable()
+var save_delete_fault_injector := Callable()
+var last_save_error := ""
+var exit_request_hook := Callable()
 
 @export var persistence_enabled := true
 @export var audio_playback_enabled := true
@@ -99,8 +130,10 @@ var story_completion_message := ""
 var title_label: Label
 var dungeon_viewport: Control
 var souls_label: Label
+var soul_icon: TextureRect
 var stats_label: Label
 var sidebar_progress_label: Label
+var status_strip: Control
 var equipment_label: Label
 var camp_upgrades_label: Label
 var inspection_label: Label
@@ -112,6 +145,7 @@ var spell_button: Button
 var active_2_button: Button
 var active_3_button: Button
 var hotbar_ability_buttons: Dictionary = {}
+var hotbar_cooldown_badges: Dictionary = {}
 var character_action_button: Button
 var interact_button: Button
 var wait_button: Button
@@ -132,6 +166,8 @@ var close_character_button: Button
 var name_prompt_label: Label
 var name_input: LineEdit
 var name_confirm_button: Button
+var save_policy_checkbox: CheckButton
+var save_policy_hint_label: Label
 var creation_points_label: Label
 var creation_preview_label: Label
 var creation_confirm_button: Button
@@ -141,8 +177,13 @@ var creation_controls: Array[Control] = []
 var character_primary_label: Label
 var character_derived_label: Label
 var character_equipment_label: Label
+var character_soul_level_label: Label
+var character_status_strip: Control
 var character_equipment_buttons: Dictionary = {}
+var character_equipment_glyphs: Dictionary = {}
 var character_controls: Array[Control] = []
+var character_common_controls: Array[Control] = []
+var character_inventory_controls: Array[Control] = []
 var character_attribute_points_label: Label
 var character_cheat_stats_button: Button
 var character_attribute_spend_buttons: Dictionary = {}
@@ -156,6 +197,7 @@ var ghoul_tab_button: Button
 var almost_human_tab_button: Button
 var skill_node_buttons: Dictionary = {}
 var ability_loadout_buttons: Dictionary = {}
+var skill_tree_panel
 var skills_panel_controls: Array[Control] = []
 var skeleton_skill_controls: Array[Control] = []
 var zombie_skill_controls: Array[Control] = []
@@ -165,6 +207,7 @@ var almost_human_skill_controls: Array[Control] = []
 var selected_skill_stage := "skeleton"
 var skill_feedback := ""
 var character_panel_mode := "skills"
+var character_return_focus: Control
 var skills_mode_button: Button
 var inventory_mode_button: Button
 var inventory_controls: Array[Control] = []
@@ -190,6 +233,7 @@ var settings_description_label: Label
 var settings_input_label: Label
 var settings_minus_button: Button
 var settings_plus_button: Button
+var settings_zoom_button: Button
 var settings_sound_button: Button
 var settings_background_label: Label
 var settings_background_slider: HSlider
@@ -230,6 +274,8 @@ var story_shade: ColorRect
 var story_caption_label: Label
 var story_click_button: Button
 var story_controls: Array[Control] = []
+var save_menu_panel: Control
+var appearance_choice_panel: Control
 
 
 func _ready() -> void:
@@ -243,8 +289,13 @@ func _ready() -> void:
 	rng.randomize()
 	_build_interface()
 	_apply_locale()
-	if persistence_enabled and state.restore_save_data(SaveSystem.load_game()):
-		_show_base(Loc.text("MSG_GAME_LOADED"))
+	if persistence_enabled:
+		var import_result := SaveSystem.import_legacy_once(
+			legacy_save_path, save_slots_directory, _save_timestamp(), save_id_factory,
+		)
+		if not bool(import_result.get("ok", false)):
+			last_save_error = Loc.text("MSG_SAVE_FAILED", [int(import_result.get("error", ERR_CANT_CREATE))])
+		_show_startup()
 	else:
 		_show_name_creation()
 
@@ -255,18 +306,34 @@ func _build_interface() -> void:
 	dungeon_viewport.visible = false
 	dungeon_viewport.world_cell_pressed.connect(_handle_board_cell)
 	add_child(dungeon_viewport)
+	dungeon_viewport.set_cell_size(dungeon_cell_size)
 
 	title_label = _make_label(Vector2(28, 20), Vector2(790, 48), 28)
 	title_label.text = "ALMSTH"
 
 	souls_label = _make_label(Vector2(28, 56), Vector2(620, 24), 16)
 	souls_label.add_theme_color_override("font_color", COLOR_GOLD)
+	soul_icon = TextureRect.new()
+	soul_icon.texture = Renderer.SOUL_ICON_TEXTURE
+	soul_icon.position = Vector2(1080, 22)
+	soul_icon.size = Vector2(22, 22)
+	soul_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	soul_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	soul_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	soul_icon.visible = false
+	add_child(soul_icon)
 
 	stats_label = _make_label(Vector2(846, 78), Vector2(400, 56), 17)
 	stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	sidebar_progress_label = _make_label(Vector2(846, 222), Vector2(400, 106), 15)
 	sidebar_progress_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_strip = StatusStripClass.new()
+	status_strip.name = "StatusStrip"
+	status_strip.position = Renderer.DUNGEON_STATUS_RECT.position
+	status_strip.size = Renderer.DUNGEON_STATUS_RECT.size
+	status_strip.visible = false
+	add_child(status_strip)
 
 	equipment_label = _make_label(Vector2(846, 338), Vector2(400, 142), 14)
 	equipment_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -314,6 +381,8 @@ func _build_interface() -> void:
 	active_3_button.add_theme_font_size_override("font_size", 11)
 	active_3_button.pressed.connect(_on_ability_slot_pressed.bind("active_3"))
 	hotbar_ability_buttons["active_3"] = active_3_button
+	for slot_id in AbilitySystem.SLOT_ORDER:
+		_add_hotbar_cooldown_badge(slot_id, hotbar_ability_buttons[slot_id])
 
 	character_action_button = _make_button(Vector2(666, 558), "", Vector2(74, 36))
 	character_action_button.add_theme_font_size_override("font_size", 11)
@@ -369,7 +438,7 @@ func _build_interface() -> void:
 	character_button.pressed.connect(_show_character)
 
 	menu_button = _make_button(Vector2(1140, 14), "", Vector2(106, 42))
-	menu_button.pressed.connect(_toggle_settings)
+	menu_button.pressed.connect(_open_main_menu)
 
 	_build_creation_interface()
 	_build_character_interface()
@@ -379,6 +448,8 @@ func _build_interface() -> void:
 	_build_cradle_confirmation_interface()
 	_build_boss_warning_interface()
 	_build_story_interface()
+	_build_save_menu_interface()
+	_build_appearance_choice_interface()
 
 
 func _make_label(position_value: Vector2, size_value: Vector2, font_size: int) -> Label:
@@ -391,6 +462,28 @@ func _make_button(
 	size_value: Vector2 = Vector2(400, 54)
 ) -> Button:
 	return Ui.make_button(self, position_value, text_value, size_value)
+
+
+func _add_hotbar_cooldown_badge(slot_id: String, button: Button) -> void:
+	var badge := Label.new()
+	badge.name = "CooldownBadge_%s" % slot_id
+	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	badge.offset_left = -25.0
+	badge.offset_top = 2.0
+	badge.offset_right = -3.0
+	badge.offset_bottom = 20.0
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.focus_mode = Control.FOCUS_ALL
+	badge.add_theme_font_size_override("font_size", 10)
+	badge.add_theme_color_override("font_color", Color("fff1bf"))
+	badge.add_theme_stylebox_override(
+		"normal", Ui.make_button_style(Color("593f25"), COLOR_GOLD, 1),
+	)
+	badge.visible = false
+	button.add_child(badge)
+	hotbar_cooldown_badges[slot_id] = badge
 
 
 func _make_camp_object_button(
@@ -415,6 +508,19 @@ func _make_camp_object_button(
 
 func _fit_button_text(button: Button, preferred_size: int, minimum_size := 10) -> void:
 	Ui.fit_button_text(button, preferred_size, minimum_size)
+
+
+func _fit_single_line_label(label: Label, preferred_size: int, minimum_size := 7) -> void:
+	var fitted_size := preferred_size
+	var font := label.get_theme_font("font")
+	while (
+		fitted_size > minimum_size
+		and font.get_string_size(
+			label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fitted_size,
+		).x > label.size.x
+	):
+		fitted_size -= 1
+	label.add_theme_font_size_override("font_size", fitted_size)
 
 
 func _fit_localized_button_text() -> void:
@@ -481,6 +587,20 @@ func _build_creation_interface() -> void:
 	name_confirm_button.pressed.connect(_on_name_confirmed)
 	creation_controls.append(name_confirm_button)
 
+	save_policy_checkbox = CheckButton.new()
+	save_policy_checkbox.position = Vector2(390, 438)
+	save_policy_checkbox.size = Vector2(500, 40)
+	save_policy_checkbox.button_pressed = true
+	save_policy_checkbox.focus_mode = Control.FOCUS_ALL
+	save_policy_checkbox.add_theme_font_size_override("font_size", 14)
+	save_policy_checkbox.add_theme_color_override("font_color", COLOR_TEXT)
+	add_child(save_policy_checkbox)
+	creation_controls.append(save_policy_checkbox)
+	save_policy_hint_label = _make_label(Vector2(390, 492), Vector2(500, 58), 13)
+	save_policy_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	save_policy_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	creation_controls.append(save_policy_hint_label)
+
 	creation_points_label = _make_label(Vector2(0, 112), Vector2(1280, 48), 24)
 	creation_points_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	creation_controls.append(creation_points_label)
@@ -516,131 +636,269 @@ func _build_creation_interface() -> void:
 	creation_controls.append(creation_confirm_button)
 
 
+func _configure_character_slot_focus() -> void:
+	## Slot controls surround the portrait, so document order is not a useful
+	## keyboard/gamepad route. Link each direction to the nearest visual control.
+	for source_slot in GameRules.EQUIPMENT_SLOT_ORDER:
+		var source: Button = character_equipment_buttons[source_slot]
+		var source_center := source.position + source.size * 0.5
+		for direction_name in ["left", "right", "top", "bottom"]:
+			var best: Button = null
+			var best_score := INF
+			for target_slot in GameRules.EQUIPMENT_SLOT_ORDER:
+				if target_slot == source_slot:
+					continue
+				var target: Button = character_equipment_buttons[target_slot]
+				var delta := target.position + target.size * 0.5 - source_center
+				var primary := 0.0
+				var secondary := 0.0
+				match direction_name:
+					"left":
+						if delta.x >= 0.0: continue
+						primary = -delta.x
+						secondary = absf(delta.y)
+					"right":
+						if delta.x <= 0.0: continue
+						primary = delta.x
+						secondary = absf(delta.y)
+					"top":
+						if delta.y >= 0.0: continue
+						primary = -delta.y
+						secondary = absf(delta.x)
+					"bottom":
+						if delta.y <= 0.0: continue
+						primary = delta.y
+						secondary = absf(delta.x)
+				var score := primary + secondary * 2.0
+				if score < best_score:
+					best_score = score
+					best = target
+			if best == null:
+				continue
+			match direction_name:
+				"left": source.focus_neighbor_left = best.get_path()
+				"right": source.focus_neighbor_right = best.get_path()
+				"top": source.focus_neighbor_top = best.get_path()
+				"bottom": source.focus_neighbor_bottom = best.get_path()
+
+
+func _configure_character_focus() -> void:
+	if screen != Screen.CHARACTER:
+		return
+	var controls: Array[Control] = [
+		skills_mode_button, inventory_mode_button, menu_button, close_character_button,
+	]
+	if character_panel_mode == "inventory":
+		for slot_id in GameRules.EQUIPMENT_SLOT_ORDER:
+			controls.append(character_equipment_buttons[slot_id])
+		if inventory_panel != null:
+			controls.append_array(inventory_panel.focusable_controls())
+		controls.append(character_cheat_stats_button)
+		for attribute_id in GameRules.ATTRIBUTE_ORDER:
+			controls.append(character_attribute_spend_buttons[attribute_id])
+	else:
+		if skill_tree_panel != null:
+			controls.append_array(skill_tree_panel.focusable_controls())
+	var available: Array[Control] = []
+	for control in controls:
+		if control != null and control.visible and not bool(control.get("disabled")):
+			Ui.enable_keyboard_focus(control)
+			if not available.has(control):
+				available.append(control)
+	if available.size() < 2:
+		return
+	for source_index in range(available.size()):
+		var source := available[source_index]
+		var source_center := source.global_position + source.size * 0.5
+		for direction_name in ["left", "right", "top", "bottom"]:
+			var best: Control = null
+			var best_score := INF
+			for target in available:
+				if target == source:
+					continue
+				var delta := target.global_position + target.size * 0.5 - source_center
+				var primary := 0.0
+				var secondary := 0.0
+				match direction_name:
+					"left":
+						if delta.x >= 0.0: continue
+						primary = -delta.x
+						secondary = absf(delta.y)
+					"right":
+						if delta.x <= 0.0: continue
+						primary = delta.x
+						secondary = absf(delta.y)
+					"top":
+						if delta.y >= 0.0: continue
+						primary = -delta.y
+						secondary = absf(delta.x)
+					"bottom":
+						if delta.y <= 0.0: continue
+						primary = delta.y
+						secondary = absf(delta.x)
+				var score := primary + secondary * 1.65
+				if score < best_score:
+					best_score = score
+					best = target
+			if best == null:
+				best = available[
+					(source_index - 1 + available.size()) % available.size()
+					if direction_name == "left" or direction_name == "top"
+					else (source_index + 1) % available.size()
+				]
+			match direction_name:
+				"left": source.focus_neighbor_left = best.get_path()
+				"right": source.focus_neighbor_right = best.get_path()
+				"top": source.focus_neighbor_top = best.get_path()
+				"bottom": source.focus_neighbor_bottom = best.get_path()
+
+
+func _restore_focus_after_character_close() -> void:
+	if screen != Screen.BASE or main_menu_open or settings_open:
+		return
+	if (
+		character_return_focus != null
+		and is_instance_valid(character_return_focus)
+		and character_return_focus.visible
+		and not bool(character_return_focus.get("disabled"))
+	):
+		character_return_focus.grab_focus()
+	elif character_button.visible and not character_button.disabled:
+		character_button.grab_focus()
+	else:
+		start_button.grab_focus()
+	character_return_focus = null
+
+
 func _build_character_interface() -> void:
-	character_primary_label = _make_label(Vector2(105, 105), Vector2(270, 210), 17)
+	character_primary_label = _make_label(
+		CharacterSheetLayout.PRIMARY_ATTRIBUTES_RECT.position,
+		CharacterSheetLayout.PRIMARY_ATTRIBUTES_RECT.size,
+		14,
+	)
+	character_primary_label.clip_text = true
+	character_primary_label.add_theme_constant_override("line_spacing", 2)
 	character_controls.append(character_primary_label)
-	character_equipment_label = _make_label(Vector2(485, 95), Vector2(300, 30), 16)
+	character_inventory_controls.append(character_primary_label)
+	character_equipment_label = _make_label(Vector2(396, 76), Vector2(192, 16), 12)
 	character_equipment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	character_controls.append(character_equipment_label)
-	var slot_positions := {
-		"armor": Vector2(582, 126),
-		"weapon": Vector2(480, 176),
-		"offhand": Vector2(684, 176),
-		"charm": Vector2(582, 226),
-		"hands": Vector2(480, 276),
-		"relic": Vector2(684, 276),
-	}
-	for slot in GameRules.SLOT_NAMES:
-		var slot_button := _make_button(slot_positions[slot], "", Vector2(118, 42))
-		slot_button.add_theme_font_size_override("font_size", 10)
-		slot_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	character_inventory_controls.append(character_equipment_label)
+	for slot in GameRules.EQUIPMENT_SLOT_ORDER:
+		var slot_rect: Rect2 = CharacterSheetLayout.slot_rect(slot)
+		var slot_button := _make_button(slot_rect.position, "", slot_rect.size)
+		slot_button.name = "EquipmentSlot_%s" % slot
+		slot_button.add_theme_font_size_override("font_size", 1)
+		slot_button.expand_icon = true
 		slot_button.pressed.connect(_on_equipment_slot_pressed.bind(slot))
+		var glyph := InventorySlotIconClass.new()
+		glyph.name = "EmptySlotGlyph"
+		glyph.position = Vector2(6, 6)
+		glyph.size = Vector2(52, 52)
+		glyph.set_slot(slot)
+		slot_button.add_child(glyph)
 		character_equipment_buttons[slot] = slot_button
+		character_equipment_glyphs[slot] = glyph
 		character_controls.append(slot_button)
-	character_derived_label = _make_label(Vector2(865, 98), Vector2(300, 242), 13)
-	character_derived_label.add_theme_constant_override("line_spacing", -2)
+		character_inventory_controls.append(slot_button)
+	_configure_character_slot_focus()
+	character_soul_level_label = _make_label(
+		CharacterSheetLayout.SOUL_FORM_RECT.position,
+		CharacterSheetLayout.SOUL_FORM_RECT.size,
+		11,
+	)
+	character_soul_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	character_soul_level_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	character_soul_level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	character_soul_level_label.add_theme_constant_override("line_spacing", -1)
+	character_controls.append(character_soul_level_label)
+	character_inventory_controls.append(character_soul_level_label)
+	character_status_strip = StatusStripClass.new()
+	character_status_strip.name = "CharacterStatusStrip"
+	character_status_strip.position = CharacterSheetLayout.STATUS_STRIP_RECT.position
+	character_status_strip.size = CharacterSheetLayout.STATUS_STRIP_RECT.size
+	add_child(character_status_strip)
+	character_controls.append(character_status_strip)
+	character_inventory_controls.append(character_status_strip)
+	character_derived_label = _make_label(
+		CharacterSheetLayout.DERIVED_STATS_RECT.position,
+		CharacterSheetLayout.DERIVED_STATS_RECT.size,
+		12,
+	)
+	character_derived_label.add_theme_constant_override("line_spacing", -1)
 	character_controls.append(character_derived_label)
+	character_inventory_controls.append(character_derived_label)
 
-	character_attribute_points_label = _make_label(Vector2(105, 305), Vector2(170, 30), 14)
+	character_attribute_points_label = _make_label(
+		CharacterSheetLayout.FREE_STATS_RECT.position,
+		CharacterSheetLayout.FREE_STATS_RECT.size,
+		12,
+	)
+	character_attribute_points_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	character_controls.append(character_attribute_points_label)
-	character_cheat_stats_button = _make_button(Vector2(280, 303), "", Vector2(142, 32))
+	character_inventory_controls.append(character_attribute_points_label)
+	character_cheat_stats_button = _make_button(
+		CharacterSheetLayout.CHEAT_BUTTON_RECT.position,
+		"",
+		CharacterSheetLayout.CHEAT_BUTTON_RECT.size,
+	)
 	character_cheat_stats_button.add_theme_font_size_override("font_size", 12)
 	character_cheat_stats_button.pressed.connect(_on_cheat_add_stats_pressed)
 	character_controls.append(character_cheat_stats_button)
+	character_inventory_controls.append(character_cheat_stats_button)
 	for index in range(GameRules.ATTRIBUTE_ORDER.size()):
 		var attribute_id: String = GameRules.ATTRIBUTE_ORDER[index]
-		var spend_button := _make_button(Vector2(390, 139 + index * 27), "+", Vector2(32, 24))
+		var spend_button := _make_button(Vector2(250, 166 + index * 22), "+", Vector2(28, 20))
 		spend_button.add_theme_font_size_override("font_size", 14)
 		spend_button.pressed.connect(_on_spend_attribute_point.bind(attribute_id))
 		character_attribute_spend_buttons[attribute_id] = spend_button
 		character_controls.append(spend_button)
+		character_inventory_controls.append(spend_button)
 
-	skills_mode_button = _make_button(Vector2(105, 365), "", Vector2(170, 36))
+	skills_mode_button = _make_button(CharacterSheetLayout.SKILLS_TAB_RECT.position, "", CharacterSheetLayout.SKILLS_TAB_RECT.size)
 	skills_mode_button.toggle_mode = true
 	skills_mode_button.pressed.connect(_select_character_panel.bind("skills"))
 	character_controls.append(skills_mode_button)
-	inventory_mode_button = _make_button(Vector2(285, 365), "", Vector2(170, 36))
+	character_common_controls.append(skills_mode_button)
+	inventory_mode_button = _make_button(CharacterSheetLayout.INVENTORY_TAB_RECT.position, "", CharacterSheetLayout.INVENTORY_TAB_RECT.size)
 	inventory_mode_button.toggle_mode = true
 	inventory_mode_button.pressed.connect(_select_character_panel.bind("inventory"))
 	character_controls.append(inventory_mode_button)
+	character_common_controls.append(inventory_mode_button)
 
-	skills_title_label = _make_label(Vector2(475, 365), Vector2(260, 36), 22)
-	character_controls.append(skills_title_label)
-	skills_panel_controls.append(skills_title_label)
-	skills_meta_label = _make_label(Vector2(760, 365), Vector2(405, 36), 15)
-	skills_meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	character_controls.append(skills_meta_label)
-	skills_panel_controls.append(skills_meta_label)
-	skeleton_tab_button = _make_button(Vector2(105, 407), "", Vector2(88, 38))
-	skeleton_tab_button.toggle_mode = true
-	skeleton_tab_button.pressed.connect(_select_skill_stage.bind("skeleton"))
-	character_controls.append(skeleton_tab_button)
-	skills_panel_controls.append(skeleton_tab_button)
-	zombie_tab_button = _make_button(Vector2(197, 407), "", Vector2(88, 38))
-	zombie_tab_button.toggle_mode = true
-	zombie_tab_button.pressed.connect(_select_skill_stage.bind("zombie"))
-	character_controls.append(zombie_tab_button)
-	skills_panel_controls.append(zombie_tab_button)
-	ghoul_tab_button = _make_button(Vector2(289, 407), "", Vector2(88, 38))
-	ghoul_tab_button.toggle_mode = true
-	ghoul_tab_button.pressed.connect(_select_skill_stage.bind("ghoul"))
-	character_controls.append(ghoul_tab_button)
-	skills_panel_controls.append(ghoul_tab_button)
-	revenant_tab_button = _make_button(Vector2(381, 407), "", Vector2(88, 38))
-	revenant_tab_button.toggle_mode = true
-	revenant_tab_button.pressed.connect(_select_skill_stage.bind("revenant"))
-	character_controls.append(revenant_tab_button)
-	skills_panel_controls.append(revenant_tab_button)
-	almost_human_tab_button = _make_button(Vector2(473, 407), "", Vector2(102, 38))
-	almost_human_tab_button.toggle_mode = true
-	almost_human_tab_button.pressed.connect(_select_skill_stage.bind("almost_human"))
-	character_controls.append(almost_human_tab_button)
-	skills_panel_controls.append(almost_human_tab_button)
+	skill_tree_panel = SkillTreePanelClass.new()
+	skill_tree_panel.name = "SkillTreePanel"
+	skill_tree_panel.position = Vector2.ZERO
+	skill_tree_panel.size = Vector2(1280, 646)
+	add_child(skill_tree_panel)
+	skill_tree_panel.skill_selected.connect(_on_skill_pressed)
+	skill_tree_panel.purchase_requested.connect(_on_skill_purchase_pressed)
+	skill_tree_panel.stage_requested.connect(_select_skill_stage)
+	skill_tree_panel.loadout_requested.connect(_cycle_ability_loadout)
+	character_controls.append(skill_tree_panel)
+	skills_panel_controls.append(skill_tree_panel)
 
-	for index in range(AbilitySystem.SLOT_ORDER.size()):
-		var slot_id: String = AbilitySystem.SLOT_ORDER[index]
-		var loadout_button := _make_button(
-			Vector2(585 + index * 145, 407), "", Vector2(137, 38)
-		)
-		loadout_button.add_theme_font_size_override("font_size", 10)
-		loadout_button.pressed.connect(_cycle_ability_loadout.bind(slot_id))
-		ability_loadout_buttons[slot_id] = loadout_button
-		character_controls.append(loadout_button)
-		skills_panel_controls.append(loadout_button)
-
-	skills_status_label = _make_label(Vector2(105, 640), Vector2(1060, 20), 13)
-	skills_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	skills_status_label.modulate = COLOR_MUTED
-	character_controls.append(skills_status_label)
-	skills_panel_controls.append(skills_status_label)
-
-	_build_skill_node("strong_bones", Vector2(105, 462), skeleton_skill_controls)
-	_build_skill_node("fundamentals", Vector2(350, 462), skeleton_skill_controls)
-	_build_coming_skill_node("skeleton_soon_1", Vector2(595, 462), skeleton_skill_controls)
-	_build_coming_skill_node("skeleton_soon_2", Vector2(840, 462), skeleton_skill_controls)
-	_build_skill_node("magic_awakening", Vector2(105, 556), skeleton_skill_controls)
-	_build_skill_node("magic_missile", Vector2(350, 556), skeleton_skill_controls)
-	_build_skill_node("magic_missile_range", Vector2(595, 556), skeleton_skill_controls)
-	_build_skill_node("magic_ricochet", Vector2(840, 556), skeleton_skill_controls)
-	_build_skill_node("flesh_regeneration", Vector2(105, 462), zombie_skill_controls)
-	_build_coming_skill_node("zombie_soon_1", Vector2(350, 462), zombie_skill_controls)
-	_build_coming_skill_node("zombie_soon_2", Vector2(595, 462), zombie_skill_controls)
-	_build_coming_skill_node("zombie_soon_3", Vector2(840, 462), zombie_skill_controls)
-	_build_skill_node("dash", Vector2(105, 462), ghoul_skill_controls)
-	_build_skill_node("double_attack", Vector2(350, 462), ghoul_skill_controls)
-	_build_coming_skill_node("ghoul_soon_1", Vector2(595, 462), ghoul_skill_controls)
-	_build_coming_skill_node("ghoul_soon_2", Vector2(840, 462), ghoul_skill_controls)
-	_build_skill_node("sharp_vision", Vector2(105, 462), revenant_skill_controls)
-	_build_coming_skill_node("revenant_soon_1", Vector2(350, 462), revenant_skill_controls)
-	_build_coming_skill_node("revenant_soon_2", Vector2(595, 462), revenant_skill_controls)
-	_build_coming_skill_node("revenant_soon_3", Vector2(840, 462), revenant_skill_controls)
-	_build_skill_node("almost_double_strike", Vector2(105, 462), almost_human_skill_controls)
-	_build_skill_node("circular_attack", Vector2(350, 462), almost_human_skill_controls)
-	_build_coming_skill_node("almost_soon_1", Vector2(595, 462), almost_human_skill_controls)
-	_build_coming_skill_node("almost_soon_2", Vector2(840, 462), almost_human_skill_controls)
+	# Public aliases retain the existing integration/test surface while the panel
+	# owns layout, selection, details and code-drawn node presentation.
+	skills_title_label = skill_tree_panel.title_label
+	skills_meta_label = skill_tree_panel.meta_label
+	skills_status_label = skill_tree_panel.status_label
+	skeleton_tab_button = skill_tree_panel.stage_buttons["skeleton"]
+	zombie_tab_button = skill_tree_panel.stage_buttons["zombie"]
+	ghoul_tab_button = skill_tree_panel.stage_buttons["ghoul"]
+	revenant_tab_button = skill_tree_panel.stage_buttons["revenant"]
+	almost_human_tab_button = skill_tree_panel.stage_buttons["almost_human"]
+	skill_node_buttons = skill_tree_panel.node_buttons
+	ability_loadout_buttons = skill_tree_panel.loadout_buttons
+	skeleton_skill_controls.assign(skill_tree_panel.stage_controls["skeleton"])
+	zombie_skill_controls.assign(skill_tree_panel.stage_controls["zombie"])
+	ghoul_skill_controls.assign(skill_tree_panel.stage_controls["ghoul"])
+	revenant_skill_controls.assign(skill_tree_panel.stage_controls["revenant"])
+	almost_human_skill_controls.assign(skill_tree_panel.stage_controls["almost_human"])
 
 	inventory_panel = InventoryPanelClass.new()
-	inventory_panel.position = Vector2(85, 405)
+	inventory_panel.position = CharacterSheetLayout.INVENTORY_PANEL_RECT.position
+	inventory_panel.size = CharacterSheetLayout.INVENTORY_PANEL_RECT.size
 	inventory_panel.visible = false
 	add_child(inventory_panel)
 	inventory_panel.equip_requested.connect(_on_inventory_equip_pressed)
@@ -653,6 +911,7 @@ func _build_character_interface() -> void:
 	inventory_panel.presentation_changed.connect(_sync_inventory_panel_state)
 	inventory_controls.append(inventory_panel)
 	character_controls.append(inventory_panel)
+	character_inventory_controls.append(inventory_panel)
 	inventory_stack_buttons = inventory_panel.row_buttons
 	inventory_prev_button = inventory_panel.previous_button
 	inventory_page_label = inventory_panel.page_label
@@ -664,9 +923,10 @@ func _build_character_interface() -> void:
 	inventory_upgrade_button = inventory_panel.upgrade_button
 	_set_controls_visible(inventory_controls, false)
 
-	close_character_button = _make_button(Vector2(440, 662), "", Vector2(400, 42))
+	close_character_button = _make_button(CharacterSheetLayout.RETURN_RECT.position, "", CharacterSheetLayout.RETURN_RECT.size)
 	close_character_button.pressed.connect(_close_character)
 	character_controls.append(close_character_button)
+	character_common_controls.append(close_character_button)
 	for control in character_controls:
 		if control is Button:
 			Ui.enable_keyboard_focus(control)
@@ -689,6 +949,21 @@ func _build_coming_skill_node(node_id: String, position_value: Vector2, stage_co
 	button.add_theme_font_size_override("font_size", 11)
 	button.disabled = true
 	skill_node_buttons[node_id] = button
+	stage_controls.append(button)
+	character_controls.append(button)
+
+
+func _build_intrinsic_feature_node(
+	feature_id: String,
+	position_value: Vector2,
+	stage_controls: Array[Control],
+) -> void:
+	var button := _make_button(position_value, "", Vector2(220, 82))
+	button.add_theme_font_size_override("font_size", 10)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.disabled = true
+	Ui.apply_skill_node_style(button, "passive")
+	skill_node_buttons[feature_id] = button
 	stage_controls.append(button)
 	character_controls.append(button)
 
@@ -732,6 +1007,10 @@ func _build_settings_interface() -> void:
 	settings_plus_button.pressed.connect(_change_inspection_radius.bind(1))
 	Ui.enable_keyboard_focus(settings_plus_button)
 	settings_controls.append(settings_plus_button)
+	settings_zoom_button = _make_button(Vector2(470, 160), "", Vector2(340, 42))
+	settings_zoom_button.pressed.connect(_cycle_dungeon_zoom)
+	Ui.enable_keyboard_focus(settings_zoom_button)
+	settings_controls.append(settings_zoom_button)
 
 	settings_sound_button = _make_button(Vector2(440, 208), "", Vector2(400, 42))
 	settings_sound_button.pressed.connect(_toggle_sound)
@@ -810,12 +1089,13 @@ func _configure_settings_focus_navigation() -> void:
 	settings_minus_button.focus_neighbor_left = settings_plus_button.get_path()
 	settings_minus_button.focus_neighbor_right = settings_plus_button.get_path()
 	settings_minus_button.focus_neighbor_top = settings_close_button.get_path()
-	settings_minus_button.focus_neighbor_bottom = settings_sound_button.get_path()
+	settings_minus_button.focus_neighbor_bottom = settings_zoom_button.get_path()
 	settings_plus_button.focus_neighbor_left = settings_minus_button.get_path()
 	settings_plus_button.focus_neighbor_right = settings_minus_button.get_path()
 	settings_plus_button.focus_neighbor_top = settings_close_button.get_path()
-	settings_plus_button.focus_neighbor_bottom = settings_sound_button.get_path()
+	settings_plus_button.focus_neighbor_bottom = settings_zoom_button.get_path()
 	var vertical_controls: Array[Control] = [
+		settings_zoom_button,
 		settings_sound_button,
 		settings_background_slider,
 		settings_actions_slider,
@@ -823,7 +1103,6 @@ func _configure_settings_focus_navigation() -> void:
 		language_button,
 		settings_controls_button,
 		settings_new_game_button,
-		settings_exit_button,
 		settings_close_button,
 	]
 	for index in range(vertical_controls.size()):
@@ -990,6 +1269,180 @@ func _build_story_interface() -> void:
 	_set_controls_visible(story_controls, false)
 
 
+func _build_save_menu_interface() -> void:
+	save_menu_panel = SaveMenuPanelClass.new()
+	save_menu_panel.name = "SaveMenuPanel"
+	save_menu_panel.continue_requested.connect(_on_save_slot_load_requested)
+	save_menu_panel.resume_requested.connect(_resume_from_main_menu)
+	save_menu_panel.load_requested.connect(_on_save_slot_load_requested)
+	save_menu_panel.delete_requested.connect(_on_save_slot_delete_requested)
+	save_menu_panel.new_game_requested.connect(_on_main_menu_new_game_requested)
+	save_menu_panel.settings_requested.connect(_on_main_menu_settings_requested)
+	save_menu_panel.exit_requested.connect(_request_exit)
+	add_child(save_menu_panel)
+
+
+func _build_appearance_choice_interface() -> void:
+	appearance_choice_panel = AppearanceChoicePanelClass.new()
+	appearance_choice_panel.name = "AppearanceChoicePanel"
+	appearance_choice_panel.appearance_confirmed.connect(_confirm_appearance_choice)
+	appearance_choice_panel.canceled.connect(_cancel_appearance_choice)
+	add_child(appearance_choice_panel)
+
+
+func _show_startup() -> void:
+	main_menu_open = true
+	screen = Screen.STARTUP
+	_apply_dungeon_layout(false)
+	_hide_game_interface()
+	_set_controls_visible(creation_controls, false)
+	_set_controls_visible(character_controls, false)
+	_set_controls_visible(story_controls, false)
+	title_label.visible = false
+	menu_button.visible = false
+	save_menu_panel.set_slots(SaveSystem.list_slots(save_slots_directory))
+	save_menu_panel.set_active_slot_id(active_save_slot_id)
+	save_menu_panel.set_error(last_save_error)
+	save_menu_panel.show_startup()
+	queue_redraw()
+
+
+func _on_startup_new_game_requested() -> void:
+	main_menu_open = false
+	save_menu_panel.close()
+	_reset_for_new_character()
+	_show_name_creation()
+
+
+func _on_main_menu_new_game_requested() -> void:
+	if screen == Screen.STARTUP:
+		_on_startup_new_game_requested()
+		return
+	main_menu_open = false
+	save_menu_panel.close()
+	_reset_for_new_character()
+	_show_name_creation()
+
+
+func _on_main_menu_settings_requested() -> void:
+	settings_return_to_main_menu = true
+	save_menu_panel.close()
+	_open_settings()
+
+
+func _open_main_menu() -> void:
+	if main_menu_open or screen == Screen.STARTUP:
+		return
+	if not inventory_service_mode.is_empty():
+		_close_inventory_service()
+	if screen == Screen.CHARACTER:
+		_close_character()
+	settings_open = false
+	_set_controls_visible(settings_controls, false)
+	controls_remap_open = false
+	controls_remap_panel.set_open(false)
+	appearance_choice_panel.close()
+	cradle_confirmation_open = false
+	_set_controls_visible(cradle_confirmation_controls, false)
+	boss_warning_open = false
+	_set_controls_visible(boss_warning_controls, false)
+	expedition_choice_open = false
+	_set_controls_visible(expedition_choice_controls, false)
+	_stop_held_movement()
+	auto_explore_active = false
+	auto_travel_active = false
+	_cancel_ability_targeting(false)
+	main_menu_open = true
+	settings_return_to_main_menu = false
+	save_menu_panel.set_slots(SaveSystem.list_slots(save_slots_directory))
+	save_menu_panel.set_active_slot_id(active_save_slot_id)
+	save_menu_panel.set_error(last_save_error)
+	save_menu_panel.show_menu(true)
+	queue_redraw()
+
+
+func _resume_from_main_menu() -> void:
+	if not main_menu_open or screen == Screen.STARTUP:
+		return
+	main_menu_open = false
+	if active_save_detached_by_delete:
+		active_save_detached_can_resave = true
+	save_menu_panel.close()
+	_refresh_interface()
+	if screen == Screen.BASE:
+		call_deferred("_restore_base_focus_after_service_close")
+	queue_redraw()
+
+
+func _on_save_slot_load_requested(slot_id: String) -> void:
+	var loaded := SaveSystem.load_slot(slot_id, save_slots_directory)
+	if not bool(loaded.get("ok", false)):
+		last_save_error = Loc.text("MSG_LOAD_FAILED")
+		save_menu_panel.set_error(last_save_error)
+		save_menu_panel.show_menu(screen != Screen.STARTUP)
+		return
+	var restored := RunState.new()
+	if not restored.restore_save_data(loaded.get("state", {})):
+		last_save_error = Loc.text("MSG_LOAD_FAILED")
+		save_menu_panel.set_error(last_save_error)
+		save_menu_panel.show_menu(screen != Screen.STARTUP)
+		return
+	state = restored
+	active_save_slot_id = String(loaded.get("slot_id", ""))
+	save_menu_panel.set_active_slot_id(active_save_slot_id)
+	active_save_detached_by_delete = false
+	active_save_detached_can_resave = false
+	var metadata: Dictionary = loaded.get("metadata", {})
+	save_policy_overwrite = String(metadata.get("save_policy", "overwrite")) != "history"
+	last_save_error = ""
+	main_menu_open = false
+	save_menu_panel.close()
+	_show_base(Loc.text("MSG_GAME_LOADED"), "none")
+
+
+func _on_save_slot_delete_requested(slot_id: String) -> void:
+	var deleting_active := slot_id == active_save_slot_id and not active_save_slot_id.is_empty()
+	var result := SaveSystem.delete_slot(slot_id, save_slots_directory, save_delete_fault_injector)
+	if bool(result.get("ok", false)):
+		last_save_error = ""
+		if deleting_active:
+			active_save_slot_id = ""
+			active_save_detached_by_delete = true
+			active_save_detached_can_resave = false
+	else:
+		last_save_error = Loc.text("SAVE_MENU_DELETE_ERROR", [int(result.get("error", ERR_CANT_CREATE))])
+	var refreshed_slots := SaveSystem.list_slots(save_slots_directory)
+	save_menu_panel.set_active_slot_id(active_save_slot_id)
+	save_menu_panel.complete_delete(result, refreshed_slots, last_save_error)
+
+
+func _reset_for_new_character() -> void:
+	state = RunState.new()
+	_clear_hearing_context()
+	floor_data.clear()
+	pending_attributes = GameRules.default_attributes()
+	free_attribute_points = GameRules.STARTING_FREE_ATTRIBUTE_POINTS
+	selected_skill_stage = "skeleton"
+	skill_feedback = ""
+	if skill_tree_panel != null:
+		skill_tree_panel.selected_node_id = "strong_bones"
+	action_history.clear()
+	message = ""
+	previous_screen = Screen.BASE
+	name_input.text = ""
+	active_save_slot_id = ""
+	active_save_detached_by_delete = false
+	active_save_detached_can_resave = false
+	save_policy_overwrite = true
+	last_save_error = ""
+	if save_policy_checkbox != null:
+		save_policy_checkbox.button_pressed = true
+
+
+func _save_timestamp() -> int:
+	return int(save_time_provider.call()) if save_time_provider.is_valid() else int(Time.get_unix_time_from_system())
+
+
 func _set_controls_visible(controls: Array[Control], value: bool) -> void:
 	for control in controls:
 		control.visible = value
@@ -1036,9 +1489,14 @@ func _apply_locale() -> void:
 	language_button.text = Loc.text("BTN_LANGUAGE", [Loc.language_code()])
 	menu_button.text = Loc.text("BTN_MENU")
 	name_confirm_button.text = Loc.text("BTN_CONTINUE")
+	save_policy_checkbox.text = Loc.text("SAVE_POLICY_OVERWRITE")
+	save_policy_checkbox.tooltip_text = Loc.text("SAVE_POLICY_HINT")
+	save_policy_hint_label.text = Loc.text("SAVE_POLICY_HINT")
 	creation_confirm_button.text = Loc.text("BTN_FINISH_CREATION")
 	close_character_button.text = Loc.text("BTN_BACK")
 	character_cheat_stats_button.text = Loc.text("BTN_CHEAT_ADD_STATS")
+	character_cheat_stats_button.tooltip_text = Loc.text("BTN_CHEAT_ADD_STATS_HINT")
+	_fit_button_text(character_cheat_stats_button, 11, 8)
 	settings_close_button.text = Loc.text("BTN_SETTINGS_CLOSE")
 	settings_controls_button.text = Loc.text("BTN_CONTROLS")
 	settings_new_game_button.text = Loc.text(
@@ -1054,6 +1512,10 @@ func _apply_locale() -> void:
 	settings_description_label.text = Loc.text("SETTINGS_AUTO_DESC")
 	settings_input_label.text = Loc.text("SETTINGS_INPUT_SUMMARY")
 	controls_remap_panel.apply_locale()
+	save_menu_panel.refresh_locale()
+	appearance_choice_panel.apply_locale()
+	status_strip.refresh_locale()
+	character_status_strip.refresh_locale()
 	_refresh_settings_interface()
 	_refresh_expedition_choice_interface()
 	_refresh_cradle_confirmation_interface()
@@ -1066,6 +1528,9 @@ func _apply_locale() -> void:
 		)
 
 	match screen:
+		Screen.STARTUP:
+			save_menu_panel.set_slots(SaveSystem.list_slots(save_slots_directory))
+			save_menu_panel.set_error(last_save_error)
 		Screen.NAME_CREATION:
 			title_label.text = Loc.text("TITLE_NAME_CREATION")
 			name_prompt_label.text = Loc.text("NAME_PROMPT")
@@ -1094,16 +1559,17 @@ func _toggle_settings() -> void:
 
 
 func _open_settings() -> void:
-	if auto_explore_active:
-		_finish_auto_explore("MSG_EXPLORE_CANCELLED")
 	settings_open = true
 	controls_remap_open = false
 	controls_remap_panel.set_open(false)
 	new_game_confirmation_pending = false
 	exit_confirmation_pending = false
 	_stop_held_movement()
-	_refresh_settings_interface()
 	_set_controls_visible(settings_controls, true)
+	# Apply per-control visibility after the modal group is exposed; otherwise
+	# the group helper would resurrect the legacy Exit action hidden by the
+	# unified main-menu composition.
+	_refresh_settings_interface()
 	settings_minus_button.grab_focus()
 	_audio_action("ui_confirm")
 
@@ -1123,6 +1589,12 @@ func _close_settings() -> void:
 	_audio_action("ui_cancel")
 	_refresh_inspection_panel()
 	queue_redraw()
+	if settings_return_to_main_menu:
+		settings_return_to_main_menu = false
+		main_menu_open = true
+		save_menu_panel.set_slots(SaveSystem.list_slots(save_slots_directory))
+		save_menu_panel.set_error(last_save_error)
+		save_menu_panel.show_menu(screen != Screen.STARTUP)
 
 
 func _open_controls_remap() -> void:
@@ -1157,6 +1629,64 @@ func _change_inspection_radius(amount: int) -> void:
 	_refresh_settings_interface()
 	_refresh_inspection_panel()
 	_save_user_settings()
+	queue_redraw()
+
+
+func _cycle_dungeon_zoom() -> void:
+	set_dungeon_cell_size(PresentationSettings.next_cell_size(dungeon_cell_size))
+	_save_user_settings()
+
+
+func _dungeon_zoom_direction_from_event(event: InputEvent) -> int:
+	if not event is InputEventKey:
+		return 0
+	var key_event := event as InputEventKey
+	if (
+		not key_event.pressed
+		or key_event.echo
+		or key_event.ctrl_pressed
+		or key_event.alt_pressed
+		or key_event.meta_pressed
+	):
+		return 0
+	if (
+		key_event.keycode == KEY_KP_ADD
+		or key_event.keycode == KEY_PLUS
+		or (key_event.keycode == KEY_EQUAL and key_event.shift_pressed)
+		or key_event.unicode == 43
+	):
+		return 1
+	if (
+		key_event.keycode == KEY_KP_SUBTRACT
+		or (key_event.keycode == KEY_MINUS and not key_event.shift_pressed)
+		or key_event.unicode == 45
+	):
+		return -1
+	return 0
+
+
+func _handle_dungeon_zoom_hotkey(event: InputEvent) -> bool:
+	if screen != Screen.DUNGEON:
+		return false
+	var direction := _dungeon_zoom_direction_from_event(event)
+	if direction == 0:
+		return false
+	var next_size := PresentationSettings.clamped_cell_size_step(
+		dungeon_cell_size, direction,
+	)
+	if next_size != dungeon_cell_size:
+		set_dungeon_cell_size(next_size)
+		_save_user_settings()
+	return true
+
+
+func set_dungeon_cell_size(value: int) -> void:
+	dungeon_cell_size = PresentationSettings.sanitize_cell_size(value)
+	Renderer.set_runtime_cell_size(dungeon_cell_size)
+	if dungeon_viewport != null:
+		dungeon_viewport.set_cell_size(dungeon_cell_size)
+	_refresh_settings_interface()
+	_refresh_dungeon_viewport()
 	queue_redraw()
 
 
@@ -1209,6 +1739,11 @@ func _refresh_settings_interface() -> void:
 	settings_radius_label.text = Loc.text("SETTINGS_RADIUS", [inspection_radius])
 	settings_minus_button.disabled = inspection_radius <= MIN_INSPECTION_RADIUS
 	settings_plus_button.disabled = inspection_radius >= MAX_INSPECTION_RADIUS
+	settings_zoom_button.text = Loc.text("SETTINGS_ZOOM", [
+		Loc.text(PresentationSettings.locale_key(dungeon_cell_size)),
+		dungeon_cell_size,
+	])
+	settings_zoom_button.tooltip_text = Loc.text("SETTINGS_ZOOM_DESC")
 	settings_sound_button.text = Loc.text(
 		"SETTINGS_SOUND_OFF" if audio_muted else "SETTINGS_SOUND_ON"
 	)
@@ -1219,12 +1754,9 @@ func _refresh_settings_interface() -> void:
 	settings_display_button.text = Loc.text(
 		"SETTINGS_FULLSCREEN" if fullscreen_enabled else "SETTINGS_WINDOWED"
 	)
-	settings_new_game_button.text = Loc.text(
-		"BTN_NEW_GAME_CONFIRM" if new_game_confirmation_pending else "BTN_NEW_GAME"
-	)
-	settings_exit_button.text = Loc.text(
-		"BTN_EXIT_CONFIRM" if exit_confirmation_pending else "BTN_EXIT"
-	)
+	settings_new_game_button.text = Loc.text("BTN_MAIN_MENU")
+	settings_exit_button.visible = false
+	settings_close_button.position.y = 576
 	_fit_button_text(settings_sound_button, 16, 11)
 
 
@@ -1236,25 +1768,9 @@ func _toggle_fullscreen() -> void:
 
 
 func _on_new_game_pressed() -> void:
-	if not new_game_confirmation_pending:
-		new_game_confirmation_pending = true
-		exit_confirmation_pending = false
-		_refresh_settings_interface()
-		return
-	if persistence_enabled:
-		SaveSystem.delete_game()
-	state = RunState.new()
-	floor_data.clear()
-	pending_attributes = GameRules.default_attributes()
-	free_attribute_points = GameRules.STARTING_FREE_ATTRIBUTE_POINTS
-	selected_skill_stage = "skeleton"
-	skill_feedback = ""
-	action_history.clear()
-	message = ""
-	previous_screen = Screen.BASE
-	name_input.text = ""
 	_close_settings()
-	_show_name_creation()
+	if not main_menu_open:
+		_open_main_menu()
 
 
 func _on_exit_pressed() -> void:
@@ -1263,9 +1779,19 @@ func _on_exit_pressed() -> void:
 		new_game_confirmation_pending = false
 		_refresh_settings_interface()
 		return
-	if screen == Screen.BASE:
+	_request_exit()
+
+
+func _request_exit() -> void:
+	var detached_menu_exit := (
+		main_menu_open and active_save_detached_by_delete and not active_save_detached_can_resave
+	)
+	if screen == Screen.BASE and not state.character_name.is_empty() and not detached_menu_exit:
 		_save_game_at_base()
-	get_tree().quit()
+	if exit_request_hook.is_valid():
+		exit_request_hook.call()
+	else:
+		get_tree().quit()
 
 
 func _open_expedition_choice() -> void:
@@ -1328,7 +1854,7 @@ func _begin_expedition_at(floor_number: int) -> void:
 	whetstone_object_button.visible = false
 	ritual_table_object_button.visible = false
 	camp_upgrades_label.visible = false
-	equipment_label.visible = true
+	equipment_label.visible = false
 	attack_button.visible = true
 	spell_button.visible = true
 	active_2_button.visible = true
@@ -1381,14 +1907,21 @@ func _refresh_cradle_confirmation_interface() -> void:
 		cradle_confirmation_confirm_button.text = Loc.text("CRADLE_CONFIRM_UNAVAILABLE")
 	else:
 		var cost := GameRules.evolution_cost(state.current_form_id)
+		var required_level := GameRules.required_soul_level(String(next["id"]))
 		cradle_confirmation_description_label.text = Loc.text("CRADLE_CONFIRM_DESC", [
 			Loc.text(String(state.get_form()["name"])),
 			Loc.text(String(next["name"])),
 			cost,
 			state.carried_souls,
+			required_level,
+			state.get_effective_soul_level(),
 		])
-		cradle_confirmation_confirm_button.text = Loc.text("CRADLE_CONFIRM_BUTTON", [cost])
-		cradle_confirmation_confirm_button.disabled = state.carried_souls < cost
+		if state.get_effective_soul_level() < required_level:
+			cradle_confirmation_confirm_button.text = Loc.text("CRADLE_CONFIRM_LEVEL_BLOCKED", [required_level])
+			cradle_confirmation_confirm_button.disabled = true
+		else:
+			cradle_confirmation_confirm_button.text = Loc.text("CRADLE_CONFIRM_BUTTON", [cost])
+			cradle_confirmation_confirm_button.disabled = state.carried_souls < cost
 	cradle_confirmation_cancel_button.text = Loc.text("CRADLE_CONFIRM_CANCEL")
 	_fit_button_text(cradle_confirmation_confirm_button, 17, 11)
 	_fit_button_text(cradle_confirmation_cancel_button, 17, 11)
@@ -1485,6 +2018,10 @@ func _load_user_settings() -> void:
 		MIN_INSPECTION_RADIUS,
 		MAX_INSPECTION_RADIUS,
 	)
+	dungeon_cell_size = PresentationSettings.sanitize_cell_size(
+		loaded.get("dungeon_cell_size", PresentationSettings.DEFAULT_CELL_SIZE),
+	)
+	Renderer.set_runtime_cell_size(dungeon_cell_size)
 	fullscreen_enabled = bool(loaded.get("fullscreen", false))
 	var audio = loaded.get("audio", {})
 	if audio is Dictionary:
@@ -1507,6 +2044,7 @@ func _save_user_settings() -> void:
 	SaveSystem.save_settings({
 		"fullscreen": fullscreen_enabled,
 		"inspection_radius": inspection_radius,
+		"dungeon_cell_size": dungeon_cell_size,
 		"locale": Loc.current_locale,
 		"bindings": InputProfile.export_bindings(),
 		"audio": {
@@ -1517,9 +2055,34 @@ func _save_user_settings() -> void:
 	})
 
 
-func _save_game_at_base() -> void:
-	if persistence_enabled and not state.character_name.is_empty():
-		SaveSystem.save_game(state)
+func _save_game_at_base(reason := "update") -> bool:
+	if not persistence_enabled or state.character_name.is_empty():
+		return false
+	var meaningful_snapshot := reason in ["create", "death", "safe_return"]
+	var requested_slot_id := active_save_slot_id
+	if not save_policy_overwrite and meaningful_snapshot:
+		requested_slot_id = ""
+	var result := SaveSystem.save_slot(
+		state,
+		requested_slot_id,
+		"overwrite" if save_policy_overwrite else "history",
+		save_slots_directory,
+		_save_timestamp(),
+		save_id_factory,
+		{},
+		save_fault_injector,
+	)
+	if not bool(result.get("ok", false)):
+		last_save_error = Loc.text("MSG_SAVE_FAILED", [int(result.get("error", ERR_CANT_CREATE))])
+		if screen == Screen.BASE:
+			_log_action(last_save_error)
+			_refresh_interface()
+		return false
+	active_save_slot_id = String(result.get("slot_id", active_save_slot_id))
+	active_save_detached_by_delete = false
+	active_save_detached_can_resave = false
+	last_save_error = ""
+	return true
 
 
 func _log_action(text: String) -> void:
@@ -1560,8 +2123,10 @@ func _hide_game_interface() -> void:
 	boss_warning_open = false
 	_set_controls_visible(boss_warning_controls, false)
 	souls_label.visible = false
+	soul_icon.visible = false
 	stats_label.visible = false
 	sidebar_progress_label.visible = false
+	status_strip.visible = false
 	equipment_label.visible = false
 	camp_upgrades_label.visible = false
 	inspection_label.visible = false
@@ -1593,17 +2158,22 @@ func _hide_game_interface() -> void:
 func _show_name_creation() -> void:
 	if audio_manager != null:
 		audio_manager.set_background("base")
+	if save_menu_panel != null:
+		save_menu_panel.close()
 	screen = Screen.NAME_CREATION
 	_apply_dungeon_layout(false)
 	_hide_game_interface()
 	_set_controls_visible(creation_controls, false)
 	_set_controls_visible(character_controls, false)
 	title_label.visible = true
+	menu_button.visible = true
 	title_label.text = Loc.text("TITLE_NAME_CREATION")
 	name_prompt_label.text = Loc.text("NAME_PROMPT")
 	name_prompt_label.visible = true
 	name_input.visible = true
 	name_confirm_button.visible = true
+	save_policy_checkbox.visible = true
+	save_policy_hint_label.visible = false
 	name_input.grab_focus()
 	queue_redraw()
 
@@ -1614,6 +2184,7 @@ func _on_name_confirmed() -> void:
 		name_prompt_label.text = Loc.text("NAME_EMPTY")
 		return
 	state.character_name = chosen_name
+	save_policy_overwrite = save_policy_checkbox.button_pressed
 	_show_stat_creation()
 
 
@@ -1628,6 +2199,8 @@ func _show_stat_creation() -> void:
 	name_prompt_label.visible = false
 	name_input.visible = false
 	name_confirm_button.visible = false
+	save_policy_checkbox.visible = false
+	save_policy_hint_label.visible = false
 	title_label.visible = true
 	title_label.text = Loc.text("TITLE_STAT_CREATION")
 	_refresh_creation_preview()
@@ -1720,13 +2293,15 @@ func _advance_story() -> void:
 		return
 	_set_controls_visible(story_controls, false)
 	menu_button.visible = true
-	_show_base(story_completion_message)
+	_show_base(story_completion_message, "create" if story_kind == "intro" else "death")
 
 
-func _show_base(text: String) -> void:
+func _show_base(text: String, save_reason := "update") -> void:
 	if audio_manager != null:
 		audio_manager.set_background("base")
 	projectile_traces.clear()
+	_clear_hit_effects()
+	_clear_hearing_context()
 	_stop_held_movement()
 	expedition_choice_open = false
 	_set_controls_visible(expedition_choice_controls, false)
@@ -1773,7 +2348,8 @@ func _show_base(text: String) -> void:
 	_set_base_actions_visible(true)
 	_configure_base_focus()
 	start_button.call_deferred("grab_focus")
-	_save_game_at_base()
+	if save_reason != "none":
+		_save_game_at_base(save_reason)
 	queue_redraw()
 
 
@@ -1783,6 +2359,7 @@ func _on_start_pressed() -> void:
 
 func _load_floor(floor_number: int) -> void:
 	_cancel_ability_targeting(false)
+	_clear_hearing_context()
 	if audio_manager != null:
 		audio_manager.set_background("dungeon")
 	_audio_action("world_transition")
@@ -1799,6 +2376,7 @@ func _load_floor(floor_number: int) -> void:
 	player_pos = floor_data["start"]
 	magic_traces.clear()
 	projectile_traces.clear()
+	_clear_hit_effects()
 	inspected_target.clear()
 	var checkpoint_activated := state.activate_checkpoint(floor_number)
 	if checkpoint_activated:
@@ -1827,6 +2405,10 @@ func _use_cradle() -> void:
 		match String(result["reason"]):
 			"maximum":
 				_log_action(Loc.text("MSG_CRADLE_MAX"))
+			"soul_level":
+				_log_action(Loc.text("MSG_CRADLE_NEEDS_SOUL_LEVEL", [
+					int(result["required_soul_level"]), int(result["soul_level"]),
+				]))
 			_:
 				_log_action(Loc.text("MSG_CRADLE_NEEDS_SOULS", [int(result["cost"])]))
 	_refresh_interface()
@@ -1869,7 +2451,7 @@ func _on_interact_pressed() -> void:
 		_finalize_current_floor_cradle()
 		var delivered := state.safe_return()
 		_audio_action("world_transition")
-		_show_base(Loc.text("MSG_SAFE_RETURN", [delivered]))
+		_show_base(Loc.text("MSG_SAFE_RETURN", [delivered]), "safe_return")
 		return
 	if player_pos == floor_data.get("cradle", Vector2i(-1, -1)):
 		_open_cradle_confirmation()
@@ -1931,6 +2513,8 @@ func _on_ascend_pressed() -> void:
 		return
 	_log_action(Loc.text("MSG_ASCEND_STARTED", [path.size() - 1]))
 	for path_index in range(1, path.size()):
+		if main_menu_open or not auto_travel_active:
+			return
 		var expected_position: Vector2i = path[path_index]
 		var direction := expected_position - player_pos
 		_attempt_player_action(direction)
@@ -1945,6 +2529,8 @@ func _on_ascend_pressed() -> void:
 		# Yielding a frame makes the fast route visible while retaining one full
 		# gameplay turn per traversed cell.
 		await get_tree().process_frame
+		if main_menu_open or not auto_travel_active:
+			return
 	if player_pos == exit_position:
 		auto_travel_active = false
 		_log_action(Loc.text("MSG_ASCEND_ARRIVED"))
@@ -1986,9 +2572,13 @@ func _on_build_camp_upgrade(upgrade_id: String) -> void:
 	var result := state.build_camp_upgrade(upgrade_id)
 	if bool(result.get("ok", false)):
 		_audio_action("station_success")
-		_log_action(Loc.text("MSG_CAMP_UPGRADE_BUILT", [
-			Loc.text(String(GameRules.CAMP_UPGRADES[upgrade_id]["name"])),
-		]))
+		_log_action(
+			Loc.text("MSG_CAMPFIRE_SOUL_LEVEL", [state.get_effective_soul_level()])
+			if upgrade_id == "campfire"
+			else Loc.text("MSG_CAMP_UPGRADE_BUILT", [
+				Loc.text(String(GameRules.CAMP_UPGRADES[upgrade_id]["name"])),
+			])
+		)
 		_save_game_at_base()
 	else:
 		_log_action(Loc.text(
@@ -2015,6 +2605,8 @@ func _open_inventory_service(upgrade_id: String) -> void:
 		else InventoryPanel.Mode.WHETSTONE if upgrade_id == "whetstone"
 		else InventoryPanel.Mode.RITUAL
 	)
+	inventory_panel.set_filter("weapon" if upgrade_id == "whetstone" else "all")
+	inventory_panel.clear_navigation_state()
 	inventory_panel.bind_state(state, true)
 	inventory_panel.position = Vector2(85, 405)
 	inventory_panel.visible = true
@@ -2042,8 +2634,18 @@ func _close_inventory_service() -> void:
 	menu_button.visible = true
 	_refresh_interface()
 	_configure_base_focus()
-	start_button.call_deferred("grab_focus")
+	call_deferred("_restore_base_focus_after_service_close")
 	queue_redraw()
+
+
+func _restore_base_focus_after_service_close() -> void:
+	if (
+		screen == Screen.BASE
+		and inventory_service_mode.is_empty()
+		and not main_menu_open
+		and not settings_open
+	):
+		start_button.grab_focus()
 
 
 func _on_inventory_panel_close_requested() -> void:
@@ -2104,6 +2706,8 @@ func _on_wait_pressed() -> void:
 	var interrupted := false
 	var interrupted_by_hp_loss := false
 	var interrupted_by_ranged := false
+	var interrupted_by_hearing := false
+	var hearing_revision_at_start := hearing_contacts.event_revision
 	var combat_single_turn := wait_turn_count == 100 and _has_visible_enemy()
 	var turns_to_wait := 1 if combat_single_turn else wait_turn_count
 	for _turn_index in range(turns_to_wait):
@@ -2111,13 +2715,13 @@ func _on_wait_pressed() -> void:
 			interrupted = true
 			break
 		_log_action(Loc.text("MSG_WAIT"))
-		var hp_before_turn := state.hp
+		var health_before_turn := state.get_effective_health()
 		incoming_ranged_attack_this_turn = false
 		_complete_player_turn()
 		completed_turns += 1
 		if screen != Screen.DUNGEON:
 			return
-		if turns_to_wait > 1 and state.hp < hp_before_turn:
+		if turns_to_wait > 1 and state.get_effective_health() < health_before_turn:
 			interrupted = true
 			interrupted_by_hp_loss = true
 			break
@@ -2125,10 +2729,16 @@ func _on_wait_pressed() -> void:
 			interrupted = true
 			interrupted_by_ranged = true
 			break
+		if turns_to_wait > 1 and hearing_contacts.event_revision != hearing_revision_at_start:
+			interrupted = true
+			interrupted_by_hearing = true
+			break
 	if interrupted_by_hp_loss:
 		_log_action(Loc.text("MSG_WAIT_INTERRUPTED_HP", [completed_turns]))
 	elif interrupted_by_ranged:
 		_log_action(Loc.text("MSG_WAIT_INTERRUPTED_RANGED", [completed_turns]))
+	elif interrupted_by_hearing:
+		_log_action(Loc.text("MSG_WAIT_INTERRUPTED_HEARING", [completed_turns]))
 	elif interrupted:
 		_log_action(Loc.text("MSG_WAIT_INTERRUPTED", [completed_turns]))
 	else:
@@ -2180,6 +2790,9 @@ func _run_auto_explore() -> void:
 	var step_limit := maxi(1, floor_data.get("tiles", {}).size() * 2)
 	var completed_steps := 0
 	while auto_explore_active and completed_steps < step_limit:
+		if settings_open:
+			await get_tree().process_frame
+			continue
 		if screen != Screen.DUNGEON:
 			_clear_auto_explore_state()
 			return
@@ -2277,6 +2890,7 @@ func _show_character() -> void:
 	if auto_travel_active or (screen != Screen.BASE and screen != Screen.DUNGEON):
 		return
 	previous_screen = screen
+	character_return_focus = get_viewport().gui_get_focus_owner()
 	_stop_held_movement()
 	screen = Screen.CHARACTER
 	_apply_dungeon_layout(false)
@@ -2285,15 +2899,13 @@ func _show_character() -> void:
 	_set_controls_visible(character_controls, true)
 	title_label.visible = true
 	souls_label.visible = true
-	title_label.text = "%s — %s" % [
-		state.character_name,
-		Loc.text(String(state.get_form()["name"])),
-	]
+	_apply_character_header()
 	_refresh_character_sheet()
 	if character_panel_mode == "inventory":
 		inventory_panel.call_deferred("grab_initial_focus")
 	else:
 		skills_mode_button.call_deferred("grab_focus")
+	call_deferred("_configure_character_focus")
 	queue_redraw()
 
 
@@ -2303,11 +2915,13 @@ func _close_character() -> void:
 	screen = previous_screen
 	_apply_dungeon_layout(screen == Screen.DUNGEON)
 	_set_controls_visible(character_controls, false)
+	menu_button.focus_mode = Control.FOCUS_NONE
 	title_label.visible = true
 	stats_label.visible = true
 	souls_label.visible = true
 	sidebar_progress_label.visible = true
-	equipment_label.visible = screen == Screen.DUNGEON
+	equipment_label.visible = false
+	soul_icon.visible = screen == Screen.DUNGEON
 	camp_upgrades_label.visible = screen == Screen.BASE
 	hint_label.visible = screen == Screen.BASE or screen == Screen.DUNGEON
 	message_label.visible = true
@@ -2316,6 +2930,7 @@ func _close_character() -> void:
 	if screen == Screen.BASE:
 		_set_base_actions_visible(true)
 		_configure_base_focus()
+		call_deferred("_restore_focus_after_character_close")
 	else:
 		attack_button.visible = true
 		spell_button.visible = true
@@ -2327,11 +2942,17 @@ func _close_character() -> void:
 		wait_count_button.visible = true
 		auto_explore_button.visible = true
 		camp_button.visible = true
+		get_viewport().gui_release_focus()
 	_refresh_interface()
 	queue_redraw()
 
 
 func _refresh_character_sheet() -> void:
+	var showing_inventory := screen == Screen.CHARACTER and character_panel_mode == "inventory"
+	_set_controls_visible(character_common_controls, screen == Screen.CHARACTER)
+	_set_controls_visible(character_inventory_controls, showing_inventory)
+	if screen == Screen.CHARACTER:
+		_apply_character_header()
 	var derived := state.get_derived_stats()
 	character_primary_label.text = (
 		Loc.text("PRIMARY_ATTRIBUTES") + "\n"
@@ -2362,18 +2983,36 @@ func _refresh_character_sheet() -> void:
 		derived_lines.append(Loc.text("CHARACTER_SURVIVAL", [state.hunger, state.food]))
 	character_derived_label.text = "\n".join(derived_lines)
 	character_equipment_label.text = Loc.text("EQUIPMENT")
-	for slot in GameRules.SLOT_NAMES:
+	character_soul_level_label.text = Loc.text("SOUL_LEVEL_APPEARANCE_LABEL", [
+		state.get_effective_soul_level(),
+		Loc.text(String(GameRules.FORMS[state.current_form_id]["name"])),
+		Loc.text(String(GameRules.FORMS[state.get_display_form_id()]["name"])),
+	])
+	for slot in GameRules.EQUIPMENT_SLOT_ORDER:
 		var slot_button: Button = character_equipment_buttons[slot]
-		var unlocked: bool = state.get_form()["slots"].has(slot)
+		var unlocked := GameRules.is_slot_unlocked(state.current_form_id, slot)
 		var item_key := String(state.loadout.get(slot, ""))
-		var compact_item_name := "—"
+		var slot_glyph: InventorySlotIcon = character_equipment_glyphs[slot]
+		var slot_name := Loc.text(String(GameRules.EQUIPMENT_SLOTS[slot]["name"]))
+		slot_button.icon = null
+		slot_button.text = ""
+		slot_button.modulate = Color.WHITE
+		var permanent := not item_key.is_empty() and GameRules.is_item_permanent(item_key)
+		slot_glyph.set_slot(slot, not unlocked, permanent)
+		slot_glyph.visible = item_key.is_empty() or permanent
+		var accessible_value := Loc.text("INVENTORY_EMPTY")
 		if not item_key.is_empty():
-			compact_item_name = _item_display_name(item_key)
+			var item_rules := GameRules.item_rules(item_key)
+			var icon_path := String(item_rules.get("icon", ""))
+			if not icon_path.is_empty():
+				slot_button.icon = load(icon_path) as Texture2D
+			accessible_value = _item_display_name(item_key)
+			if permanent:
+				accessible_value += " · " + Loc.text("INVENTORY_PERMANENT_LOCKED")
 		elif not unlocked:
-			compact_item_name = Loc.text("INVENTORY_SLOT_LOCKED")
-		slot_button.text = "%s\n%s" % [
-			Loc.text(String(GameRules.SLOT_NAMES[slot])), compact_item_name,
-		]
+			accessible_value = Loc.text("INVENTORY_SLOT_LOCKED")
+		slot_button.tooltip_text = "%s · %s" % [slot_name, accessible_value]
+		slot_button.accessibility_name = slot_button.tooltip_text
 		# Locked and empty mannequin slots remain inspectable so the inventory can
 		# explain their state and switch to the corresponding category.
 		slot_button.disabled = false
@@ -2384,10 +3023,60 @@ func _refresh_character_sheet() -> void:
 	for attribute_id in GameRules.ATTRIBUTE_ORDER:
 		character_attribute_spend_buttons[attribute_id].visible = (
 			screen == Screen.CHARACTER
+		and character_panel_mode == "inventory"
 			and state.unspent_attribute_points > 0
 		)
+	character_status_strip.refresh(state.active_statuses)
 	_refresh_skills_interface()
 	_refresh_inventory_interface()
+	_configure_character_focus()
+
+
+func _apply_character_header() -> void:
+	var form_name := Loc.text(String(GameRules.FORMS[state.current_form_id]["name"]))
+	var full_title := "%s · %s" % [state.character_name, form_name]
+	title_label.position = CharacterSheetLayout.NAME_FORM_RECT.position
+	title_label.size = CharacterSheetLayout.NAME_FORM_RECT.size
+	title_label.text = full_title
+	title_label.clip_text = true
+	title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fit_single_line_label(title_label, 26, 18)
+	var title_font := title_label.get_theme_font("font")
+	var title_size := title_label.get_theme_font_size("font_size")
+	if title_font.get_string_size(full_title, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x > title_label.size.x:
+		var abbreviated := full_title
+		while abbreviated.length() > 1 and title_font.get_string_size(
+			abbreviated + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, title_size,
+		).x > title_label.size.x:
+			abbreviated = abbreviated.substr(0, abbreviated.length() - 1)
+		title_label.text = abbreviated.strip_edges() + "…"
+	title_label.tooltip_text = full_title
+	title_label.accessibility_name = full_title
+	souls_label.position = CharacterSheetLayout.SOULS_RECT.position
+	souls_label.size = CharacterSheetLayout.SOULS_RECT.size
+	souls_label.clip_text = true
+	souls_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	souls_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	souls_label.add_theme_font_size_override("font_size", 15)
+	menu_button.position = CharacterSheetLayout.MENU_RECT.position
+	menu_button.size = CharacterSheetLayout.MENU_RECT.size
+	menu_button.add_theme_font_size_override("font_size", 16)
+
+
+func _equipment_category_glyph(category: String) -> String:
+	match category:
+		"weapon": return "⚔"
+		"offhand": return "◧"
+		"feet": return "⌁"
+		"body": return "◇"
+		"legs": return "⋮"
+		"hands": return "✦"
+		"head": return "⌂"
+		"talisman": return "◆"
+		"ring": return "○"
+		"back": return "▥"
+	return "·"
 
 
 func _select_character_panel(mode: String) -> void:
@@ -2399,7 +3088,9 @@ func _select_character_panel(mode: String) -> void:
 		inventory_panel.clear_navigation_state()
 	_refresh_character_sheet()
 	if mode == "inventory":
-		inventory_panel.call_deferred("grab_initial_focus")
+		inventory_mode_button.call_deferred("grab_focus")
+	else:
+		skills_mode_button.call_deferred("grab_focus")
 	queue_redraw()
 
 
@@ -2409,7 +3100,7 @@ func _on_equipment_slot_pressed(slot: String) -> void:
 	inventory_feedback = ""
 	inventory_panel.set_mode(InventoryPanel.Mode.CHARACTER)
 	inventory_panel.bind_state(state, previous_screen == Screen.BASE)
-	inventory_panel.select_equipment_slot(slot, state.get_form()["slots"].has(slot))
+	inventory_panel.select_equipment_slot(slot, GameRules.is_slot_unlocked(state.current_form_id, slot))
 	_sync_inventory_panel_state()
 	_refresh_character_sheet()
 	inventory_panel.call_deferred("grab_initial_focus")
@@ -2439,7 +3130,10 @@ func _on_inventory_equip_pressed() -> void:
 			selected_equipment_slot = ""
 			inventory_panel.select_item(selected_inventory_key, "inventory")
 	else:
-		var result := state.equip_from_inventory(selected_inventory_key)
+		var destination_slot := ""
+		if not inventory_panel.selected_destination_slot().is_empty():
+			destination_slot = inventory_panel.selected_destination_slot()
+		var result := state.equip_from_inventory(selected_inventory_key, destination_slot)
 		if bool(result.get("ok", false)):
 			inventory_feedback = Loc.text("MSG_ITEM_EQUIPPED", [result["item_name"]])
 			if int(state.inventory.get(selected_inventory_key, 0)) <= 0:
@@ -2616,6 +3310,8 @@ func _refresh_inventory_interface() -> void:
 		return
 	if inventory_service_mode.is_empty():
 		inventory_panel.set_mode(InventoryPanel.Mode.CHARACTER)
+		inventory_panel.position = CharacterSheetLayout.INVENTORY_PANEL_RECT.position
+		inventory_panel.size = CharacterSheetLayout.INVENTORY_PANEL_RECT.size
 	inventory_panel.bind_state(state, screen == Screen.BASE or previous_screen == Screen.BASE)
 	# Preserve the small public compatibility surface used by existing scene
 	# tests and preview scripts while the component owns selection at runtime.
@@ -2666,93 +3362,8 @@ func _select_skill_stage(stage_id: String) -> void:
 func _refresh_skills_interface() -> void:
 	var showing_skills := screen == Screen.CHARACTER and character_panel_mode == "skills"
 	_set_controls_visible(skills_panel_controls, showing_skills)
-	skills_title_label.text = Loc.text("SKILLS_TITLE")
-	skills_meta_label.text = "%s   ·   %s" % [
-		Loc.text("SKILL_SOULS", [state.get_total_souls()]),
-		Loc.text("SKILL_FREE_STATS", [state.unspent_attribute_points]),
-	]
-	var zombie_unlocked := state.is_stage_unlocked("zombie")
-	var ghoul_unlocked := state.is_stage_unlocked("ghoul")
-	var revenant_unlocked := state.is_stage_unlocked("revenant")
-	var almost_human_unlocked := state.is_stage_unlocked("almost_human")
-	skeleton_tab_button.text = Loc.text("SKILL_TAB_SKELETON")
-	zombie_tab_button.text = (
-		Loc.text("SKILL_TAB_ZOMBIE")
-		if zombie_unlocked
-		else Loc.text("SKILL_TAB_LOCKED", [Loc.text("SKILL_TAB_ZOMBIE")])
-	)
-	ghoul_tab_button.text = (
-		Loc.text("SKILL_TAB_GHOUL")
-		if ghoul_unlocked
-		else Loc.text("SKILL_TAB_LOCKED", [Loc.text("SKILL_TAB_GHOUL")])
-	)
-	revenant_tab_button.text = (
-		Loc.text("SKILL_TAB_REVENANT")
-		if revenant_unlocked
-		else Loc.text("SKILL_TAB_LOCKED", [Loc.text("SKILL_TAB_REVENANT")])
-	)
-	almost_human_tab_button.text = (
-		Loc.text("SKILL_TAB_ALMOST_HUMAN")
-		if almost_human_unlocked
-		else Loc.text("SKILL_TAB_LOCKED", [Loc.text("SKILL_TAB_ALMOST_HUMAN")])
-	)
-	for tab_button in [
-		skeleton_tab_button, zombie_tab_button, ghoul_tab_button,
-		revenant_tab_button, almost_human_tab_button,
-	]:
-		_fit_button_text(tab_button, 12, 7)
-	zombie_tab_button.disabled = not zombie_unlocked
-	ghoul_tab_button.disabled = not ghoul_unlocked
-	revenant_tab_button.disabled = not revenant_unlocked
-	almost_human_tab_button.disabled = not almost_human_unlocked
-	skeleton_tab_button.button_pressed = selected_skill_stage == "skeleton"
-	zombie_tab_button.button_pressed = selected_skill_stage == "zombie"
-	ghoul_tab_button.button_pressed = selected_skill_stage == "ghoul"
-	revenant_tab_button.button_pressed = selected_skill_stage == "revenant"
-	almost_human_tab_button.button_pressed = selected_skill_stage == "almost_human"
-	_set_controls_visible(
-		skeleton_skill_controls,
-		showing_skills and selected_skill_stage == "skeleton",
-	)
-	_set_controls_visible(
-		zombie_skill_controls,
-		showing_skills and selected_skill_stage == "zombie",
-	)
-	_set_controls_visible(
-		ghoul_skill_controls,
-		showing_skills and selected_skill_stage == "ghoul",
-	)
-	_set_controls_visible(
-		revenant_skill_controls,
-		showing_skills and selected_skill_stage == "revenant",
-	)
-	_set_controls_visible(
-		almost_human_skill_controls,
-		showing_skills and selected_skill_stage == "almost_human",
-	)
-
-	for skill_id in GameRules.SKILLS:
-		var button: Button = skill_node_buttons[skill_id]
-		button.text = _skill_node_text(skill_id)
-		var skill: Dictionary = GameRules.SKILLS[skill_id]
-		button.disabled = (
-			not state.is_stage_unlocked(String(skill["stage"]))
-			or state.get_skill_level(skill_id) >= int(skill["max_level"])
-			or not _skill_prerequisites_met(skill_id)
-		)
-	for node_id in [
-		"skeleton_soon_1", "skeleton_soon_2",
-		"zombie_soon_1", "zombie_soon_2", "zombie_soon_3",
-		"ghoul_soon_1", "ghoul_soon_2",
-		"revenant_soon_1", "revenant_soon_2", "revenant_soon_3",
-		"almost_soon_1", "almost_soon_2",
-	]:
-		skill_node_buttons[node_id].text = Loc.text("SKILL_COMING_SOON")
-	_refresh_ability_loadout_controls()
-	if not skill_feedback.is_empty():
-		skills_status_label.text = skill_feedback
-	else:
-		skills_status_label.text = ""
+	if skill_tree_panel != null:
+		skill_tree_panel.set_context(state, selected_skill_stage, skill_feedback)
 
 
 func _skill_node_text(skill_id: String) -> String:
@@ -2828,6 +3439,16 @@ func _skill_prerequisites_met(skill_id: String) -> bool:
 
 
 func _on_skill_pressed(skill_id: String) -> void:
+	if skill_tree_panel == null or not skill_tree_panel.node_buttons.has(skill_id):
+		return
+	skill_feedback = ""
+	skill_tree_panel.select_node(skill_id)
+	_refresh_skills_interface()
+	_configure_character_focus()
+	queue_redraw()
+
+
+func _on_skill_purchase_pressed(skill_id: String) -> void:
 	var result := state.purchase_skill(skill_id)
 	if result["ok"]:
 		skill_feedback = Loc.text("SKILL_PURCHASED", [
@@ -2849,6 +3470,13 @@ func _on_skill_pressed(skill_id: String) -> void:
 			_:
 				skill_feedback = Loc.text("SKILL_ALREADY_MAX")
 	_refresh_character_sheet()
+	if (
+		skill_tree_panel != null
+		and skill_tree_panel.action_button.disabled
+		and skill_tree_panel.action_button.has_focus()
+		and skill_node_buttons.has(skill_id)
+	):
+		skill_node_buttons[skill_id].call_deferred("grab_focus")
 	queue_redraw()
 
 
@@ -2863,6 +3491,10 @@ func _on_spend_attribute_point(attribute_id: String) -> void:
 
 func _on_cheat_add_stats_pressed() -> void:
 	state.unspent_attribute_points += 5
+	state.soul_level += 1
+	# The test grant is exact and intentionally bypasses equipment soul bonuses.
+	state.carried_souls += 100
+	state.lifetime_souls_earned += 100
 	if previous_screen == Screen.BASE:
 		_save_game_at_base()
 	_refresh_character_sheet()
@@ -2871,6 +3503,7 @@ func _on_cheat_add_stats_pressed() -> void:
 
 func _show_victory() -> void:
 	_stop_held_movement()
+	_clear_hearing_context()
 	if audio_manager != null:
 		audio_manager.stop_background()
 	_audio_action("victory")
@@ -2903,6 +3536,7 @@ func _show_victory() -> void:
 	stats_label.visible = true
 	sidebar_progress_label.visible = true
 	equipment_label.visible = true
+	soul_icon.visible = false
 	store_gateway.unlock_achievement("surface_reached")
 	_log_action(Loc.text("MSG_VICTORY"))
 	_refresh_interface()
@@ -2910,9 +3544,12 @@ func _show_victory() -> void:
 
 
 func _process(delta: float) -> void:
+	if main_menu_open or settings_open:
+		return
 	_update_magic_traces(delta)
 	_update_projectile_traces(delta)
-	if settings_open or cradle_confirmation_open or boss_warning_open:
+	_update_hit_effects(delta)
+	if settings_open or cradle_confirmation_open or boss_warning_open or appearance_choice_panel.visible:
 		return
 	if not ability_targeting_id.is_empty():
 		return
@@ -2935,6 +3572,10 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if audio_manager != null and event.is_pressed():
 		audio_manager.notify_user_gesture()
+	if main_menu_open and save_menu_panel.visible:
+		if save_menu_panel.handle_input(event):
+			get_viewport().set_input_as_handled()
+		return
 	if settings_open and event is InputEventScreenTouch:
 		if event.pressed:
 			settings_touch_slider = _settings_slider_at(event.position)
@@ -2987,9 +3628,17 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if main_menu_open and save_menu_panel.visible:
+		if save_menu_panel.handle_input(event):
+			get_viewport().set_input_as_handled()
+		return
 	if screen == Screen.STORY:
 		if event.is_action_pressed("interact"):
 			_advance_story()
+			get_viewport().set_input_as_handled()
+		return
+	if appearance_choice_panel.visible:
+		if appearance_choice_panel.handle_input(event):
 			get_viewport().set_input_as_handled()
 		return
 	if cradle_confirmation_open:
@@ -3053,6 +3702,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		if inventory_panel.handle_input(event):
 			get_viewport().set_input_as_handled()
 			return
+	if screen == Screen.CHARACTER and (
+		event.is_action_pressed("ui_accept") or event.is_action_pressed("interact")
+	):
+		var focused_character_control := get_viewport().gui_get_focus_owner()
+		if focused_character_control is Button and _is_character_button(focused_character_control):
+			focused_character_control.pressed.emit()
+			get_viewport().set_input_as_handled()
+			return
+	if _handle_dungeon_zoom_hotkey(event):
+		get_viewport().set_input_as_handled()
+		return
 	if not ability_targeting_id.is_empty():
 		if event.is_action_pressed("game_menu") or event.is_action_pressed("ui_cancel"):
 			_cancel_ability_targeting()
@@ -3073,6 +3733,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if auto_travel_active:
+		if event.is_action_pressed("game_menu"):
+			_open_main_menu()
+			get_viewport().set_input_as_handled()
 		return
 
 	var released_direction := InputProfile.action_direction_released(event)
@@ -3082,7 +3745,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.echo:
 		return
-	if screen == Screen.CHARACTER and event.is_action_pressed("ui_cancel"):
+	var physical_character_cancel: bool = (
+		event is InputEventJoypadButton
+		and event.pressed
+		and event.button_index == JOY_BUTTON_B
+	)
+	if screen == Screen.CHARACTER and (
+		event.is_action_pressed("ui_cancel")
+		or event.is_action_pressed("game_menu")
+		or physical_character_cancel
+	):
 		_close_character()
 		get_viewport().set_input_as_handled()
 		return
@@ -3097,11 +3769,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 	if event.is_action_pressed("game_menu"):
-		if screen == Screen.CHARACTER:
-			_close_character()
-		else:
-			_open_settings()
-		get_viewport().set_input_as_handled()
+		if [Screen.BASE, Screen.DUNGEON, Screen.CHARACTER].has(screen):
+			_open_main_menu()
+			get_viewport().set_input_as_handled()
 		return
 	if screen == Screen.BASE and (
 		event.is_action_pressed("interact") or event.is_action_pressed("ui_accept")
@@ -3156,6 +3826,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+
+func _is_character_button(control: Control) -> bool:
+	if character_controls.has(control) or control == menu_button:
+		return true
+	return (
+		skill_tree_panel != null
+		and skill_tree_panel.is_ancestor_of(control)
+	)
+
 func _movement_direction_from_event(event: InputEvent) -> Vector2i:
 	return InputProfile.action_direction_from_event(event)
 
@@ -3195,6 +3874,58 @@ func _stop_held_movement() -> void:
 	movement_repeat_timer = 0.0
 
 
+func _clear_hearing_context() -> void:
+	hearing_contacts.clear()
+	hidden_attack_heard_this_enemy_phase = false
+	if String(inspected_target.get("kind", "")) == "noise":
+		inspected_target.clear()
+
+
+func _interrupt_automatic_actions_for_hearing() -> void:
+	_stop_held_movement()
+	if auto_explore_active:
+		_clear_auto_explore_state()
+	else:
+		auto_travel_active = false
+
+
+func _sync_hearing_proximity() -> bool:
+	var has_dungeon_context := (
+		screen == Screen.DUNGEON
+		or (screen == Screen.CHARACTER and previous_screen == Screen.DUNGEON)
+	)
+	if not has_dungeon_context or floor_data.is_empty():
+		return false
+	var result := hearing_contacts.sync_proximity(
+		floor_data.get("enemies", []),
+		player_pos,
+		state.get_hearing_radius(),
+		floor_data.get("visible_cells", {}),
+	)
+	if not bool(result.get("has_new", false)):
+		return false
+	_interrupt_automatic_actions_for_hearing()
+	_log_action(Loc.text("MSG_HEARING_MOVEMENT"))
+	return true
+
+
+func _record_hidden_enemy_attack(enemy: Dictionary) -> void:
+	var uid := String(enemy.get("uid", ""))
+	var origin: Variant = enemy.get("pos")
+	if not origin is Vector2i:
+		return
+	if hearing_contacts.record_hidden_attack(uid, origin, state.total_turns):
+		hidden_attack_heard_this_enemy_phase = true
+		_interrupt_automatic_actions_for_hearing()
+
+
+func _flush_hidden_attack_hearing_log() -> void:
+	if not hidden_attack_heard_this_enemy_phase:
+		return
+	hidden_attack_heard_this_enemy_phase = false
+	_log_action(Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
+
+
 func _handle_board_tap(tap_position: Vector2) -> void:
 	if dungeon_viewport == null:
 		return
@@ -3204,11 +3935,19 @@ func _handle_board_tap(tap_position: Vector2) -> void:
 	_handle_board_cell(target)
 
 
+func _is_hearing_contact_presented_at(cell: Vector2i) -> bool:
+	return HearingContactSystemClass.is_contact_presented(
+		hearing_contacts.has_contact_at(cell), floor_data, player_pos, cell,
+	)
+
+
 func _handle_board_cell(target: Vector2i) -> void:
 	if (
-		settings_open
+		main_menu_open
+		or settings_open
 		or cradle_confirmation_open
 		or boss_warning_open
+		or appearance_choice_panel.visible
 		or auto_travel_active
 		or screen != Screen.DUNGEON
 	):
@@ -3220,11 +3959,18 @@ func _handle_board_cell(target: Vector2i) -> void:
 		or target.y >= int(floor_data.get("height", 0))
 	):
 		return
+	# A noise marker is anonymous inspection, never an implicit combat target.
+	# Resolve it before adjacent movement/attack and consume no turn.
+	if _is_hearing_contact_presented_at(target):
+		inspected_target = {"kind": "noise", "pos": target}
+		_refresh_inspection_panel()
+		queue_redraw()
+		return
 	if ability_targeting_id == "dash":
 		if ability_target_cells.has(target):
 			_confirm_dash(target)
 		else:
-			_log_action(Loc.text("MSG_DASH_INVALID"))
+			_log_dash_invalid_reason(String(ability_unavailable_cells.get(target, "invalid")))
 			_refresh_interface()
 			queue_redraw()
 		return
@@ -3274,9 +4020,12 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 	var enemy_index := _enemy_index_at(target)
 	var action_should_stop := false
 	var attacked_enemy := false
+	var committed_ability_id := ""
 	if enemy_index >= 0:
 		var target_uid := String(floor_data["enemies"][enemy_index].get("uid", ""))
-		_execute_attack_ability(_effective_attack_ability(), target_uid)
+		var attack_ability_id := _effective_attack_ability()
+		if _execute_attack_ability(attack_ability_id, target_uid):
+			committed_ability_id = attack_ability_id
 		attacked_enemy = true
 	else:
 		player_pos = target
@@ -3287,7 +4036,7 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 	_update_player_visibility()
 
 	if screen == Screen.DUNGEON:
-		_complete_player_turn()
+		_complete_player_turn(committed_ability_id)
 	_refresh_interface()
 	queue_redraw()
 	if screen != Screen.DUNGEON:
@@ -3305,9 +4054,14 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 	return not action_should_stop
 
 
-func _complete_player_turn() -> void:
+func _complete_player_turn(pending_ability_id := "", pending_duration := -1) -> void:
 	if screen != Screen.DUNGEON:
 		return
+	# Snapshot action modifiers before survival/enemy response. A one-turn Rested
+	# status therefore affects this action and its pending cooldown, then expires.
+	var resolved_pending_duration := pending_duration
+	if not pending_ability_id.is_empty() and resolved_pending_duration < 0:
+		resolved_pending_duration = state.effective_cooldown(pending_ability_id)
 	var survival := state.advance_survival_turn()
 	if survival["hunger_changed"]:
 		_append_to_latest_action(Loc.text("MSG_HUNGER_TICK", [survival["hunger"]]))
@@ -3323,6 +4077,11 @@ func _complete_player_turn() -> void:
 	if int(survival["starvation_damage"]) > 0:
 		_audio_action("player_hurt")
 	_enemy_turn()
+	if screen == Screen.DUNGEON:
+		state.finish_completed_round(pending_ability_id, resolved_pending_duration)
+		# Prune only after the enemy response. A contact refreshed during that
+		# response has a new expiry and therefore survives this boundary.
+		hearing_contacts.prune_after_round(state.total_turns)
 
 
 func _activate_ability_slot(slot_id: String, options: Dictionary = {}) -> bool:
@@ -3337,12 +4096,21 @@ func _activate_ability_slot(slot_id: String, options: Dictionary = {}) -> bool:
 		_log_action(Loc.text("MSG_ABILITY_SLOT_EMPTY"))
 		_refresh_interface()
 		return false
+	var cooldown := state.cooldown_remaining(ability_id)
+	if cooldown > 0:
+		_log_action(Loc.text("MSG_ABILITY_COOLDOWN", [
+			Loc.text(String(AbilitySystem.ability(ability_id).get("name", ability_id))), cooldown,
+		]))
+		_refresh_interface()
+		return false
 	if not state.can_use_ability(ability_id):
 		_log_action(Loc.text("MSG_ABILITY_FORM_LOCKED"))
 		_refresh_interface()
 		return false
 	if ability_id == "dash":
 		return _begin_dash_targeting()
+	if ability_id == "choose_appearance":
+		return _open_appearance_choice()
 	var executed := false
 	match ability_id:
 		"basic_attack", "double_attack", "circular_attack":
@@ -3354,11 +4122,41 @@ func _activate_ability_slot(slot_id: String, options: Dictionary = {}) -> bool:
 		"magic_missile":
 			executed = _cast_magic_missile(float(options.get("ricochet_roll", -1.0)))
 	if executed:
-		_complete_player_turn()
+		_complete_player_turn(ability_id)
 	if screen == Screen.DUNGEON:
 		_refresh_interface()
 		queue_redraw()
 	return executed
+
+
+func _open_appearance_choice() -> bool:
+	if screen != Screen.DUNGEON or not state.can_use_ability("choose_appearance"):
+		return false
+	_stop_held_movement()
+	_stop_automatic_ability_modes()
+	appearance_choice_panel.open_for(state)
+	queue_redraw()
+	return true
+
+
+func _cancel_appearance_choice() -> void:
+	if not appearance_choice_panel.visible:
+		return
+	appearance_choice_panel.close()
+	_refresh_interface()
+	queue_redraw()
+
+
+func _confirm_appearance_choice(form_id: String) -> void:
+	if not appearance_choice_panel.visible:
+		return
+	if state.set_display_form_id(form_id):
+		_log_action(Loc.text("MSG_APPEARANCE_CHANGED", [
+			Loc.text(String(GameRules.FORMS[state.get_display_form_id()]["name"])),
+		]))
+	appearance_choice_panel.close()
+	_refresh_interface()
+	queue_redraw()
 
 
 func _effective_attack_ability() -> String:
@@ -3368,6 +4166,8 @@ func _effective_attack_ability() -> String:
 		return "basic_attack"
 	var assigned := state.get_slotted_ability("attack")
 	if assigned.is_empty() or not state.can_use_ability(assigned):
+		return "basic_attack"
+	if state.cooldown_remaining(assigned) > 0:
 		return "basic_attack"
 	return assigned
 
@@ -3526,7 +4326,12 @@ func _resolve_ranged_target(preferred_uid := "") -> Dictionary:
 	if not preferred_uid.is_empty():
 		return _validate_ranged_target_uid(preferred_uid, maximum_range)
 
-	if String(inspected_target.get("kind", "")) == "enemy":
+	var raw_selection_kind := String(inspected_target.get("kind", ""))
+	if raw_selection_kind == "noise":
+		var selected_noise := _resolve_selected_inspection_target()
+		if String(selected_noise.get("kind", "")) == "noise":
+			return {"ok": false, "message": "MSG_RANGED_NO_TARGET"}
+	if raw_selection_kind == "enemy":
 		var selected_uid := String(inspected_target.get("uid", ""))
 		if selected_uid.is_empty() and inspected_target.get("entity", {}) is Dictionary:
 			selected_uid = String(inspected_target.get("entity", {}).get("uid", ""))
@@ -3604,6 +4409,9 @@ func _cast_magic_missile(ricochet_roll := -1.0) -> bool:
 	var spell_range := state.get_magic_missile_range()
 	var target_index := -1
 	var selected := _resolve_selected_inspection_target()
+	if not selected.is_empty() and selected.get("kind", "") == "noise":
+		_log_action(Loc.text("MSG_MAGIC_NO_TARGET", [spell_range]))
+		return false
 	if not selected.is_empty() and selected.get("kind", "") == "enemy":
 		var selected_position := _inspection_target_position(selected)
 		if _manhattan(player_pos, selected_position) > spell_range:
@@ -3647,6 +4455,8 @@ func _cast_magic_missile(ricochet_roll := -1.0) -> bool:
 
 func _resolve_adjacent_enemy_uid() -> String:
 	var inspection_target := _get_inspection_target()
+	if not inspection_target.is_empty() and inspection_target.get("kind", "") == "noise":
+		return ""
 	if not inspection_target.is_empty() and inspection_target.get("kind", "") == "enemy":
 		var inspection_position := _inspection_target_position(inspection_target)
 		if _manhattan(player_pos, inspection_position) == 1:
@@ -3685,39 +4495,90 @@ func _occupied_dash_cells(include_player := false) -> Dictionary:
 
 func _begin_dash_targeting() -> bool:
 	_stop_automatic_ability_modes()
-	ability_target_cells = AbilitySystem.dash_targets(
-		floor_data["tiles"],
-		player_pos,
-		floor_data.get("explored_cells", {}),
-		_occupied_dash_cells(),
-	)
+	_refresh_dash_partition()
 	if ability_target_cells.is_empty():
 		_log_action(Loc.text("MSG_DASH_NO_TARGET"))
 		_refresh_interface()
 		return false
 	ability_targeting_id = "dash"
-	ability_target_cursor = ability_target_cells[0]
+	ability_target_cursor = _nearest_dash_target(player_pos)
 	_log_action(Loc.text("MSG_DASH_TARGETING"))
 	_refresh_interface()
 	queue_redraw()
 	return false
 
 
+func _refresh_dash_partition() -> void:
+	var partition := AbilitySystem.dash_partition(
+		floor_data["tiles"],
+		player_pos,
+		floor_data.get("explored_cells", {}),
+		floor_data.get("visible_cells", {}),
+		_occupied_dash_cells(),
+	)
+	ability_target_cells.clear()
+	ability_target_cells.append_array(partition.get("valid", []))
+	ability_unavailable_cells = (partition.get("invalid", {}) as Dictionary).duplicate(true)
+
+
+func _nearest_dash_target(origin: Vector2i) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_chebyshev := 1_000_000
+	var best_manhattan := 1_000_000
+	var best_order := 1_000_000
+	for candidate in ability_target_cells:
+		var delta := candidate - origin
+		var chebyshev := maxi(absi(delta.x), absi(delta.y))
+		var manhattan := absi(delta.x) + absi(delta.y)
+		var order := (candidate.y + 1000) * 4096 + candidate.x + 1000
+		if (
+			chebyshev < best_chebyshev
+			or (chebyshev == best_chebyshev and manhattan < best_manhattan)
+			or (
+				chebyshev == best_chebyshev and manhattan == best_manhattan
+				and order < best_order
+			)
+		):
+			best_chebyshev = chebyshev
+			best_manhattan = manhattan
+			best_order = order
+			best = candidate
+	return best
+
+
 func _select_dash_direction(direction: Vector2i) -> bool:
 	if ability_targeting_id != "dash":
 		return false
-	var candidates := AbilitySystem.dash_targets_in_direction(
-		floor_data["tiles"],
-		player_pos,
-		direction,
-		floor_data.get("explored_cells", {}),
-		_occupied_dash_cells(),
-	)
-	if candidates.is_empty():
+	var source := ability_target_cursor if ability_target_cells.has(ability_target_cursor) else player_pos
+	var best := Vector2i(-1, -1)
+	var best_score := INF
+	for candidate in ability_target_cells:
+		if candidate == source:
+			continue
+		var delta := candidate - source
+		if direction.x != 0 and signi(delta.x) != direction.x:
+			continue
+		if direction.y != 0 and signi(delta.y) != direction.y:
+			continue
+		if direction.x == 0 and delta.y == 0:
+			continue
+		if direction.y == 0 and delta.x == 0:
+			continue
+		var primary := (
+			absi(delta.x) if direction.x != 0 and direction.y == 0
+			else (absi(delta.y) if direction.y != 0 and direction.x == 0 else maxi(absi(delta.x), absi(delta.y)))
+		)
+		var perpendicular := (
+			absi(delta.y) if direction.y == 0
+			else (absi(delta.x) if direction.x == 0 else absi(absi(delta.x) - absi(delta.y)))
+		)
+		var score := float(primary) + float(perpendicular) * 2.0
+		if score < best_score or (is_equal_approx(score, best_score) and candidate.y * 4096 + candidate.x < best.y * 4096 + best.x):
+			best_score = score
+			best = candidate
+	if best.x < 0:
 		return false
-	var current_index := candidates.find(ability_target_cursor)
-	var next_index := 0 if current_index < 0 else (current_index + 1) % candidates.size()
-	ability_target_cursor = candidates[next_index]
+	ability_target_cursor = best
 	queue_redraw()
 	return true
 
@@ -3726,14 +4587,9 @@ func _confirm_dash(target := Vector2i(-1, -1)) -> bool:
 	if ability_targeting_id != "dash":
 		return false
 	var chosen: Vector2i = ability_target_cursor if target.x < 0 else target
-	var valid_targets := AbilitySystem.dash_targets(
-		floor_data["tiles"],
-		player_pos,
-		floor_data.get("explored_cells", {}),
-		_occupied_dash_cells(),
-	)
-	if not valid_targets.has(chosen):
-		_log_action(Loc.text("MSG_DASH_INVALID"))
+	_refresh_dash_partition()
+	if not ability_target_cells.has(chosen):
+		_log_dash_invalid_reason(String(ability_unavailable_cells.get(chosen, "invalid")))
 		_refresh_interface()
 		return false
 	var distance := AbilitySystem.dash_distance(player_pos, chosen)
@@ -3745,7 +4601,7 @@ func _confirm_dash(target := Vector2i(-1, -1)) -> bool:
 	if opened_chest:
 		_append_to_latest_action(Loc.text("MSG_DASH_CHEST"))
 	_update_player_visibility()
-	_complete_player_turn()
+	_complete_player_turn("dash")
 	if screen == Screen.DUNGEON:
 		_refresh_interface()
 		queue_redraw()
@@ -3757,11 +4613,23 @@ func _cancel_ability_targeting(log_cancel := true) -> void:
 		return
 	ability_targeting_id = ""
 	ability_target_cells.clear()
+	ability_unavailable_cells.clear()
 	ability_target_cursor = Vector2i(-1, -1)
 	if log_cancel:
 		_log_action(Loc.text("MSG_ABILITY_CANCELLED"))
 		_refresh_interface()
 	queue_redraw()
+
+
+func _log_dash_invalid_reason(reason: String) -> void:
+	var key: String = {
+		"hidden": "MSG_DASH_INVALID_HIDDEN",
+		"blocked_tile": "MSG_DASH_INVALID_TILE",
+		"occupied_endpoint": "MSG_DASH_INVALID_OCCUPIED",
+		"occupied_path": "MSG_DASH_INVALID_OCCUPIED",
+		"blocked_path": "MSG_DASH_INVALID_PATH",
+	}.get(reason, "MSG_DASH_INVALID")
+	_log_action(Loc.text(String(key)))
 
 
 func _nearest_enemy_index_from(
@@ -3840,6 +4708,7 @@ func _update_player_visibility(log_discoveries := true) -> void:
 			floor_data["cradle_pity_resolved"] = true
 	if log_discoveries and not knew_cradle and bool(floor_data.get("cradle_known", false)):
 		_append_to_latest_action(Loc.text("MSG_CRADLE_APPEARED"))
+	_sync_hearing_proximity()
 
 
 func _is_cell_visible(cell: Vector2i) -> bool:
@@ -3911,6 +4780,40 @@ func _update_projectile_traces(delta: float) -> void:
 	queue_redraw()
 
 
+func _update_hit_effects(delta: float) -> void:
+	var changed := false
+	for uid_variant in enemy_hit_flashes.keys():
+		var uid := String(uid_variant)
+		enemy_hit_flashes[uid] = float(enemy_hit_flashes[uid]) - delta
+		if float(enemy_hit_flashes[uid]) <= 0.0:
+			enemy_hit_flashes.erase(uid)
+		changed = true
+	if player_hit_flash_remaining > 0.0:
+		player_hit_flash_remaining = maxf(0.0, player_hit_flash_remaining - delta)
+		changed = true
+	for index in range(lethal_hit_afterimages.size() - 1, -1, -1):
+		lethal_hit_afterimages[index]["remaining"] = (
+			float(lethal_hit_afterimages[index].get("remaining", 0.0)) - delta
+		)
+		if float(lethal_hit_afterimages[index]["remaining"]) <= 0.0:
+			lethal_hit_afterimages.remove_at(index)
+		changed = true
+	if changed:
+		_refresh_dungeon_viewport()
+		queue_redraw()
+
+
+func _start_player_hit_flash() -> void:
+	player_hit_flash_remaining = HIT_FLASH_DURATION
+	_refresh_dungeon_viewport()
+
+
+func _clear_hit_effects() -> void:
+	enemy_hit_flashes.clear()
+	player_hit_flash_remaining = 0.0
+	lethal_hit_afterimages.clear()
+
+
 func _apply_magic_damage(enemy_index: int, damage: int) -> Dictionary:
 	if enemy_index < 0 or enemy_index >= floor_data.get("enemies", []).size():
 		return {"message": "", "killed": false}
@@ -3934,11 +4837,23 @@ func _damage_enemy_by_uid(enemy_uid: String, damage: int) -> Dictionary:
 	if enemy_index < 0:
 		return {}
 	var enemy: Dictionary = floor_data["enemies"][enemy_index]
-	enemy["hp"] -= maxi(0, damage)
+	hearing_contacts.remove_uid(enemy_uid)
+	var applied_damage := maxi(0, damage)
+	if applied_damage > 0:
+		enemy_hit_flashes[enemy_uid] = HIT_FLASH_DURATION
+	enemy["hp"] -= applied_damage
 	if enemy["hp"] > 0:
 		floor_data["enemies"][enemy_index] = enemy
 		return {"killed": false, "hp": enemy["hp"], "souls": 0, "reward_suffix": ""}
 	var rules: Dictionary = GameRules.ENEMIES[enemy["id"]]
+	if applied_damage > 0:
+		enemy_hit_flashes.erase(enemy_uid)
+		lethal_hit_afterimages.append({
+			"enemy_id": String(enemy["id"]),
+			"pos": enemy["pos"],
+			"remaining": LETHAL_AFTERIMAGE_DURATION,
+			"duration": LETHAL_AFTERIMAGE_DURATION,
+		})
 	var gained := state.add_souls(int(enemy["souls"]))
 	floor_data["enemies"].remove_at(enemy_index)
 	var reward_suffix := ""
@@ -3973,6 +4888,7 @@ func _open_boss_door_after(enemy: Dictionary) -> String:
 
 
 func _enemy_turn() -> void:
+	hidden_attack_heard_this_enemy_phase = false
 	for index in range(floor_data["enemies"].size()):
 		var enemy: Dictionary = floor_data["enemies"][index]
 		var sees_player := _enemy_can_see_player(enemy)
@@ -4001,16 +4917,27 @@ func _enemy_turn() -> void:
 			var attack_roll := int(attack["attack_total"])
 			var defense_target := int(attack["defense_target"])
 			var enemy_name := Loc.text(String(enemy_rules["name"]))
+			var attacker_hidden := not _is_cell_visible(enemy["pos"])
+			if attacker_hidden:
+				_record_hidden_enemy_attack(enemy)
 			if not bool(attack["hit"]):
-				_append_to_latest_action(Loc.text("MSG_ENEMY_MISS", [
-					enemy_name, attack_roll, defense_target,
-				]))
+				if attacker_hidden:
+					_append_to_latest_action(Loc.text("MSG_HIDDEN_ENEMY_MISS"))
+				else:
+					_append_to_latest_action(Loc.text("MSG_ENEMY_MISS", [
+						enemy_name, attack_roll, defense_target,
+					]))
 				continue
+			_start_player_hit_flash()
 			if state.take_damage(int(enemy["damage"])):
+				_flush_hidden_attack_hearing_log()
 				_handle_death()
 				return
 			_audio_action("player_hurt")
-			_append_to_latest_action(Loc.text("MSG_ENEMY_HIT", [enemy_name, enemy["damage"]]))
+			_append_to_latest_action(Loc.text(
+				"MSG_HIDDEN_ENEMY_HIT" if attacker_hidden else "MSG_ENEMY_HIT",
+				[enemy["damage"]] if attacker_hidden else [enemy_name, enemy["damage"]],
+			))
 			continue
 
 		var pursuit_target: Vector2i = player_pos if sees_player else enemy["last_seen_player"]
@@ -4018,6 +4945,8 @@ func _enemy_turn() -> void:
 		if step != enemy["pos"]:
 			enemy["pos"] = step
 			floor_data["enemies"][index] = enemy
+	_sync_hearing_proximity()
+	_flush_hidden_attack_hearing_log()
 
 
 func _try_enemy_ranged_attack(enemy_index: int, forced_d20 := -1) -> bool:
@@ -4037,6 +4966,8 @@ func _try_enemy_ranged_attack(enemy_index: int, forced_d20 := -1) -> bool:
 	if auto_explore_active:
 		_clear_auto_explore_state()
 	var shooter_visible := _is_cell_visible(enemy["pos"])
+	if not shooter_visible:
+		_record_hidden_enemy_attack(enemy)
 	if shooter_visible:
 		_add_projectile_trace(enemy["pos"], player_pos)
 	var d20 := rng.randi_range(1, 20) if forced_d20 < 1 else clampi(forced_d20, 1, 20)
@@ -4051,7 +4982,9 @@ func _try_enemy_ranged_attack(enemy_index: int, forced_d20 := -1) -> bool:
 		))
 		return true
 	var damage := int(enemy["damage"])
+	_start_player_hit_flash()
 	if state.take_damage(damage):
+		_flush_hidden_attack_hearing_log()
 		_handle_death()
 		return true
 	_audio_action("player_hurt")
@@ -4147,6 +5080,8 @@ func _pick_up_item_at_player() -> bool:
 func _handle_death() -> void:
 	_cancel_ability_targeting(false)
 	projectile_traces.clear()
+	_clear_hit_effects()
+	_clear_hearing_context()
 	if audio_manager != null:
 		audio_manager.stop_background()
 	_audio_action("death")
@@ -4238,6 +5173,12 @@ func _resolve_selected_inspection_target() -> Dictionary:
 	if inspected_target.is_empty() or floor_data.is_empty():
 		return {}
 	var kind := String(inspected_target.get("kind", ""))
+	if kind == "noise":
+		var noise_position: Variant = inspected_target.get("pos")
+		if noise_position is Vector2i and _is_hearing_contact_presented_at(noise_position):
+			return {"kind": "noise", "pos": noise_position}
+		inspected_target.clear()
+		return {}
 	if kind == "enemy" or kind == "item":
 		var collection: Array = floor_data["enemies"] if kind == "enemy" else floor_data["items"]
 		var target_uid := String(inspected_target.get("uid", ""))
@@ -4339,6 +5280,8 @@ func _inspection_target_name(target: Dictionary) -> String:
 			if tile_type == "floor":
 				return Loc.text("INSPECT_FLOOR")
 			return Loc.text("INSPECT_VOID")
+		"noise":
+			return Loc.text("INSPECT_NOISE_SOURCE")
 	return ""
 
 
@@ -4350,8 +5293,10 @@ func _refresh_inspection_panel() -> void:
 		return
 	var target := _get_inspection_target()
 	var header_key := "INSPECT_HEADER_SELECTED" if bool(target.get("manual", false)) else "INSPECT_HEADER_AUTO"
+	var level_line := Loc.text("TITLE_FLOOR", [state.current_floor])
 	if target.is_empty():
-		inspection_label.text = "%s\n%s" % [
+		inspection_label.text = "%s\n%s\n%s" % [
+			level_line,
 			Loc.text(header_key),
 			Loc.text("INSPECT_NONE", [inspection_radius]),
 		]
@@ -4360,6 +5305,7 @@ func _refresh_inspection_panel() -> void:
 	var position := _inspection_target_position(target)
 	var distance := _manhattan(player_pos, position)
 	var lines := PackedStringArray([
+		level_line,
 		Loc.text(header_key),
 		Loc.text("INSPECT_TARGET", [_inspection_target_name(target), distance]),
 	])
@@ -4383,6 +5329,7 @@ func _refresh_inspection_panel() -> void:
 				lines.append(Loc.text("INSPECT_CRADLE_READY", [
 					Loc.text(String(next["name"])),
 					GameRules.evolution_cost(state.current_form_id),
+					GameRules.required_soul_level(String(next["id"])),
 				]))
 	inspection_label.text = "\n".join(lines)
 
@@ -4395,10 +5342,12 @@ func _refresh_interface() -> void:
 		evolution_text = Loc.text("EVOLUTION_NEXT", [
 			Loc.text(String(next["name"])),
 			GameRules.evolution_cost(state.current_form_id),
+			GameRules.required_soul_level(String(next["id"])),
 		])
 
 	if screen == Screen.DUNGEON:
-		title_label.text = Loc.text("TITLE_FLOOR", [state.current_floor])
+		title_label.text = Loc.text(String(form["name"]))
+		title_label.size = Vector2(184, 20)
 		hint_label.text = _tile_hint()
 	elif screen == Screen.BASE:
 		title_label.text = Loc.text("TITLE_BASE")
@@ -4407,17 +5356,26 @@ func _refresh_interface() -> void:
 		title_label.text = Loc.text("TITLE_EXIT")
 		hint_label.text = Loc.text("HINT_END")
 
-	var stat_lines := PackedStringArray([
-		state.character_name,
-		Loc.text("SIDEBAR_FORM", [Loc.text(String(form["name"]))]),
-	])
-	stats_label.text = "\n".join(stat_lines)
-	var progress_lines := PackedStringArray([
-		Loc.text("SIDEBAR_EVOLUTION", [evolution_text]),
-	])
-	if state.uses_hunger():
-		progress_lines.append(Loc.text("CHARACTER_SURVIVAL", [state.hunger, state.food]))
+	var progress_lines := PackedStringArray()
+	if screen == Screen.DUNGEON:
+		stats_label.text = state.character_name
+		_fit_single_line_label(stats_label, 12, 8)
+		stats_label.size = Vector2(184, 24)
+		_fit_single_line_label(title_label, 9, 8)
+		progress_lines.append(Loc.text("SOUL_LEVEL_LABEL", [state.get_effective_soul_level()]))
+		if state.uses_hunger():
+			progress_lines.append(Loc.text("CHARACTER_SURVIVAL", [state.hunger, state.food]))
+	else:
+		stats_label.text = "\n".join(PackedStringArray([
+			state.character_name,
+			Loc.text("SIDEBAR_FORM", [Loc.text(String(form["name"]))]),
+		]))
+		progress_lines.append(Loc.text("SIDEBAR_EVOLUTION", [evolution_text]))
+		if state.uses_hunger():
+			progress_lines.append(Loc.text("CHARACTER_SURVIVAL", [state.hunger, state.food]))
 	sidebar_progress_label.text = "\n".join(progress_lines)
+	status_strip.visible = screen == Screen.DUNGEON
+	status_strip.refresh(state.active_statuses)
 	_refresh_souls_label()
 
 	var equipment_lines := PackedStringArray([Loc.text("SIDEBAR_EQUIPMENT")])
@@ -4521,23 +5479,43 @@ func _refresh_interface() -> void:
 func _refresh_hotbar() -> void:
 	for slot_id in AbilitySystem.SLOT_ORDER:
 		var button: Button = hotbar_ability_buttons[slot_id]
+		var badge: Label = hotbar_cooldown_badges[slot_id]
 		var assigned := state.get_slotted_ability(slot_id)
 		var shown_ability := _effective_attack_ability() if slot_id == "attack" else assigned
+		var cooldown := state.cooldown_remaining(assigned)
 		var prefix := "F" if slot_id == "attack" else ("Q" if slot_id == "active_1" else "")
 		var shown_name := (
 			Loc.text("ABILITY_BASIC_SHOT")
 			if slot_id == "attack" and state.has_ranged_weapon()
 			else _ability_display_name(shown_ability)
 		)
-		button.text = "%s%s" % [
+		var effective_text := "%s%s" % [
 			("%s · " % prefix) if not prefix.is_empty() else "",
 			shown_name,
 		]
-		button.disabled = slot_id != "attack" and assigned.is_empty()
-		button.tooltip_text = Loc.text("ABILITY_HOTBAR_TOOLTIP", [
-			Loc.text(_ability_slot_name_key(slot_id)),
-			_ability_display_name(assigned),
-		])
+		if slot_id == "attack" and cooldown > 0 and shown_ability == "basic_attack":
+			effective_text = Loc.text("ABILITY_ATTACK_FALLBACK", [
+				effective_text, _ability_display_name(assigned), cooldown,
+			])
+		button.text = effective_text
+		button.disabled = slot_id != "attack" and (assigned.is_empty() or cooldown > 0)
+		badge.text = str(cooldown)
+		badge.visible = cooldown > 0
+		button.tooltip_text = (
+			Loc.text("ABILITY_HOTBAR_COOLDOWN", [
+				Loc.text(_ability_slot_name_key(slot_id)),
+				_ability_display_name(assigned),
+				cooldown,
+			])
+			if cooldown > 0
+			else Loc.text("ABILITY_HOTBAR_TOOLTIP", [
+				Loc.text(_ability_slot_name_key(slot_id)),
+				_ability_display_name(assigned),
+			])
+		)
+		button.accessibility_name = button.tooltip_text
+		badge.tooltip_text = button.tooltip_text
+		badge.accessibility_name = button.tooltip_text
 	if state.get_slotted_ability("active_1") == "magic_missile":
 		spell_button.tooltip_text = Loc.text("MAGIC_MISSILE_TOOLTIP", [
 			state.get_magic_missile_damage(),
@@ -4548,10 +5526,13 @@ func _refresh_hotbar() -> void:
 
 func _refresh_souls_label() -> void:
 	if souls_label != null:
-		souls_label.text = Loc.text("SOUL_COUNTER", [
+		var key := "DUNGEON_SOUL_COUNTER" if screen == Screen.DUNGEON else "SOUL_COUNTER"
+		souls_label.text = Loc.text(key, [
 			state.carried_souls,
 			state.get_total_souls(),
 		])
+		if screen == Screen.DUNGEON:
+			_fit_single_line_label(souls_label, 9, 7)
 
 
 func _draw() -> void:
@@ -4561,6 +5542,7 @@ func _draw() -> void:
 		state,
 		screen == Screen.BASE or screen == Screen.DUNGEON or screen == Screen.VICTORY,
 		screen == Screen.DUNGEON,
+		_get_inspection_target() if screen == Screen.DUNGEON else {},
 	)
 
 	match screen:
@@ -4617,7 +5599,12 @@ func _refresh_dungeon_viewport() -> void:
 		not inspection_target.is_empty(),
 		bool(inspection_target.get("manual", false)),
 		ability_target_cells,
+		ability_unavailable_cells,
 		ability_target_cursor,
+		enemy_hit_flashes,
+		player_hit_flash_remaining,
+		lethal_hit_afterimages,
+		hearing_contacts.presentation_positions(),
 	)
 
 
@@ -4625,31 +5612,40 @@ func _apply_dungeon_layout(enabled: bool) -> void:
 	if stats_label == null:
 		return
 	dungeon_viewport.visible = enabled
+	soul_icon.visible = enabled
 	if enabled:
-		title_label.position = Vector2(1080, 56)
-		title_label.size = Vector2(184, 42)
-		title_label.add_theme_font_size_override("font_size", 10)
+		soul_icon.position = Vector2(1080, 22)
+		soul_icon.size = Vector2(22, 22)
+		title_label.clip_text = true
+		title_label.position = Vector2(1080, 86)
+		title_label.size = Vector2(184, 20)
+		title_label.add_theme_font_size_override("font_size", 9)
 		title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		souls_label.position = Vector2(1080, 16)
-		souls_label.size = Vector2(88, 34)
+		souls_label.clip_text = true
+		souls_label.position = Vector2(1106, 16)
+		souls_label.size = Vector2(64, 34)
 		souls_label.add_theme_font_size_override("font_size", 9)
-		souls_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		souls_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		souls_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		menu_button.position = Vector2(1174, 16)
 		menu_button.size = Vector2(90, 34)
 		menu_button.add_theme_font_size_override("font_size", 14)
-		stats_label.position = Vector2(1080, 104)
-		stats_label.size = Vector2(184, 48)
-		stats_label.add_theme_font_size_override("font_size", 11)
-		sidebar_progress_label.position = Vector2(1080, 222)
-		sidebar_progress_label.size = Vector2(184, 54)
-		sidebar_progress_label.add_theme_font_size_override("font_size", 9)
-		equipment_label.position = Vector2(1080, 282)
-		equipment_label.size = Vector2(184, 108)
-		equipment_label.add_theme_font_size_override("font_size", 9)
-		equipment_label.add_theme_constant_override("line_spacing", -2)
-		inspection_label.position = Vector2(1088, 404)
-		inspection_label.size = Vector2(168, 88)
+		stats_label.clip_text = true
+		stats_label.position = Vector2(1080, 60)
+		stats_label.size = Vector2(184, 24)
+		stats_label.add_theme_font_size_override("font_size", 12)
+		stats_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		stats_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		status_strip.position = Renderer.DUNGEON_STATUS_RECT.position
+		status_strip.size = Renderer.DUNGEON_STATUS_RECT.size
+		sidebar_progress_label.position = Vector2(1080, 208)
+		sidebar_progress_label.size = Vector2(184, 26)
+		sidebar_progress_label.add_theme_font_size_override("font_size", 8)
+		sidebar_progress_label.add_theme_constant_override("line_spacing", -3)
+		equipment_label.visible = false
+		inspection_label.position = Vector2(1088, 246)
+		inspection_label.size = Vector2(168, 246)
 		inspection_label.add_theme_font_size_override("font_size", 9)
 		hint_label.position = Vector2(1088, 514)
 		hint_label.size = Vector2(168, 22)
@@ -4682,24 +5678,32 @@ func _apply_dungeon_layout(enabled: bool) -> void:
 		interact_button.position = Vector2(910, 674)
 		interact_button.size = Vector2(154, 38)
 	else:
+		status_strip.visible = false
+		title_label.clip_text = false
 		title_label.position = Vector2(28, 20)
 		title_label.size = Vector2(790, 48)
 		title_label.add_theme_font_size_override("font_size", 28)
 		title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		title_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+		souls_label.clip_text = false
 		souls_label.position = Vector2(28, 56)
 		souls_label.size = Vector2(620, 24)
 		souls_label.add_theme_font_size_override("font_size", 16)
 		souls_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		souls_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		menu_button.position = Vector2(1140, 14)
 		menu_button.size = Vector2(106, 42)
 		menu_button.add_theme_font_size_override("font_size", 18)
+		stats_label.clip_text = false
 		stats_label.position = Vector2(846, 78)
 		stats_label.size = Vector2(400, 56)
 		stats_label.add_theme_font_size_override("font_size", 17)
+		stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		stats_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 		sidebar_progress_label.position = Vector2(846, 222)
 		sidebar_progress_label.size = Vector2(400, 106)
 		sidebar_progress_label.add_theme_font_size_override("font_size", 15)
+		sidebar_progress_label.add_theme_constant_override("line_spacing", 0)
 		equipment_label.position = Vector2(846, 338)
 		equipment_label.size = Vector2(400, 142)
 		equipment_label.add_theme_font_size_override("font_size", 14)

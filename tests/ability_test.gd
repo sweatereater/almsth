@@ -2,6 +2,8 @@ class_name AbilityTestSuite
 extends RefCounted
 
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
+const CombatSystem := preload("res://scripts/game/combat_system.gd")
+const GridNavigation := preload("res://scripts/world/grid_navigation.gd")
 
 var failures: Array[String] = []
 
@@ -120,6 +122,63 @@ func _test_save_migration_and_sanitation() -> void:
 
 
 func _test_dash_geometry() -> void:
+	var open_tiles := {}
+	var open_known := {}
+	for y in range(7):
+		for x in range(7):
+			var open_cell := Vector2i(x, y)
+			open_tiles[open_cell] = "floor"
+			open_known[open_cell] = true
+	var open_origin := Vector2i(3, 3)
+	var partition := AbilitySystem.dash_partition(
+		open_tiles, open_origin, open_known, open_known, {}, 3,
+	)
+	var all_targets: Array = partition["valid"]
+	_expect(
+		all_targets.size() == 48
+		and all_targets.has(Vector2i(5, 4))
+		and all_targets.has(Vector2i(6, 5))
+		and all_targets.has(Vector2i(6, 6)),
+		"Player Dash must expose all 48 Chebyshev-radius cells, including off-axis targets",
+	)
+	var occupied_partition := AbilitySystem.dash_partition(
+		open_tiles, open_origin, open_known, open_known, {Vector2i(4, 3): true}, 3,
+	)
+	_expect(
+		String(occupied_partition["invalid"].get(Vector2i(4, 3), "")) == "occupied_endpoint"
+		and String(occupied_partition["invalid"].get(Vector2i(6, 3), "")) == "occupied_path",
+		"A creature must invalidate both its Dash endpoint and every path crossing it",
+	)
+	var hidden_known := open_known.duplicate()
+	var hidden_visible := open_known.duplicate()
+	hidden_visible.erase(Vector2i(5, 4))
+	var hidden_partition := AbilitySystem.dash_partition(
+		open_tiles, open_origin, hidden_known, hidden_visible, {}, 3,
+	)
+	_expect(
+		String(hidden_partition["invalid"].get(Vector2i(5, 4), "")) == "hidden"
+		and not hidden_partition["valid"].has(Vector2i(5, 4)),
+		"Known but currently hidden Dash cells must be invalid without revealing geometry",
+	)
+	var unexplored := open_known.duplicate()
+	unexplored.erase(Vector2i(5, 4))
+	var unexplored_partition := AbilitySystem.dash_partition(
+		open_tiles, open_origin, unexplored, open_known, {}, 3,
+	)
+	_expect(
+		not unexplored_partition["valid"].has(Vector2i(5, 4))
+		and not unexplored_partition["invalid"].has(Vector2i(5, 4)),
+		"Unexplored Dash cells must be omitted from both render partitions",
+	)
+	_expect(
+		not GridNavigation.has_clear_line(
+			open_tiles, Vector2i(1, 3), Vector2i(5, 3), {Vector2i(3, 3): true},
+		)
+		and CombatSystem.is_ranged_target_valid(
+			open_tiles, Vector2i(1, 3), Vector2i(5, 3), 5,
+		),
+		"Shared LOS must let Dash block creatures without changing arrows-through-creatures balance",
+	)
 	var tiles := {}
 	var explored := {}
 	for y in range(5):
@@ -204,7 +263,7 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 	main.state.skill_levels["dash"] = 1
 	main.state.assign_ability("active_1", "dash")
 	main.floor_data = _floor_fixture(9, 7)
-	main.player_pos = Vector2i(2, 3)
+	main.player_pos = Vector2i(4, 3)
 	_reveal_floor(main)
 	var turns_before: int = main.state.total_turns
 	_expect(
@@ -219,48 +278,23 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 		"Cancelling Dash targeting must consume zero turns",
 	)
 	main._activate_ability_slot("active_1")
-	Input.action_press("move_up")
+	var initial_cursor: Vector2i = main.ability_target_cursor
 	await _push_key(main, tree, KEY_D)
-	Input.action_release("move_up")
-	_expect(
-		main.ability_target_cursor == Vector2i(3, 2),
-		"Holding two movement directions must select the nearest diagonal Dash endpoint",
-	)
-	await _push_key(main, tree, KEY_D)
-	_expect(
-		main.ability_target_cursor == Vector2i(3, 3),
-		"Returning to one direction must select the nearest cardinal Dash endpoint",
-	)
-	await _push_key(main, tree, KEY_D)
-	_expect(
-		main.ability_target_cursor == Vector2i(4, 3),
-		"A repeated keyboard direction press must advance to the two-cell Dash endpoint",
-	)
-	await _push_key(main, tree, KEY_D)
-	_expect(
-		main.ability_target_cursor == Vector2i(5, 3),
-		"A third keyboard direction press must advance to the three-cell Dash endpoint",
-	)
-	await _push_key(main, tree, KEY_D)
-	_expect(
-		main.ability_target_cursor == Vector2i(3, 3),
-		"Dash endpoint selection must wrap from three cells back to the nearest endpoint",
-	)
+	var keyboard_cursor: Vector2i = main.ability_target_cursor
 	await _push_joypad_button(main, tree, JOY_BUTTON_DPAD_UP)
 	_expect(
-		main.ability_target_cursor == Vector2i(2, 2),
-		"Changing direction on a gamepad must start at the nearest legal Dash endpoint",
+		keyboard_cursor.x > initial_cursor.x
+		and main.ability_target_cursor.y < keyboard_cursor.y
+		and main.ability_target_cells.has(main.ability_target_cursor),
+		"Keyboard and gamepad directions must move spatially among legal Dash cells",
 	)
-	await _push_key(main, tree, KEY_D)
-	await _push_key(main, tree, KEY_D)
-	await _push_key(main, tree, KEY_D)
-	var target: Vector2i = main.ability_target_cursor
+	var target := Vector2i(7, 3)
 	main.floor_data["items"] = [{
 		"uid": "dash_chest", "id": "bone_knife", "pos": target, "wood": 0, "stone": 0,
 	}]
 	_expect(
-		main._confirm_dash()
-		and main.player_pos == Vector2i(5, 3)
+		main._confirm_dash(target)
+		and main.player_pos == target
 		and main.state.total_turns == turns_before + 1
 		and main.state.inventory.has(GameRules.make_item_key("bone_knife")),
 		"Confirming a three-cell Dash must spend one turn and collect only its endpoint chest",
@@ -268,10 +302,10 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 	var diagonal_turns: int = main.state.total_turns
 	main._begin_dash_targeting()
 	_expect(
-		main._confirm_dash(Vector2i(7, 1))
-		and main.player_pos == Vector2i(7, 1)
+		main._confirm_dash(Vector2i(5, 1))
+		and main.player_pos == Vector2i(5, 1)
 		and main.state.total_turns == diagonal_turns + 1,
-		"Mouse/touch target confirmation must commit a legal two-cell diagonal Dash in one turn",
+		"Mouse/touch target confirmation must commit a legal off-axis Dash in one turn",
 	)
 	main.queue_free()
 	await tree.process_frame
@@ -296,6 +330,7 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 		and main.state.total_turns == turns_before + 1,
 		"Moving into an enemy must dispatch the attack slot, hit twice and reward one death once",
 	)
+	main.state.ability_cooldowns.erase("double_attack")
 	main.floor_data["enemies"] = [_enemy("f_target", Vector2i(4, 3), 5, "hollow_guard")]
 	var f_turn: int = main.state.total_turns
 	var f_event := InputEventKey.new()
@@ -309,6 +344,7 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 		and main.state.total_turns == f_turn + 1,
 		"The F binding must dispatch the assigned Double Attack instead of hard-coded basic melee",
 	)
+	main.state.ability_cooldowns.erase("double_attack")
 	main.floor_data["enemies"] = [_enemy("two_rolls", Vector2i(4, 3), 6, "hollow_guard")]
 	main.floor_data["enemies"][0]["dodge"] = 95
 	var second_turn: int = main.state.total_turns
@@ -320,6 +356,7 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 		and main.state.total_turns == second_turn + 1,
 		"Double Attack must make two independent rolls but complete one player turn",
 	)
+	main.state.ability_cooldowns.erase("double_attack")
 	main.floor_data["enemies"] = [_enemy("single_reward", Vector2i(4, 3), 1, "grave_rat")]
 	var souls_before: int = main.state.carried_souls
 	main._activate_ability_slot("attack", {
@@ -498,18 +535,17 @@ func _test_magic_dispatch_and_ui_contracts(tree: SceneTree) -> void:
 		and not main.active_3_button.text.begins_with("3 · "),
 		"The hotbar must only advertise the implemented F and Q keyboard shortcuts",
 	)
-	var active_style := main.skill_node_buttons["dash"].get_theme_stylebox("normal") as StyleBoxFlat
-	var passive_style := main.skill_node_buttons["strong_bones"].get_theme_stylebox("normal") as StyleBoxFlat
-	var active_disabled := main.skill_node_buttons["dash"].get_theme_stylebox("disabled") as StyleBoxFlat
-	var passive_disabled := main.skill_node_buttons["strong_bones"].get_theme_stylebox("disabled") as StyleBoxFlat
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	main._show_character()
+	main._select_skill_stage("ghoul")
 	_expect(
-		active_style.corner_radius_top_left <= 4
-		and passive_style.corner_radius_top_left >= 30
-		and active_disabled.corner_radius_top_left <= 4
-		and passive_disabled.corner_radius_top_left >= 30
-		and main._skill_node_text("dash").contains(Loc.text("SKILL_KIND_ACTIVE"))
-		and main._skill_node_text("strong_bones").contains(Loc.text("SKILL_KIND_PASSIVE")),
-		"Active nodes must be square while passive nodes are round and both carry text labels",
+		main.skill_node_buttons["dash"].node_kind == "active"
+		and main.skill_node_buttons["strong_bones"].node_kind == "passive"
+		and main.skill_node_buttons["dash"].text.is_empty()
+		and main.skill_node_buttons["strong_bones"].text.is_empty()
+		and main.skill_node_buttons["dash"].display_name == Loc.text("SKILL_DASH")
+		and main.skill_node_buttons["strong_bones"].display_name == Loc.text("SKILL_STRONG_BONES"),
+		"Active diamonds and passive circles must be code-drawn nodes containing only icon and localized name",
 	)
 	for locale_key in [
 		"SKILL_DASH", "SKILL_DOUBLE_ATTACK", "SKILL_ALMOST_DOUBLE_STRIKE",

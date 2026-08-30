@@ -39,6 +39,7 @@ func _test_settings_persistence() -> void:
 	_expect(SaveSystem.save_settings({
 		"fullscreen": true,
 		"inspection_radius": 9,
+		"dungeon_cell_size": 44,
 		"locale": "en",
 		"bindings": bindings,
 		"audio": {"muted": true, "background_volume": 35, "actions_volume": 80},
@@ -51,6 +52,7 @@ func _test_settings_persistence() -> void:
 			"muted": true, "background_volume": 35, "actions_volume": 80,
 		}
 		and loaded.get("bindings", {}) == bindings
+		and int(loaded.get("dungeon_cell_size", 0)) == 44
 		and retained.get_value("custom", "retained", "") == "platform-value",
 		"Audio round-trip must preserve bindings and unrelated settings fields",
 	)
@@ -62,6 +64,7 @@ func _test_settings_persistence() -> void:
 		loaded.get("fullscreen", false)
 		and int(loaded.get("inspection_radius", 0)) == 9
 		and String(loaded.get("locale", "")) == "en"
+		and int(loaded.get("dungeon_cell_size", 0)) == 44
 		and loaded.get("bindings", {}) == bindings
 		and loaded.get("audio", {}) == {
 			"muted": false, "background_volume": 55, "actions_volume": 70,
@@ -76,6 +79,7 @@ func _test_settings_persistence() -> void:
 	_expect(
 		not loaded["fullscreen"]
 		and int(loaded["inspection_radius"]) == 6
+		and int(loaded["dungeon_cell_size"]) == 66
 		and String(loaded["locale"]) == "ru"
 		and loaded["bindings"] == {}
 		and loaded["audio"] == {
@@ -90,8 +94,22 @@ func _test_settings_persistence() -> void:
 	legacy.save(SETTINGS_PATH)
 	loaded = SaveSystem.load_settings(SETTINGS_PATH)
 	_expect(
-		loaded.get("audio", {}) == SaveSystem.DEFAULT_AUDIO_SETTINGS,
+		loaded.get("audio", {}) == SaveSystem.DEFAULT_AUDIO_SETTINGS
+		and int(loaded.get("dungeon_cell_size", 0)) == 66,
 		"Legacy settings without an audio section must use documented defaults",
+	)
+	for cell_size in [44, 66, 88]:
+		_expect(
+			SaveSystem.save_settings({"dungeon_cell_size": cell_size}, SETTINGS_PATH) == OK
+			and int(SaveSystem.load_settings(SETTINGS_PATH).get("dungeon_cell_size", 0)) == cell_size,
+			"Dungeon cell-size setting must round-trip %d" % cell_size,
+		)
+	var malformed_zoom := ConfigFile.new()
+	malformed_zoom.set_value("gameplay", "dungeon_cell_size", 99)
+	malformed_zoom.save(SETTINGS_PATH)
+	_expect(
+		int(SaveSystem.load_settings(SETTINGS_PATH).get("dungeon_cell_size", 0)) == 66,
+		"Malformed dungeon cell size must fall back to 66",
 	)
 	var malformed := ConfigFile.new()
 	malformed.set_value("audio", "muted", "yes")
@@ -294,7 +312,7 @@ func _test_main_semantics(tree: SceneTree) -> void:
 	main._execute_attack_ability("basic_attack")
 	_expect(main.audio_manager.action_history.count("melee_attack") == melee_before, "Rejected melee attacks must be silent")
 
-	main.state.loadout["weapon"] = "bone_bow@0"
+	main.state.loadout["right_hand"] = "bone_bow@0"
 	main.floor_data["enemies"] = [_enemy("ranged", Vector2i(5, 3), 50, "hollow_guard")]
 	main.floor_data["enemies"][0]["vision"] = 0
 	main._execute_ranged_attack("ranged", {"attack_rolls": [1]})
@@ -306,7 +324,7 @@ func _test_main_semantics(tree: SceneTree) -> void:
 		"Accepted player shots hit or miss once; invalid shots remain silent",
 	)
 
-	main.state.loadout["weapon"] = ""
+	main.state.loadout["right_hand"] = ""
 	main.state.skill_levels["magic_awakening"] = 1
 	main.state.skill_levels["magic_missile"] = 1
 	main.state.mana = main.state.get_max_mana()
@@ -425,16 +443,16 @@ func _test_settings_input(tree: SceneTree) -> void:
 		"Audio settings need virtual touch targets of at least 42px",
 	)
 	_expect(
-		main.settings_minus_button.focus_neighbor_bottom == main.settings_sound_button.get_path()
+		main.settings_minus_button.focus_neighbor_bottom == main.settings_zoom_button.get_path()
+		and main.settings_zoom_button.focus_neighbor_bottom == main.settings_sound_button.get_path()
 		and main.settings_sound_button.focus_neighbor_bottom == main.settings_background_slider.get_path()
 		and main.settings_background_slider.focus_neighbor_bottom == main.settings_actions_slider.get_path()
 		and main.settings_actions_slider.focus_neighbor_bottom == main.settings_display_button.get_path()
 		and main.settings_display_button.focus_neighbor_bottom == main.language_button.get_path()
 		and main.language_button.focus_neighbor_bottom == main.settings_controls_button.get_path()
 		and main.settings_controls_button.focus_neighbor_bottom == main.settings_new_game_button.get_path()
-		and main.settings_new_game_button.focus_neighbor_bottom == main.settings_exit_button.get_path()
-		and main.settings_exit_button.focus_neighbor_bottom == main.settings_close_button.get_path(),
-		"Settings focus order must include both audio sliders without losing old controls",
+		and main.settings_new_game_button.focus_neighbor_bottom == main.settings_close_button.get_path(),
+		"Settings focus order must include both audio sliders and return to the unified menu",
 	)
 	main.settings_sound_button.grab_focus()
 	var accept := InputEventAction.new()

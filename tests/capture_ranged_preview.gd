@@ -22,7 +22,7 @@ func _capture() -> void:
 	Loc.set_locale(locale)
 	main.state = RunState.new()
 	main.state.character_name = "Морвен" if locale == "ru" else "The Forgotten Bowman"
-	main.state.loadout["weapon"] = "bone_bow@2"
+	main.state.loadout["right_hand"] = "bone_bow@2"
 	main.state.add_item("bone_bow", 2)
 	main.state.hp = main.state.get_max_hp()
 	main._show_base(Loc.text("MSG_GAME_LOADED"))

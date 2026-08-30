@@ -93,6 +93,7 @@ func _soak_progression_and_survival() -> void:
 	state.configure_character("Soak", GameRules.default_attributes())
 	state.add_souls(100)
 	for expected_form in GameRules.FORM_ORDER.slice(1):
+		state.soul_level = GameRules.required_soul_level(expected_form)
 		var old_souls := state.carried_souls
 		var expected_cost := GameRules.evolution_cost(state.current_form_id)
 		var result := state.evolve_at_cradle()
@@ -100,6 +101,19 @@ func _soak_progression_and_survival() -> void:
 		_check(state.current_form_id == expected_form, "Evolution skipped or selected the wrong form")
 		_check(state.carried_souls == old_souls - expected_cost, "Evolution charged the wrong amount")
 	_check(not state.evolve_at_cradle()["ok"], "Final form evolved past its maximum")
+	state.apply_camp_entry_effects()
+	_check(state.status_remaining("rested") == 500, "Camp did not start the 500-turn Rested soak")
+	state.finish_completed_round("dash", state.effective_cooldown("dash"))
+	_check(state.cooldown_remaining("dash") == 10, "Rested Dash soak did not snapshot 10")
+	for status_turn in range(501):
+		state.finish_completed_round()
+		_check(
+			state.cooldown_remaining("dash") >= 0
+			and state.cooldown_remaining("dash") <= 10,
+			"Cooldown escaped bounds during Rested soak at turn %d" % status_turn,
+		)
+	_check(not state.has_status("rested"), "Rested must expire within the 501-turn soak")
+	_check(state.cooldown_remaining("dash") == 0, "Dash cooldown must be ready after 501 turns")
 
 	state.die()
 	state.add_souls(10)

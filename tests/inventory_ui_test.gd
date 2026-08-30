@@ -3,6 +3,7 @@ extends RefCounted
 
 const Loc := preload("res://scripts/localization/localization.gd")
 const PanelClass := preload("res://scripts/ui/inventory_panel.gd")
+const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
 
 var failures: Array[String] = []
 
@@ -17,6 +18,28 @@ func run(tree: SceneTree) -> Array[String]:
 
 
 func _test_presentation_model() -> void:
+	var expected_filters: Array[String] = ["all"]
+	expected_filters.append_array(GameRules.EQUIPMENT_CATEGORY_ORDER)
+	_expect(
+		PanelClass.available_filter_order() == expected_filters,
+		"Inventory filter order must derive from the centralized equipment-category registry",
+	)
+	var panel_source := FileAccess.get_file_as_string("res://scripts/ui/inventory_panel.gd")
+	_expect(
+		not panel_source.contains("const FILTER_ORDER"),
+		"InventoryPanel must not duplicate the central equipment-category order",
+	)
+	_expect(
+		Loc.STRINGS["ru"]["ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET"] == "Уютный пиджак"
+		and Loc.STRINGS["en"]["ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET"] == "Cozy Jacket"
+		and Loc.STRINGS["ru"]["SLOT_JACKET"] == "Плащ"
+		and Loc.STRINGS["en"]["SLOT_JACKET"] == "Cloak"
+		and Loc.STRINGS["ru"]["INVENTORY_PERMANENT_LOCKED"] == "Не хочется снимать"
+		and Loc.STRINGS["en"]["INVENTORY_PERMANENT_LOCKED"] == "Too cozy to take off",
+		"Cozy jacket item, physical Cloak slot and lock copy must match the approved RU/EN literals",
+	)
+	for stale_copy in ["Неожиданно удобный пиджак", "Unexpectedly Comfortable Jacket", "Нельзя снять", "Cannot be removed"]:
+		_expect(not Loc.STRINGS["ru"].values().has(stale_copy) and not Loc.STRINGS["en"].values().has(stale_copy), "Obsolete jacket copy must be absent: %s" % stale_copy)
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
 		var bow_stats := PanelClass.primary_stats("bone_bow@2")
@@ -37,7 +60,7 @@ func _test_presentation_model() -> void:
 		for key in [
 			"INVENTORY_FILTER_ALL", "INVENTORY_SELECTED_PANEL", "INVENTORY_EQUIPPED_PANEL",
 			"INVENTORY_EMPTY", "INVENTORY_SERVICE_CRUSHER", "INVENTORY_SERVICE_WHETSTONE",
-			"INVENTORY_UPGRADE_SELECT_SHORT", "INVENTORY_UPGRADE_WEAPON_ONLY",
+			"INVENTORY_CLOSE_SERVICE", "INVENTORY_UPGRADE_SELECT_SHORT", "INVENTORY_UPGRADE_WEAPON_ONLY",
 			"CAMP_OBJECT_CRUSHER_TOOLTIP", "CAMP_OBJECT_WHETSTONE_TOOLTIP",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Inventory UI localization %s missing in %s" % [key, locale])
@@ -55,32 +78,52 @@ func _test_panel_state(tree: SceneTree) -> void:
 	tree.root.add_child(panel)
 	await tree.process_frame
 	panel.bind_state(state, false)
+	var state_before_jacket_selection: Dictionary = state.to_save_data()
+	panel.select_equipment_slot("jacket", true)
+	var only_all_pressed: bool = bool(panel.filter_buttons["all"].button_pressed)
+	for category_id in GameRules.EQUIPMENT_CATEGORY_ORDER:
+		only_all_pressed = only_all_pressed and not panel.filter_buttons[category_id].button_pressed
+	_expect(
+		panel.filter_id == "all"
+		and panel.page == 0
+		and panel.selected_destination_slot() == "jacket"
+		and panel.selected_equipped_slot() == "jacket"
+		and panel.selected_item_key() == GameRules.permanent_jacket_key()
+		and only_all_pressed
+		and state.to_save_data() == state_before_jacket_selection,
+		"Selecting the occupied permanent jacket must preserve selection/state while forcing only All pressed",
+	)
+	panel.select_equipment_slot("head", false)
+	_expect(panel.filter_id == "head" and panel.filter_buttons["head"].button_pressed, "Ordinary head slot must retain the Helmets category filter")
+	panel.select_equipment_slot("back", false)
+	_expect(panel.filter_id == "back" and panel.filter_buttons["back"].button_pressed, "Ordinary back slot must retain the Backpack category filter")
+	panel.set_filter("all")
 	var keys := PackedStringArray()
 	for entry in panel.entries:
 		keys.append(String(entry["key"]))
 	_expect(
-		keys == PackedStringArray(["bone_bow@2", "bone_knife@3", "soul_locket@0", "rotting_mail@0"]),
+		keys == PackedStringArray(["bone_bow@2", "bone_knife@3", "rotting_mail@0", "soul_locket@0"]),
 		"Inventory rows must use stable explicit slot/key order",
 	)
 	_expect("×2" in panel.row_buttons[0].text, "One stack key must render as one row with its count")
 	panel.set_filter("hands")
 	_expect(panel.entries.is_empty() and panel.page_label.text == Loc.text("INVENTORY_EMPTY_FILTER"), "Empty filters need an explicit state")
-	panel.set_filter("armor")
+	panel.set_filter("body")
 	panel.select_visible_index(0)
 	_expect(
 		panel.equipped_detail_label.text.contains(Loc.text("INVENTORY_SLOT_LOCKED")),
 		"An inventory item targeting a locked form slot must show Locked in the comparison panel",
 	)
-	panel.select_equipment_slot("armor", false)
+	panel.select_equipment_slot("body", false)
 	_expect(
-		panel.filter_id == "armor"
+		panel.filter_id == "body"
 		and panel.selected_detail_label.text.contains(Loc.text("INVENTORY_SLOT_LOCKED")),
 		"Selecting a locked mannequin slot must switch its filter and explain that it is locked",
 	)
 	panel.set_filter("weapon")
 	panel.select_visible_index(0)
 	state.remove_item("bone_knife@3")
-	state.loadout["weapon"] = "bone_knife@3"
+	state.loadout["right_hand"] = "bone_knife@3"
 	var replacement := state.equip_from_inventory(panel.selected_item_key())
 	_expect(bool(replacement.get("ok", false)), "Panel selection must remain a valid RunState equip request")
 	panel.refresh()
@@ -95,6 +138,20 @@ func _test_panel_state(tree: SceneTree) -> void:
 	state.add_item("bone_bow", 2)
 	panel.set_mode(PanelClass.Mode.WHETSTONE)
 	panel.bind_state(state, true)
+	_expect(
+		panel.size == PanelClass.PANEL_SIZE
+		and panel.close_button.visible
+		and Rect2(panel.mode_title_label.position, panel.mode_title_label.size).end.x
+		< panel.close_button.position.x
+		and Rect2(panel.close_button.position, panel.close_button.size).end
+		<= PanelClass.PANEL_SIZE,
+		"Service title and compact 42x42 close button must fit the 1280 design-canvas panel without overlap",
+	)
+	var scaled_service_rect := Rect2(Vector2(85, 405) * 0.75, PanelClass.PANEL_SIZE * 0.75)
+	_expect(
+		scaled_service_rect.end.x <= 960.0 and scaled_service_rect.end.y <= 540.0,
+		"Inventory service panel must remain inside the 960x540 canvas-items scaling contract",
+	)
 	var bow_sources := PackedStringArray()
 	for entry in panel.entries:
 		if String(entry["key"]) == "bone_bow@2":
@@ -106,7 +163,12 @@ func _test_panel_state(tree: SceneTree) -> void:
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
 		panel.apply_locale()
-		panel.select_item("bone_bow@2", "equipped", "weapon")
+		_expect(
+			panel.close_button.tooltip_text == Loc.text("INVENTORY_CLOSE_SERVICE")
+			and panel.close_button.get_meta("accessible_name", "") == Loc.text("INVENTORY_CLOSE_SERVICE"),
+			"Service close control needs synchronized localized tooltip/accessibility in %s" % locale,
+		)
+		panel.select_item("bone_bow@2", "equipped", "right_hand")
 		var equipped_name := PanelClass.display_name("bone_bow@2")
 		_expect(
 			panel.selected_detail_label.text.contains(equipped_name)
@@ -118,6 +180,41 @@ func _test_panel_state(tree: SceneTree) -> void:
 		)
 	Loc.set_locale("ru")
 	panel.apply_locale()
+	panel.set_mode(PanelClass.Mode.CHARACTER)
+	_expect(not panel.close_button.visible, "Embedded Character inventory must not show the service close button")
+	_expect(
+		panel.size == CharacterSheetLayout.INVENTORY_PANEL_RECT.size
+		and panel.row_buttons[0].position == Vector2(0, 92)
+		and panel.row_buttons[0].size == PanelClass.CHARACTER_ROW_SIZE,
+		"Embedded Character inventory must use its isolated compact right-column geometry",
+	)
+	var filter_order := PanelClass.available_filter_order()
+	for index in range(filter_order.size()):
+		var filter_button: Button = panel.filter_buttons[filter_order[index]]
+		_expect(
+			filter_button.position.y == (0.0 if index < 6 else 44.0)
+			and filter_button.position.x + filter_button.size.x <= PanelClass.CHARACTER_PANEL_SIZE.x + 0.1,
+			"Character inventory filters must fit in measured 6+5 rows",
+		)
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		panel.apply_locale()
+		for current_filter in filter_order:
+			var filter_button: Button = panel.filter_buttons[current_filter]
+			var text_width := filter_button.get_theme_font("font").get_string_size(
+				filter_button.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
+				filter_button.get_theme_font_size("font_size"),
+			).x
+			_expect(text_width <= filter_button.size.x - 6.0, "Character filter %s must not clip in %s" % [current_filter, locale])
+	Loc.set_locale("ru")
+	panel.apply_locale()
+	var character_direction := InputEventAction.new()
+	character_direction.action = "ui_right"
+	character_direction.pressed = true
+	_expect(
+		not panel.handle_input(character_direction),
+		"Embedded Character inventory must leave D-pad direction routing to the global spatial graph",
+	)
 	var forge := RunState.new()
 	forge.camp_upgrades["whetstone"] = true
 	forge.add_resources({"wood": 20, "stone": 40, "cloth": 4})
@@ -157,8 +254,11 @@ func _test_main_integration(tree: SceneTree) -> void:
 	main.state.add_resources({"wood": 30, "stone": 80, "cloth": 12})
 	main._on_build_camp_upgrade("crusher")
 	main._on_build_camp_upgrade("whetstone")
+	main._on_build_camp_upgrade("ritual_table")
 	_expect(
-		main.crusher_object_button.visible and main.whetstone_object_button.visible,
+		main.crusher_object_button.visible
+		and main.whetstone_object_button.visible
+		and main.ritual_table_object_button.visible,
 		"Built camp services must become visible interactive objects",
 	)
 	_expect(
@@ -168,6 +268,15 @@ func _test_main_integration(tree: SceneTree) -> void:
 		and main.whetstone_object_button.position.x + main.whetstone_object_button.size.x < 828.0,
 		"Camp service hitboxes must not overlap each other or the sidebar",
 	)
+	await _test_service_close_matrix(main, tree)
+	await _test_programmatic_menu_from_service(main, tree)
+	await _push_action(main, tree, "game_menu")
+	_expect(
+		main.main_menu_open and not main.settings_open,
+		"Generic Base game-menu input must open the unified Main Menu instead of Settings",
+	)
+	main._resume_from_main_menu()
+	await tree.process_frame
 	var saved: Dictionary = main.state.to_save_data()
 	_expect(not saved.has("inventory_ui") and not saved.has("inventory_filter"), "Save data must not persist ephemeral inventory UI state")
 	var restored := RunState.new()
@@ -178,7 +287,7 @@ func _test_main_integration(tree: SceneTree) -> void:
 	)
 	main.state.add_item("bone_knife", 0, 2)
 	main.state.add_item("rotting_mail")
-	main.state.loadout["weapon"] = "bone_bow@2"
+	main.state.loadout["right_hand"] = "bone_bow@2"
 	main.crusher_object_button.pressed.emit()
 	_expect(
 		main.inventory_service_mode == "crusher"
@@ -199,22 +308,29 @@ func _test_main_integration(tree: SceneTree) -> void:
 		main.dismantle_all_confirmation_pending and not main.state.inventory.is_empty(),
 		"Crusher Dismantle All must require a second localized confirmation",
 	)
-	var escape := InputEventAction.new()
-	escape.action = "ui_cancel"
-	escape.pressed = true
-	_expect(main.inventory_panel.handle_input(escape), "Service back input must be handled locally")
+	await _push_key(main, tree, KEY_ESCAPE)
 	_expect(
 		not main.dismantle_all_confirmation_pending and main.inventory_service_mode == "crusher",
-		"First Back during destructive confirmation must cancel only that confirmation",
+		"First physical Esc during destructive confirmation must cancel only that confirmation",
 	)
+	main._on_inventory_dismantle_all_pressed()
+	await _push_joy_button(main, tree, JOY_BUTTON_B)
+	_expect(
+		not main.dismantle_all_confirmation_pending and main.inventory_service_mode == "crusher",
+		"First physical B during destructive confirmation must cancel only that confirmation",
+	)
+	await _push_joy_button(main, tree, JOY_BUTTON_B)
+	_expect(main.inventory_service_mode.is_empty(), "Second physical B must close the Crusher service")
+	main.crusher_object_button.pressed.emit()
+	await tree.process_frame
 	main._on_inventory_dismantle_all_pressed()
 	main._on_inventory_dismantle_all_pressed()
 	_expect(
-		main.state.inventory.is_empty() and main.state.loadout["weapon"] == "bone_bow@2",
+		main.state.inventory.is_empty() and main.state.loadout["right_hand"] == "bone_bow@2",
 		"Confirmed Dismantle All must ignore the current filter and preserve loadout",
 	)
-	main.inventory_panel.handle_input(escape)
-	_expect(main.inventory_service_mode.is_empty(), "Second service Back must return to the base")
+	await _push_key(main, tree, KEY_ESCAPE)
+	_expect(main.inventory_service_mode.is_empty(), "Second physical Esc must return from the service to base")
 	main.state.add_item("bone_bow", 2)
 	main.state.add_item("bone_knife", 0)
 	main.whetstone_object_button.grab_focus()
@@ -272,13 +388,112 @@ func _test_main_integration(tree: SceneTree) -> void:
 	main.state.add_item("rotting_mail")
 	main._show_character()
 	main._select_character_panel("inventory")
+	var original_name: String = main.state.character_name
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		main.state.character_name = "Путник с очень долгим именем" if locale == "ru" else "The Long-Named Soulwalker"
+		main._apply_locale()
+		main._refresh_character_sheet()
+		var expected_header := "%s · %s" % [
+			main.state.character_name,
+			Loc.text(String(GameRules.FORMS[main.state.current_form_id]["name"])),
+		]
+		_expect(
+			(main.title_label.text == expected_header or main.title_label.text.ends_with("…"))
+			and main.title_label.tooltip_text.contains(main.state.character_name)
+			and main.title_label.get_theme_font_size("font_size") >= 18,
+			"Long Character name/form header must ellipsize with full RU/EN tooltip in %s" % locale,
+		)
+	Loc.set_locale("ru")
+	main.state.character_name = original_name
+	main._apply_locale()
+	main._refresh_character_sheet()
+	var geometry_by_zoom: Array[Dictionary] = []
+	for zoom in [44, 66, 88]:
+		main.dungeon_cell_size = zoom
+		main._refresh_character_sheet()
+		geometry_by_zoom.append({
+			"panel": Rect2(main.inventory_panel.position, main.inventory_panel.size),
+			"head": Rect2(main.character_equipment_buttons["head"].position, main.character_equipment_buttons["head"].size),
+		})
+	_expect(
+		geometry_by_zoom[0] == geometry_by_zoom[1] and geometry_by_zoom[1] == geometry_by_zoom[2],
+		"Character UI geometry must remain independent from dungeon zoom 44/66/88",
+	)
+	main._select_character_panel("skills")
+	var skills_has_character_residue: bool = main.inventory_panel.visible
+	for slot_id in GameRules.EQUIPMENT_SLOT_ORDER:
+		skills_has_character_residue = skills_has_character_residue or main.character_equipment_buttons[slot_id].visible
+	_expect(not skills_has_character_residue, "Skills must contain zero visible Character inventory or slot controls")
+	_expect(not main.character_status_strip.visible, "Skills must hide the Character status strip")
+	for child in main.character_status_strip.get_children():
+		_expect(not (child as Control).is_visible_in_tree(), "Skills must hide every focusable Character status descendant")
+	for control in main.inventory_panel.focusable_controls():
+		_expect(not control.is_visible_in_tree(), "Skills must exclude hidden inventory controls from the live focus graph")
+	main._select_character_panel("inventory")
 	_expect(
 		main.inventory_panel.equip_button.visible
 		and main.inventory_panel.dismantle_button.visible
 		and main.inventory_panel.upgrade_button.visible,
 		"Base character sheet must retain equip, Crusher and Whetstone shortcuts",
 	)
-	main.inventory_panel.set_filter("armor")
+	main.inventory_panel.select_equipment_slot("jacket", true)
+	main.inventory_panel.refresh()
+	var state_before_localized_jacket: Dictionary = main.state.to_save_data()
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		main._apply_locale()
+		main.inventory_panel.select_equipment_slot("jacket", true)
+		main.inventory_panel.refresh()
+		var jacket_details: String = main.inventory_panel.selected_detail_label.text
+		var jacket_slot_line := Loc.text("INVENTORY_SLOT_LINE", [Loc.text("SLOT_JACKET")])
+		var jacket_bonus_line := Loc.text("INVENTORY_SOUL_LEVEL_BONUS", [1])
+		var jacket_lock_line := Loc.text("INVENTORY_PERMANENT_LOCKED")
+		var expected_item_name := "Уютный пиджак" if locale == "ru" else "Cozy Jacket"
+		var expected_slot_name := "Плащ" if locale == "ru" else "Cloak"
+		var expected_lock_copy := "Не хочется снимать" if locale == "ru" else "Too cozy to take off"
+		var jacket_panels: Array[Label] = [
+			main.inventory_panel.selected_detail_label,
+			main.inventory_panel.equipped_detail_label,
+		]
+		var both_panels_exact := true
+		for detail_panel in jacket_panels:
+			both_panels_exact = (
+				both_panels_exact
+				and detail_panel.text.contains(expected_item_name)
+				and detail_panel.text.contains(jacket_slot_line)
+				and detail_panel.text.count(jacket_bonus_line) == 1
+				and detail_panel.text.count(jacket_lock_line) == 1
+			)
+		_expect(
+			both_panels_exact
+			and jacket_details.contains(expected_item_name)
+			and jacket_slot_line.contains(expected_slot_name)
+			and jacket_details.contains(expected_lock_copy)
+			and jacket_details.contains(jacket_slot_line)
+			and jacket_details.count(jacket_bonus_line) == 1
+			and jacket_details.count(jacket_lock_line) == 1
+			and main.inventory_panel.filter_id == "all"
+			and main.inventory_panel.filter_buttons["all"].button_pressed
+			and main.state.to_save_data() == state_before_localized_jacket
+			and main.inventory_panel.equip_button.disabled
+			and main.inventory_panel.equip_button.tooltip_text == expected_lock_copy
+			and main.inventory_panel.equip_button.accessibility_name == expected_lock_copy
+			and main.inventory_panel.dismantle_button.disabled
+			and main.inventory_panel.dismantle_button.tooltip_text == expected_lock_copy
+			and main.inventory_panel.dismantle_button.accessibility_name == expected_lock_copy
+			and main.inventory_panel.upgrade_button.disabled
+			and main.inventory_panel.upgrade_button.text == expected_lock_copy
+			and main.inventory_panel.upgrade_button.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+			and main.inventory_panel.upgrade_button.tooltip_text == expected_lock_copy
+			and main.inventory_panel.upgrade_button.accessibility_name == expected_lock_copy
+			and main.character_equipment_buttons["jacket"].tooltip_text.contains(expected_lock_copy)
+			and main.character_equipment_buttons["jacket"].accessibility_name == main.character_equipment_buttons["jacket"].tooltip_text,
+			"Selected jacket must show its physical slot and each localized bonus/lock line exactly once in %s" % locale,
+		)
+	Loc.set_locale("ru")
+	main._apply_locale()
+	main.inventory_panel.set_filter("body")
 	main.inventory_panel.select_visible_index(0)
 	var shortcut_cloth_before := int(main.state.resources["cloth"])
 	main._on_inventory_dismantle_pressed()
@@ -287,6 +502,7 @@ func _test_main_integration(tree: SceneTree) -> void:
 		"Character-sheet Crusher shortcut must use the same exact salvage rules as the station",
 	)
 	main._close_character()
+	await _test_character_focus_and_close(main, tree)
 	main._begin_expedition_at(99)
 	main.floor_data["enemies"].clear()
 	main._show_character()
@@ -325,7 +541,230 @@ func _test_main_integration(tree: SceneTree) -> void:
 		and main.player_pos == position_before_close + movement_direction,
 		"Closing Dungeon inventory must immediately release focus/input so the next movement action moves",
 	)
+	main.auto_travel_active = true
+	await _push_action(main, tree, "game_menu")
+	_expect(
+		main.main_menu_open and not main.auto_travel_active,
+		"Game menu must remain reachable during auto-travel and cancel the transient travel state",
+	)
+	main._resume_from_main_menu()
 	main.queue_free()
+
+
+func _test_character_focus_and_close(main, tree: SceneTree) -> void:
+	main.character_button.grab_focus()
+	main._show_character()
+	main._select_character_panel("skills")
+	await tree.process_frame
+	var skills_clean: bool = not main.inventory_panel.visible
+	for slot_id in GameRules.EQUIPMENT_SLOT_ORDER:
+		skills_clean = skills_clean and not main.character_equipment_buttons[slot_id].visible
+	_expect(
+		skills_clean,
+		"Skills must expose only its own focus graph and no Inventory slot residue",
+	)
+	await _push_joy_button(main, tree, JOY_BUTTON_B)
+	await tree.process_frame
+	_expect(
+		main.screen == main.Screen.BASE
+		and main.get_viewport().gui_get_focus_owner() == main.character_button,
+		"Physical B must close Skills and restore the prior valid Base focus",
+	)
+	main._show_character()
+	main._select_character_panel("inventory")
+	await tree.process_frame
+	main.character_equipment_buttons["right_hand"].grab_focus()
+	await _push_action(main, tree, "ui_accept")
+	_expect(
+		main.inventory_panel.selected_destination_slot() == "right_hand",
+		"Gamepad A on a physical slot must route to the exact destination slot",
+	)
+	var state_before_jacket_accept: Dictionary = main.state.to_save_data()
+	main.character_equipment_buttons["jacket"].grab_focus()
+	await _push_action(main, tree, "ui_accept")
+	_expect(
+		main.inventory_panel.selected_destination_slot() == "jacket"
+		and main.inventory_panel.selected_equipped_slot() == "jacket"
+		and main.inventory_panel.selected_item_key() == GameRules.permanent_jacket_key()
+		and main.inventory_panel.filter_id == "all"
+		and main.inventory_panel.filter_buttons["all"].button_pressed
+		and main.state.to_save_data() == state_before_jacket_accept,
+		"Gamepad A on the Cozy Jacket slot must select the exact physical slot and force All without gameplay mutation",
+	)
+	await _click_mouse(
+		main, tree,
+		main.skills_mode_button.global_position + main.skills_mode_button.size * 0.5,
+	)
+	_expect(main.character_panel_mode == "skills", "Mouse must switch Character to the Skills tab")
+	await _tap_touch(
+		main, tree,
+		main.inventory_mode_button.global_position + main.inventory_mode_button.size * 0.5,
+	)
+	_expect(main.character_panel_mode == "inventory", "ScreenTouch must switch Character back to Inventory")
+	await _push_key(main, tree, KEY_ESCAPE)
+	_expect(main.screen == main.Screen.BASE and not main.inventory_panel.visible, "Physical Esc must close Character without click-through")
+
+
+func _test_service_close_matrix(main, tree: SceneTree) -> void:
+	var close_signal_count: Array[int] = [0]
+	main.inventory_panel.close_requested.connect(func(): close_signal_count[0] += 1)
+	var service_specs := [
+		["crusher", main.crusher_object_button, PanelClass.Mode.CRUSHER, "all"],
+		["whetstone", main.whetstone_object_button, PanelClass.Mode.WHETSTONE, "weapon"],
+		["ritual_table", main.ritual_table_object_button, PanelClass.Mode.RITUAL, "all"],
+	]
+	for spec in service_specs:
+		for close_method in ["escape", "gamepad_b", "mouse", "touch", "focus"]:
+			var close_count_before: int = close_signal_count[0]
+			var inventory_before: Dictionary = main.state.inventory.duplicate(true)
+			var resources_before: Dictionary = main.state.resources.duplicate(true)
+			var loadout_before: Dictionary = main.state.loadout.duplicate(true)
+			var turns_before: int = main.state.total_turns
+			(spec[1] as Button).pressed.emit()
+			await tree.process_frame
+			await tree.process_frame
+			_expect(
+				main.inventory_service_mode == spec[0]
+				and main.inventory_panel.mode == spec[2]
+				and main.inventory_panel.filter_id == spec[3]
+				and main.inventory_panel.visible
+				and main.inventory_panel.close_button.visible
+				and main.inventory_panel._focusable_controls().has(
+					main.get_viewport().gui_get_focus_owner()
+				),
+				"Reopened %s service must restore mode, filter, close control and focus" % spec[0],
+			)
+			match close_method:
+				"escape":
+					await _push_key(main, tree, KEY_ESCAPE, false, false)
+					await _push_key(main, tree, KEY_ESCAPE, true, true)
+					_expect(not main.inventory_service_mode.is_empty(), "Esc release/echo must not close %s" % spec[0])
+					await _push_key(main, tree, KEY_ESCAPE)
+				"gamepad_b":
+					await _push_joy_button(main, tree, JOY_BUTTON_B, false)
+					_expect(not main.inventory_service_mode.is_empty(), "B release must not close %s" % spec[0])
+					await _push_joy_button(main, tree, JOY_BUTTON_B)
+				"mouse":
+					await _click_mouse(main, tree, _service_close_center(main))
+				"touch":
+					await _tap_touch(main, tree, _service_close_center(main))
+				"focus":
+					main.inventory_panel.close_button.grab_focus()
+					await _push_action(main, tree, "ui_accept")
+			await tree.process_frame
+			_expect(
+				main.inventory_service_mode.is_empty()
+				and not main.inventory_panel.visible
+				and not main.main_menu_open
+				and main.screen == main.Screen.BASE
+				and main.start_button.visible and main.upgrade_button.visible
+				and main.build_crusher_button.visible and main.build_whetstone_button.visible
+				and main.build_ritual_table_button.visible and main.character_button.visible
+				and main.menu_button.visible and main.camp_upgrades_label.visible
+				and main.hint_label.visible and main.message_label.visible
+				and main.crusher_object_button.visible
+				and main.whetstone_object_button.visible
+				and main.ritual_table_object_button.visible
+				and main.get_viewport().gui_get_focus_owner() == main.start_button,
+				"%s close via %s must symmetrically restore the complete Base UI and deferred focus" % [spec[0], close_method],
+			)
+			_expect(
+				close_signal_count[0] == close_count_before + 1,
+				"%s close via %s must emit exactly one close request" % [spec[0], close_method],
+			)
+			_expect(
+				main.state.inventory == inventory_before
+				and main.state.resources == resources_before
+				and main.state.loadout == loadout_before
+				and main.state.total_turns == turns_before,
+				"Closing %s via %s must not mutate inventory, resources, loadout or turns" % [spec[0], close_method],
+			)
+
+
+func _test_programmatic_menu_from_service(main, tree: SceneTree) -> void:
+	var state_before: Dictionary = main.state.to_save_data()
+	main.ritual_table_object_button.pressed.emit()
+	await tree.process_frame
+	main._open_main_menu()
+	await tree.process_frame
+	_expect(
+		main.main_menu_open
+		and main.inventory_service_mode.is_empty()
+		and not main.inventory_panel.visible
+		and main.start_button.visible and main.menu_button.visible
+		and main.camp_upgrades_label.visible and main.hint_label.visible and main.message_label.visible,
+		"Programmatic Main Menu opening must close the active service through its symmetric lifecycle",
+	)
+	main._resume_from_main_menu()
+	await tree.process_frame
+	await tree.process_frame
+	_expect(
+		not main.main_menu_open
+		and main.screen == main.Screen.BASE
+		and main.get_viewport().gui_get_focus_owner() == main.start_button
+		and main.state.to_save_data() == state_before,
+		"Resume after service-to-menu transition must restore exact in-memory Base state and focus",
+	)
+
+
+func _service_close_center(main) -> Vector2:
+	return (
+		main.inventory_panel.global_position
+		+ main.inventory_panel.close_button.position
+		+ main.inventory_panel.close_button.size * 0.5
+	)
+
+
+func _push_key(
+	main,
+	tree: SceneTree,
+	keycode: Key,
+	pressed := true,
+	echo := false,
+) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	event.echo = echo
+	main.get_viewport().push_input(event, true)
+	await tree.process_frame
+
+
+func _push_joy_button(main, tree: SceneTree, button: JoyButton, pressed := true) -> void:
+	var event := InputEventJoypadButton.new()
+	event.button_index = button
+	event.pressed = pressed
+	main.get_viewport().push_input(event, true)
+	await tree.process_frame
+
+
+func _push_action(main, tree: SceneTree, action: String) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	main.get_viewport().push_input(event, true)
+	await tree.process_frame
+
+
+func _click_mouse(main, tree: SceneTree, position: Vector2) -> void:
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = position
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
+func _tap_touch(main, tree: SceneTree, position: Vector2) -> void:
+	for pressed in [true, false]:
+		var event := InputEventScreenTouch.new()
+		event.index = 7
+		event.pressed = pressed
+		event.position = position
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

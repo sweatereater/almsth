@@ -4,7 +4,6 @@ extends Control
 const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
-const SlotIcon := preload("res://scripts/ui/inventory_slot_icon.gd")
 
 signal equip_requested
 signal unequip_requested
@@ -17,15 +16,13 @@ signal presentation_changed
 
 enum Mode { CHARACTER, CRUSHER, WHETSTONE, RITUAL }
 
-const SLOT_ORDER: Array[String] = [
-	"weapon", "charm", "armor", "hands", "relic", "offhand",
-]
-const FILTER_ORDER: Array[String] = [
-	"all", "weapon", "charm", "armor", "hands", "relic", "offhand",
-]
+const SLOT_ORDER: Array[String] = Rules.EQUIPMENT_SLOT_ORDER
 const PAGE_SIZE := 3
 const PANEL_SIZE := Vector2(1110, 243)
 const ROW_SIZE := Vector2(620, 48)
+const CHARACTER_PANEL_SIZE := Vector2(549, 546)
+const CHARACTER_ROW_SIZE := Vector2(549, 48)
+const CHARACTER_FILTER_ROWS := [6, 5]
 
 var mode: int = Mode.CHARACTER
 var run_state: RunState = RunState.new()
@@ -35,16 +32,18 @@ var page := 0
 var selected_key := ""
 var selected_source := ""
 var selected_slot := ""
+var destination_slot := ""
 var feedback := ""
 var dismantle_all_confirmation_pending := false
 var entries: Array[Dictionary] = []
 
 var filter_buttons: Dictionary = {}
 var row_buttons: Array[Button] = []
-var row_icons: Array[InventorySlotIcon] = []
+var row_icons: Array[TextureRect] = []
 var selected_detail_label: Label
 var equipped_detail_label: Label
 var mode_title_label: Label
+var close_button: Button
 var page_label: Label
 var previous_button: Button
 var next_button: Button
@@ -52,6 +51,12 @@ var equip_button: Button
 var dismantle_button: Button
 var dismantle_all_button: Button
 var upgrade_button: Button
+
+
+static func available_filter_order() -> Array[String]:
+	var result: Array[String] = ["all"]
+	result.append_array(Rules.EQUIPMENT_CATEGORY_ORDER)
+	return result
 
 
 func _init() -> void:
@@ -73,16 +78,17 @@ func bind_state(value: RunState, base_context: bool) -> void:
 
 
 func set_mode(value: int) -> void:
-	if mode == value:
-		return
+	var changed := mode != value
 	mode = value
-	filter_id = "weapon" if mode == Mode.WHETSTONE else "all"
-	clear_navigation_state()
+	if changed:
+		filter_id = "weapon" if mode == Mode.WHETSTONE else "all"
+		clear_navigation_state()
+	_apply_mode_layout()
 	refresh()
 
 
 func set_filter(value: String) -> void:
-	var accepted := value if FILTER_ORDER.has(value) else "all"
+	var accepted := value if available_filter_order().has(value) else "all"
 	if mode == Mode.WHETSTONE:
 		accepted = "weapon"
 	if filter_id == accepted:
@@ -101,6 +107,8 @@ func select_visible_index(index: int) -> void:
 	selected_key = String(entry.get("key", ""))
 	selected_source = String(entry.get("source", "inventory"))
 	selected_slot = String(entry.get("slot", "")) if selected_source == "equipped" else ""
+	if selected_source == "equipped":
+		destination_slot = selected_slot
 	dismantle_all_confirmation_pending = false
 	feedback = ""
 	refresh()
@@ -111,17 +119,21 @@ func select_item(item_key: String, source := "inventory", equipped_slot := "") -
 	selected_key = item_key
 	selected_source = source
 	selected_slot = equipped_slot
+	destination_slot = equipped_slot
 	dismantle_all_confirmation_pending = false
 	refresh()
 	presentation_changed.emit()
 
 
 func select_equipment_slot(slot: String, unlocked: bool) -> void:
-	filter_id = slot if FILTER_ORDER.has(slot) else "all"
+	filter_id = Rules.slot_category(slot) if available_filter_order().has(Rules.slot_category(slot)) else "all"
 	page = 0
 	selected_slot = slot
+	destination_slot = slot
 	selected_source = "equipped"
 	selected_key = String(run_state.loadout.get(slot, "")) if run_state != null else ""
+	if Rules.is_item_permanent(selected_key):
+		filter_id = "all"
 	if not unlocked:
 		selected_source = "locked"
 	dismantle_all_confirmation_pending = false
@@ -136,6 +148,7 @@ func change_page(direction: int) -> void:
 	selected_key = ""
 	selected_source = ""
 	selected_slot = ""
+	destination_slot = ""
 	dismantle_all_confirmation_pending = false
 	feedback = ""
 	refresh()
@@ -147,6 +160,7 @@ func clear_navigation_state() -> void:
 	selected_key = ""
 	selected_source = ""
 	selected_slot = ""
+	destination_slot = ""
 	dismantle_all_confirmation_pending = false
 	feedback = ""
 
@@ -179,6 +193,10 @@ func selected_equipped_slot() -> String:
 	return selected_slot if selected_source == "equipped" else ""
 
 
+func selected_destination_slot() -> String:
+	return destination_slot
+
+
 func selected_item_source() -> String:
 	return selected_source
 
@@ -186,21 +204,29 @@ func selected_item_source() -> String:
 func apply_locale() -> void:
 	if not is_node_ready():
 		return
-	for current_filter in FILTER_ORDER:
+	for current_filter in available_filter_order():
 		var button: Button = filter_buttons[current_filter]
 		button.text = (
 			Loc.text("INVENTORY_FILTER_ALL")
 			if current_filter == "all"
-			else Loc.text(String(Rules.SLOT_NAMES[current_filter]))
+			else Loc.text(String(Rules.EQUIPMENT_CATEGORY_NAMES[current_filter]))
 		)
 	previous_button.tooltip_text = Loc.text("INVENTORY_PREVIOUS_PAGE")
 	next_button.tooltip_text = Loc.text("INVENTORY_NEXT_PAGE")
+	var close_description := Loc.text("INVENTORY_CLOSE_SERVICE")
+	close_button.tooltip_text = close_description
+	close_button.set_meta("accessible_name", close_description)
+	for property_data in close_button.get_property_list():
+		if String(property_data.get("name", "")) == "accessibility_name":
+			close_button.set("accessibility_name", close_description)
+			break
 	refresh()
 
 
 func refresh() -> void:
 	if not is_node_ready():
 		return
+	_apply_mode_layout()
 	entries = build_entries(run_state, mode, filter_id)
 	_sanitize_selection()
 	_refresh_filters()
@@ -222,7 +248,28 @@ func grab_initial_focus() -> void:
 func handle_input(event: InputEvent) -> bool:
 	if not visible:
 		return false
-	if event.is_action_pressed("game_menu") or event.is_action_pressed("ui_cancel"):
+	if (
+		event is InputEventScreenTouch
+		and event.pressed
+		and close_button.visible
+		and Rect2(close_button.global_position, close_button.size).has_point(event.position)
+	):
+		close_requested.emit()
+		return true
+	if event is InputEventKey and (not event.pressed or event.echo):
+		return false
+	if event is InputEventJoypadButton and not event.pressed:
+		return false
+	var physical_gamepad_cancel: bool = (
+		event is InputEventJoypadButton
+		and event.pressed
+		and event.button_index == JOY_BUTTON_B
+	)
+	if (
+		event.is_action_pressed("game_menu")
+		or event.is_action_pressed("ui_cancel")
+		or physical_gamepad_cancel
+	):
 		if dismantle_all_confirmation_pending:
 			cancel_confirmation()
 		else:
@@ -244,6 +291,8 @@ func handle_input(event: InputEvent) -> bool:
 	):
 		step = 1
 	if step != 0:
+		if mode == Mode.CHARACTER:
+			return false
 		_move_focus(step)
 		return true
 	if event.is_action_pressed("ui_accept") or event.is_action_pressed("interact"):
@@ -262,34 +311,40 @@ static func build_entries(state: RunState, panel_mode: int, active_filter: Strin
 	for raw_key in state.inventory.keys():
 		var item_key := String(raw_key)
 		var rules := Rules.item_rules(item_key)
-		var slot := String(rules.get("slot", ""))
-		if rules.is_empty() or (effective_filter != "all" and slot != effective_filter):
+		var category := Rules.item_category(item_key)
+		if (
+			rules.is_empty()
+			or not Rules.is_item_movable(item_key)
+			or (effective_filter != "all" and category != effective_filter)
+		):
 			continue
 		result.append({
 			"key": item_key,
 			"source": "inventory",
-			"slot": slot,
+			"slot": "",
+			"category": category,
 			"count": int(state.inventory.get(item_key, 0)),
 		})
 	if panel_mode == Mode.WHETSTONE or panel_mode == Mode.RITUAL:
-		var equipped_slots: Array = ["weapon"] if panel_mode == Mode.WHETSTONE else state.loadout.keys()
+		var equipped_slots: Array = ["right_hand"] if panel_mode == Mode.WHETSTONE else state.loadout.keys()
 		for equipped_slot in equipped_slots:
 			var equipped_key := String(state.loadout.get(equipped_slot, ""))
-			if equipped_key.is_empty():
+			if equipped_key.is_empty() or not Rules.is_item_movable(equipped_key):
 				continue
 			var equipped_rules := Rules.item_rules(equipped_key)
-			var equipped_item_slot := String(equipped_rules.get("slot", equipped_slot))
-			if effective_filter != "all" and equipped_item_slot != effective_filter:
+			var equipped_category := Rules.item_category(equipped_key)
+			if effective_filter != "all" and equipped_category != effective_filter:
 				continue
 			result.append({
 				"key": equipped_key,
 				"source": "equipped",
-				"slot": equipped_item_slot,
+				"slot": equipped_slot,
+				"category": equipped_category,
 				"count": 1,
 			})
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var slot_a := SLOT_ORDER.find(String(a.get("slot", "")))
-		var slot_b := SLOT_ORDER.find(String(b.get("slot", "")))
+		var slot_a := Rules.EQUIPMENT_CATEGORY_ORDER.find(String(a.get("category", "")))
+		var slot_b := Rules.EQUIPMENT_CATEGORY_ORDER.find(String(b.get("category", "")))
 		if slot_a != slot_b:
 			return slot_a < slot_b
 		var key_a := String(a.get("key", ""))
@@ -314,9 +369,9 @@ static func display_name(item_key: String) -> String:
 
 static func primary_stats(item_key: String) -> PackedStringArray:
 	var rules := Rules.item_rules(item_key)
-	var slot := String(rules.get("slot", ""))
-	var level := Rules.item_upgrade_level(item_key) if slot == "weapon" else 0
-	match slot:
+	var category := Rules.item_category(item_key)
+	var level := Rules.item_upgrade_level(item_key) if Rules.is_weapon(item_key) else 0
+	match category:
 		"weapon":
 			if Rules.weapon_type(item_key) == "ranged":
 				return PackedStringArray([
@@ -328,25 +383,30 @@ static func primary_stats(item_key: String) -> PackedStringArray:
 				"%s %d" % [Loc.text("PARAM_DAMAGE"), int(rules.get("damage", 0)) + level],
 				"%s %d" % [Loc.text("PARAM_ACCURACY"), int(rules.get("accuracy", 0)) + level],
 			])
-		"armor", "offhand":
+		"body", "offhand", "feet", "legs", "head", "back":
 			return _nonzero_primary(rules, ["max_hp", "dodge", "regeneration"])
 		"hands":
 			return _nonzero_primary(rules, ["max_hp", "accuracy"])
-		"charm":
+		"talisman":
 			return _nonzero_primary(rules, ["mana", "spell_power", "soul_bonus"])
-		"relic":
-			return _nonzero_primary(rules, ["max_hp", "mana", "spell_power"])
+		"ring":
+			return _nonzero_primary(rules, ["max_hp", "mana", "spell_power", "accuracy"])
 	return PackedStringArray()
 
 
-static func full_details(item_key: String, count: int, source: String) -> String:
+static func full_details(item_key: String, count: int, source: String, equipped_slot := "") -> String:
 	var rules := Rules.item_rules(item_key)
 	if rules.is_empty():
 		return Loc.text("INVENTORY_EMPTY")
 	var lines := PackedStringArray([display_name(item_key)])
 	lines.append(Loc.text("INVENTORY_SOURCE_%s" % source.to_upper()))
+	var slot_name_key := String(Rules.SLOT_NAMES.get(equipped_slot, ""))
+	if slot_name_key.is_empty():
+		slot_name_key = String(Rules.EQUIPMENT_CATEGORY_NAMES.get(
+			Rules.item_category(item_key), "CATEGORY_WEAPON",
+		))
 	lines.append(Loc.text("INVENTORY_SLOT_LINE", [
-		Loc.text(String(Rules.SLOT_NAMES[String(rules.get("slot", "weapon"))])),
+		Loc.text(slot_name_key),
 	]))
 	var level := Rules.item_upgrade_level(item_key)
 	if level > 0:
@@ -355,14 +415,28 @@ static func full_details(item_key: String, count: int, source: String) -> String
 		lines.append(Loc.text("INVENTORY_COUNT", [count]))
 	if Rules.is_item_bound(item_key):
 		lines.append(Loc.text("INVENTORY_BOUND_STATUS"))
+	if Rules.is_item_permanent(item_key):
+		var description_key := String(rules.get("description", ""))
+		if not description_key.is_empty():
+			var description := Loc.text(description_key)
+			if not lines.has(description):
+				lines.append(description)
+		var locked_line := Loc.text("INVENTORY_PERMANENT_LOCKED")
+		if not lines.has(locked_line):
+			lines.append(locked_line)
 	for stat_line in _all_nonzero_stats(item_key):
 		lines.append(stat_line)
+	if int(rules.get("soul_level_bonus", 0)) != 0:
+		var soul_level_line := Loc.text("INVENTORY_SOUL_LEVEL_BONUS", [int(rules["soul_level_bonus"])])
+		if not lines.has(soul_level_line):
+			lines.append(soul_level_line)
 	var salvage: Dictionary = rules.get("salvage", {})
-	lines.append(Loc.text("INVENTORY_SALVAGE", [
-		int(salvage.get("wood", 0)),
-		int(salvage.get("stone", 0)),
-		int(salvage.get("cloth", 0)),
-	]))
+	if not Rules.is_item_permanent(item_key):
+		lines.append(Loc.text("INVENTORY_SALVAGE", [
+			int(salvage.get("wood", 0)),
+			int(salvage.get("stone", 0)),
+			int(salvage.get("cloth", 0)),
+		]))
 	return "\n".join(lines)
 
 
@@ -378,7 +452,7 @@ static func _nonzero_primary(rules: Dictionary, fields: Array[String]) -> Packed
 static func _all_nonzero_stats(item_key: String) -> PackedStringArray:
 	var rules := Rules.item_rules(item_key)
 	var result := PackedStringArray()
-	var weapon_level := Rules.item_upgrade_level(item_key) if rules.get("slot", "") == "weapon" else 0
+	var weapon_level := Rules.item_upgrade_level(item_key) if Rules.is_weapon(item_key) else 0
 	for field in ["damage", "ranged_damage", "accuracy", "max_hp", "dodge", "mana", "spell_power", "soul_bonus", "regeneration"]:
 		var value := int(rules.get(field, 0))
 		if field == "accuracy":
@@ -409,17 +483,23 @@ static func _stat_name(field: String) -> String:
 
 
 func _build_interface() -> void:
-	for index in range(FILTER_ORDER.size()):
-		var current_filter := FILTER_ORDER[index]
-		var button := Ui.make_button(self, Vector2(index * 88, 0), "", Vector2(84, 42))
+	var filter_order := available_filter_order()
+	for index in range(filter_order.size()):
+		var current_filter := filter_order[index]
+		var button := Ui.make_button(self, Vector2(index * 56, 0), "", Vector2(53, 42))
 		button.name = "Filter_%s" % current_filter
 		button.toggle_mode = true
-		button.add_theme_font_size_override("font_size", 10)
+		button.add_theme_font_size_override("font_size", 8)
 		Ui.enable_keyboard_focus(button)
 		button.pressed.connect(set_filter.bind(current_filter))
 		filter_buttons[current_filter] = button
-	mode_title_label = Ui.make_label(self, Vector2(625, 2), Vector2(485, 38), 16)
+	mode_title_label = Ui.make_label(self, Vector2(625, 2), Vector2(433, 38), 16)
 	mode_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	close_button = Ui.make_button(self, Vector2(1068, 0), "×", Vector2(42, 42))
+	close_button.name = "CloseServiceButton"
+	close_button.add_theme_font_size_override("font_size", 22)
+	Ui.enable_keyboard_focus(close_button)
+	close_button.pressed.connect(func(): close_requested.emit())
 	for index in range(PAGE_SIZE):
 		var row := Ui.make_button(self, Vector2(0, 46 + index * 52), "", ROW_SIZE)
 		row.name = "InventoryRow%d" % index
@@ -434,9 +514,11 @@ func _build_interface() -> void:
 		Ui.enable_keyboard_focus(row)
 		row.pressed.connect(select_visible_index.bind(index))
 		row_buttons.append(row)
-		var icon := SlotIcon.new()
+		var icon := TextureRect.new()
 		icon.position = row.position + Vector2(3, 2)
 		icon.size = Vector2(44, 44)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(icon)
 		row_icons.append(icon)
@@ -472,6 +554,99 @@ func _build_interface() -> void:
 		else:
 			upgrade_requested.emit()
 	)
+	_apply_mode_layout()
+
+
+func _apply_mode_layout() -> void:
+	if filter_buttons.is_empty():
+		return
+	if mode == Mode.CHARACTER:
+		custom_minimum_size = CHARACTER_PANEL_SIZE
+		size = CHARACTER_PANEL_SIZE
+		_layout_character_filters()
+		mode_title_label.visible = false
+		for index in range(PAGE_SIZE):
+			var row := row_buttons[index]
+			row.position = Vector2(0, 92 + index * 52)
+			row.size = CHARACTER_ROW_SIZE
+			row_icons[index].position = row.position + Vector2(3, 2)
+		selected_detail_label.position = Vector2(0, 294)
+		selected_detail_label.size = Vector2(269, 166)
+		equipped_detail_label.position = Vector2(280, 294)
+		equipped_detail_label.size = Vector2(269, 166)
+		previous_button.position = Vector2(0, 252)
+		previous_button.size = Vector2(48, 38)
+		page_label.position = Vector2(54, 254)
+		page_label.size = Vector2(441, 34)
+		next_button.position = Vector2(501, 252)
+		next_button.size = Vector2(48, 38)
+		equip_button.position = Vector2(0, 472)
+		equip_button.size = Vector2(130, 42)
+		dismantle_button.position = Vector2(139, 472)
+		dismantle_button.size = Vector2(130, 42)
+		dismantle_all_button.position = Vector2(278, 472)
+		dismantle_all_button.size = Vector2(130, 42)
+		upgrade_button.position = Vector2(417, 472)
+		upgrade_button.size = Vector2(132, 42)
+		return
+	custom_minimum_size = PANEL_SIZE
+	size = PANEL_SIZE
+	for index in range(available_filter_order().size()):
+		var current_filter := available_filter_order()[index]
+		var filter_button: Button = filter_buttons[current_filter]
+		filter_button.position = Vector2(index * 56, 0)
+		filter_button.size = Vector2(53, 42)
+		filter_button.add_theme_font_size_override("font_size", 8)
+	mode_title_label.position = Vector2(625, 2)
+	mode_title_label.size = Vector2(433, 38)
+	mode_title_label.visible = true
+	for index in range(PAGE_SIZE):
+		var row := row_buttons[index]
+		row.position = Vector2(0, 46 + index * 52)
+		row.size = ROW_SIZE
+		row_icons[index].position = row.position + Vector2(3, 2)
+	selected_detail_label.position = Vector2(643, 52)
+	selected_detail_label.size = Vector2(210, 134)
+	equipped_detail_label.position = Vector2(880, 52)
+	equipped_detail_label.size = Vector2(218, 134)
+	previous_button.position = Vector2(0, 202)
+	previous_button.size = Vector2(48, 42)
+	page_label.position = Vector2(55, 206)
+	page_label.size = Vector2(510, 34)
+	next_button.position = Vector2(572, 202)
+	next_button.size = Vector2(48, 42)
+
+
+func _layout_character_filters() -> void:
+	var filter_order := available_filter_order()
+	var row_start := 0
+	for row_count in CHARACTER_FILTER_ROWS:
+		var row_filters := filter_order.slice(row_start, row_start + row_count)
+		var preferred_widths: Array[float] = []
+		var preferred_total := 0.0
+		for current_filter in row_filters:
+			var button: Button = filter_buttons[current_filter]
+			var measured := button.get_theme_font("font").get_string_size(
+				button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9,
+			).x + 16.0
+			var preferred := maxf(54.0, measured)
+			preferred_widths.append(preferred)
+			preferred_total += preferred
+		var gap := 4.0
+		var available_width: float = CHARACTER_PANEL_SIZE.x - gap * (row_count - 1)
+		var scale: float = minf(1.0, available_width / maxf(1.0, preferred_total))
+		var used_width: float = preferred_total * scale
+		var extra_each: float = maxf(0.0, available_width - used_width) / row_count
+		var x := 0.0
+		for index in range(row_count):
+			var current_filter: String = row_filters[index]
+			var button: Button = filter_buttons[current_filter]
+			var width: float = preferred_widths[index] * scale + extra_each
+			button.position = Vector2(x, 0 if row_start == 0 else 44)
+			button.size = Vector2(width, 40)
+			button.add_theme_font_size_override("font_size", 9 if scale > 0.82 else 8)
+			x += width + gap
+		row_start += row_count
 
 
 func _action_button(position_value: Vector2, size_value: Vector2, font_size: int) -> Button:
@@ -490,6 +665,8 @@ func _sanitize_selection() -> void:
 		selected_slot = ""
 	elif selected_source == "equipped" and String(run_state.loadout.get(selected_slot, "")) != selected_key:
 		selected_key = String(run_state.loadout.get(selected_slot, ""))
+	if not destination_slot.is_empty() and not Rules.EQUIPMENT_SLOTS.has(destination_slot):
+		destination_slot = ""
 	if selected_source == "inventory":
 		var found := false
 		for entry in entries:
@@ -502,7 +679,7 @@ func _sanitize_selection() -> void:
 
 
 func _refresh_filters() -> void:
-	for current_filter in FILTER_ORDER:
+	for current_filter in available_filter_order():
 		var button: Button = filter_buttons[current_filter]
 		button.visible = mode != Mode.WHETSTONE or current_filter == "weapon"
 		button.button_pressed = current_filter == filter_id
@@ -527,7 +704,8 @@ func _refresh_rows() -> void:
 			source_text += " · %s" % Loc.text("INVENTORY_BOUND_SHORT")
 		button.visible = true
 		row_icons[index].visible = true
-		row_icons[index].set_slot(String(entry.get("slot", "")))
+		var icon_path := String(Rules.item_rules(item_key).get("icon", ""))
+		row_icons[index].texture = load(icon_path) as Texture2D if not icon_path.is_empty() else null
 		button.text = "%s  ×%d%s\n%s" % [
 			display_name(item_key), int(entry["count"]), source_text,
 			" · ".join(primary_stats(item_key)),
@@ -552,26 +730,32 @@ func _refresh_details() -> void:
 		selected_text += Loc.text("INVENTORY_EMPTY")
 	else:
 		var count := int(run_state.inventory.get(selected_key, 1)) if selected_source == "inventory" else 1
-		selected_text += full_details(selected_key, count, selected_source)
-		if mode == Mode.WHETSTONE and Rules.item_rules(selected_key).get("slot", "") == "weapon":
+		selected_text += full_details(selected_key, count, selected_source, selected_slot)
+		if mode == Mode.WHETSTONE and Rules.is_weapon(selected_key):
 			selected_text += "\n" + _upgrade_offer_text(selected_key)
 		elif mode == Mode.RITUAL:
 			selected_text += "\n" + Loc.text("INVENTORY_BIND_EXPLANATION")
-	var comparison_slot := ""
-	if not selected_key.is_empty():
-		comparison_slot = String(Rules.item_rules(selected_key).get("slot", ""))
-	elif not selected_slot.is_empty():
+	var comparison_slot := destination_slot
+	if comparison_slot.is_empty() and not selected_key.is_empty():
+		comparison_slot = Rules.default_equip_slot(
+			selected_key, run_state.current_form_id, run_state.loadout,
+		)
+		if comparison_slot.is_empty():
+			var compatible_slots := Rules.compatible_slots(selected_key)
+			if not compatible_slots.is_empty():
+				comparison_slot = compatible_slots[0]
+	if comparison_slot.is_empty() and not selected_slot.is_empty():
 		comparison_slot = selected_slot
 	if comparison_slot.is_empty():
 		equipped_text += Loc.text("INVENTORY_EMPTY")
-	elif not run_state.get_form()["slots"].has(comparison_slot):
+	elif not Rules.is_slot_unlocked(run_state.current_form_id, comparison_slot):
 		equipped_text += Loc.text("INVENTORY_SLOT_LOCKED")
 	else:
 		var equipped_key := String(run_state.loadout.get(comparison_slot, ""))
 		equipped_text += (
 			Loc.text("INVENTORY_EMPTY")
 			if equipped_key.is_empty()
-			else full_details(equipped_key, 1, "equipped")
+			else full_details(equipped_key, 1, "equipped", comparison_slot)
 		)
 	if not feedback.is_empty():
 		selected_text += "\n" + feedback
@@ -584,11 +768,14 @@ func _refresh_actions() -> void:
 	var inventory_item := has_item and selected_source == "inventory"
 	var equipped_item := has_item and selected_source == "equipped"
 	var rules := Rules.item_rules(selected_key)
-	var is_weapon: bool = String(rules.get("slot", "")) == "weapon"
+	var permanent := has_item and Rules.is_item_permanent(selected_key)
+	upgrade_button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var is_weapon := Rules.is_weapon(selected_key)
 	var level := Rules.item_upgrade_level(selected_key) if has_item else 0
 	var crusher_ready := at_base and bool(run_state.camp_upgrades.get("crusher", false))
 	var whetstone_ready := at_base and bool(run_state.camp_upgrades.get("whetstone", false))
 	var ritual_ready := at_base and bool(run_state.camp_upgrades.get("ritual_table", false))
+	close_button.visible = mode != Mode.CHARACTER
 	match mode:
 		Mode.CRUSHER:
 			dismantle_button.position = Vector2(635, 198)
@@ -602,14 +789,14 @@ func _refresh_actions() -> void:
 			upgrade_button.position = Vector2(635, 198)
 			upgrade_button.size = Vector2(475, 42)
 		_:
-			equip_button.position = Vector2(635, 198)
-			equip_button.size = Vector2(112, 42)
-			dismantle_button.position = Vector2(753, 198)
-			dismantle_button.size = Vector2(112, 42)
-			dismantle_all_button.position = Vector2(871, 198)
-			dismantle_all_button.size = Vector2(112, 42)
-			upgrade_button.position = Vector2(989, 198)
-			upgrade_button.size = Vector2(121, 42)
+			equip_button.position = Vector2(0, 472)
+			equip_button.size = Vector2(130, 42)
+			dismantle_button.position = Vector2(139, 472)
+			dismantle_button.size = Vector2(130, 42)
+			dismantle_all_button.position = Vector2(278, 472)
+			dismantle_all_button.size = Vector2(130, 42)
+			upgrade_button.position = Vector2(417, 472)
+			upgrade_button.size = Vector2(132, 42)
 	equip_button.visible = mode == Mode.CHARACTER
 	dismantle_button.visible = (mode == Mode.CHARACTER and crusher_ready) or mode == Mode.CRUSHER
 	dismantle_all_button.visible = (mode == Mode.CHARACTER and crusher_ready) or mode == Mode.CRUSHER
@@ -619,9 +806,13 @@ func _refresh_actions() -> void:
 		or mode == Mode.RITUAL
 	)
 	equip_button.text = Loc.text("INVENTORY_UNEQUIP" if equipped_item else "INVENTORY_EQUIP")
-	equip_button.disabled = not has_item or selected_source == "locked"
+	equip_button.disabled = not has_item or selected_source == "locked" or permanent
+	equip_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else ""
+	equip_button.accessibility_name = equip_button.tooltip_text if permanent else equip_button.text
 	dismantle_button.text = Loc.text("INVENTORY_DISMANTLE")
-	dismantle_button.disabled = not inventory_item or not crusher_ready or Rules.is_item_bound(selected_key)
+	dismantle_button.disabled = not inventory_item or not crusher_ready or Rules.is_item_bound(selected_key) or permanent
+	dismantle_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else ""
+	dismantle_button.accessibility_name = dismantle_button.tooltip_text if permanent else dismantle_button.text
 	dismantle_all_button.text = Loc.text(
 		"INVENTORY_DISMANTLE_ALL_CONFIRM_BUTTON"
 		if dismantle_all_confirmation_pending
@@ -630,23 +821,33 @@ func _refresh_actions() -> void:
 	dismantle_all_button.disabled = not crusher_ready or run_state.count_unbound_inventory_items() <= 0
 	if mode == Mode.RITUAL:
 		var already_bound := has_item and Rules.is_item_bound(selected_key)
-		upgrade_button.disabled = not ritual_ready or not run_state.can_bind_item(
+		upgrade_button.disabled = permanent or not ritual_ready or not run_state.can_bind_item(
 			selected_key,
 			selected_source,
 			selected_slot,
 		)
-		upgrade_button.text = (
+		upgrade_button.text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else (
 			Loc.text("INVENTORY_BIND_ALREADY")
 			if already_bound
 			else Loc.text("INVENTORY_BIND_ACTION", [Rules.ITEM_BINDING_SOUL_COST])
 		)
-		upgrade_button.tooltip_text = (
+		upgrade_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else (
 			Loc.text("INVENTORY_BIND_ALREADY_DESC")
 			if already_bound
 			else Loc.text("INVENTORY_BIND_TOOLTIP", [Rules.ITEM_BINDING_SOUL_COST])
 		)
+		if permanent:
+			upgrade_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		upgrade_button.accessibility_name = upgrade_button.tooltip_text if permanent else upgrade_button.text
 		return
-	upgrade_button.disabled = not (
+	if permanent:
+		upgrade_button.disabled = true
+		upgrade_button.text = Loc.text("INVENTORY_PERMANENT_LOCKED")
+		upgrade_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		upgrade_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED")
+		upgrade_button.accessibility_name = upgrade_button.tooltip_text
+		return
+	upgrade_button.disabled = permanent or not (
 		whetstone_ready and has_item and is_weapon and level < 3 and run_state.can_afford_weapon_upgrade()
 	)
 	if not has_item or not is_weapon:
@@ -700,17 +901,21 @@ func _mode_title() -> String:
 
 func _focusable_controls() -> Array[Control]:
 	var result: Array[Control] = []
-	for current_filter in FILTER_ORDER:
+	for current_filter in available_filter_order():
 		var filter_button: Button = filter_buttons[current_filter]
 		if filter_button.visible and not filter_button.disabled:
 			result.append(filter_button)
 	for row in row_buttons:
 		if row.visible and not row.disabled:
 			result.append(row)
-	for control in [previous_button, next_button, equip_button, dismantle_button, dismantle_all_button, upgrade_button]:
+	for control in [previous_button, next_button, equip_button, dismantle_button, dismantle_all_button, upgrade_button, close_button]:
 		if control.visible and not control.disabled:
 			result.append(control)
 	return result
+
+
+func focusable_controls() -> Array[Control]:
+	return _focusable_controls()
 
 
 func _refresh_focus_graph() -> void:
@@ -740,6 +945,11 @@ func _move_focus(step: int) -> void:
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color("1c2330"))
 	draw_rect(Rect2(Vector2.ZERO, size), Color("354052"), false, 2.0)
-	for rect in [Rect2(Vector2(635, 46), Vector2(225, 146)), Rect2(Vector2(872, 46), Vector2(238, 146))]:
+	var detail_rects := (
+		[Rect2(Vector2(0, 294), Vector2(269, 166)), Rect2(Vector2(280, 294), Vector2(269, 166))]
+		if mode == Mode.CHARACTER
+		else [Rect2(Vector2(635, 46), Vector2(225, 146)), Rect2(Vector2(872, 46), Vector2(238, 146))]
+	)
+	for rect in detail_rects:
 		draw_rect(rect, Color("171d27"))
 		draw_rect(rect, Color("354052"), false, 2.0)

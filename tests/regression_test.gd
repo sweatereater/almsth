@@ -54,7 +54,7 @@ func _test_fixed_boss_floor_contracts(tree: SceneTree) -> void:
 		boss["id"] == BossFloor90.BOSS_ID
 		and boss["uid"] == first["boss_uid"]
 		and boss["max_hp"] == 36
-		and float(GameRules.ENEMIES[boss["id"]].get("draw_scale", 1.0)) > 1.0,
+		and Vector2(GameRules.ENEMIES[boss["id"]].get("draw_footprint", Vector2.ONE)) == Vector2(1.5, 2.0),
 		"Level 90 must contain the 36 HP oversized Minotaur on one logical position",
 	)
 	_expect(
@@ -395,17 +395,17 @@ func _test_full_state_persistence() -> void:
 	original.checkpoint_floor = 55
 	original.rope_floor = 63
 	original.loadout = {
-		"weapon": GameRules.make_item_key("bone_knife", 2, true),
-		"charm": GameRules.make_item_key("soul_locket"),
-		"armor": GameRules.make_item_key("rotting_mail"),
+		"right_hand": GameRules.make_item_key("bone_knife", 2, true),
+		"talisman": GameRules.make_item_key("soul_locket"),
+		"body": GameRules.make_item_key("rotting_mail"),
 		"hands": GameRules.make_item_key("leather_gloves"),
-		"relic": GameRules.make_item_key("hollow_lantern"),
-		"offhand": GameRules.make_item_key("pilgrim_shield"),
+		"left_hand": GameRules.make_item_key("pilgrim_shield"),
 	}
 	original.inventory = {
 		GameRules.make_item_key("bone_knife", 1): 3,
 		GameRules.make_item_key("grave_mace", 3, true): 2,
 		GameRules.make_item_key("rotting_mail"): 4,
+		GameRules.make_item_key("hollow_lantern"): 1,
 	}
 	original.resources = {"wood": 12, "stone": 34, "cloth": 5}
 	original.camp_upgrades = {
@@ -433,6 +433,8 @@ func _test_full_state_persistence() -> void:
 	original.mana_regeneration_progress = 0.375
 	original.total_turns = 4321
 	original.cradle_miss_streak = 9
+	original.ability_cooldowns = {"dash": 7, "double_attack": 3}
+	original.active_statuses = {"rested": {"remaining_turns": 321, "temporary_hp": 4}}
 	original.hp = original.get_max_hp() - 3
 	original.mana = original.get_max_mana() - 4
 
@@ -492,6 +494,21 @@ func _test_malformed_and_versioned_saves() -> void:
 		SaveSystem.load_game(MALFORMED_SAVE_PATH).is_empty(),
 		"A save with a non-dictionary state must be rejected",
 	)
+	for legacy_version in range(1, SaveSystem.SAVE_VERSION):
+		_expect(_write_json(MALFORMED_SAVE_PATH, {
+			"version": legacy_version,
+			"state": {"character_name": "Legacy %d" % legacy_version},
+		}) == OK, "Legacy version %d fixture must be writable" % legacy_version)
+		var legacy_version_state := RunState.new()
+		_expect(
+			legacy_version_state.restore_save_data(SaveSystem.load_game(MALFORMED_SAVE_PATH))
+			and legacy_version_state.ability_cooldowns.is_empty()
+			and legacy_version_state.active_statuses.is_empty()
+			and legacy_version_state.loadout.get("jacket", "") == GameRules.permanent_jacket_key()
+			and legacy_version_state.soul_level == 1
+			and legacy_version_state.get_effective_soul_level() == 2,
+			"Supported v%d must migrate missing cooldown/status fields to empty" % legacy_version,
+		)
 
 	_expect(_write_json(MALFORMED_SAVE_PATH, {
 		"version": SaveSystem.MIN_SUPPORTED_SAVE_VERSION,
@@ -534,6 +551,7 @@ func _test_evolution_and_skill_boundaries() -> void:
 	var expected_costs := [10, 14, 24, 32]
 	for index in range(expected_costs.size()):
 		var expected_form: String = GameRules.FORM_ORDER[index + 1]
+		evolution.soul_level = GameRules.required_soul_level(expected_form)
 		var souls_before := evolution.carried_souls
 		var result := evolution.evolve_at_cradle()
 		_expect(
@@ -727,8 +745,8 @@ func _test_death_return_and_rope_invariants() -> void:
 	dying.resources = {"wood": 8, "stone": 9, "cloth": 3}
 	dying.camp_upgrades = {"crusher": true, "whetstone": false}
 	dying.loadout = {
-		"weapon": GameRules.make_item_key("bone_knife", 1),
-		"charm": GameRules.make_item_key("soul_locket"),
+		"right_hand": GameRules.make_item_key("bone_knife", 1),
+		"talisman": GameRules.make_item_key("soul_locket"),
 	}
 	dying.inventory = {
 		GameRules.make_item_key("grave_mace"): 2,
@@ -747,7 +765,7 @@ func _test_death_return_and_rope_invariants() -> void:
 		and dying.carried_souls == 0
 		and dying.current_form_id == "skeleton"
 		and dying.absorbed_souls == 0
-		and dying.loadout.is_empty()
+		and dying.loadout == {GameRules.PERMANENT_JACKET_SLOT_ID: GameRules.permanent_jacket_key()}
 		and dying.inventory.is_empty()
 		and dying.food == 0
 		and dying.hunger == 100
@@ -918,16 +936,26 @@ func _test_automatic_exploration_and_visible_waiting(tree: SceneTree) -> void:
 		frames += 1
 	_expect(
 		not main.auto_explore_active
-		and main._has_visible_enemy()
+		and not main.hearing_contacts.presentation_positions().is_empty()
 		and main.state.total_turns > turns_before_exploration
 		and main.auto_explore_button.text == Loc.text("BTN_AUTO_EXPLORE"),
-		"Automatic exploration must spend normal turns and stop when an enemy becomes visible",
+		"Automatic exploration must spend normal turns and stop at a newly heard enemy",
 	)
 	_expect(
 		main.player_pos != main.floor_data["enemies"][0]["pos"],
 		"Automatic exploration must stop before entering an occupied cell",
 	)
 
+	# Preserve the pre-existing visible-enemy wait contract independently of the
+	# earlier (and intentionally sooner) hearing interruption.
+	var visible_enemy_cell: Vector2i = main.player_pos
+	for visible_variant in main.floor_data["visible_cells"]:
+		var candidate: Vector2i = visible_variant
+		if candidate != main.player_pos and main.floor_data["tiles"].get(candidate) == "floor":
+			visible_enemy_cell = candidate
+			break
+	main.floor_data["enemies"][0]["pos"] = visible_enemy_cell
+	main._update_player_visibility(false)
 	main.wait_turn_count = 10
 	var turns_before_visible_wait: int = main.state.total_turns
 	main._on_wait_pressed()

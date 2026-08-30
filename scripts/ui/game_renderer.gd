@@ -1,8 +1,12 @@
 class_name GameRenderer
 extends RefCounted
 
+const HearingContactSystem := preload("res://scripts/game/hearing_contact_system.gd")
+
 const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
+const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
+const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
 
 const CAMP_ART: Texture2D = preload("res://assets/art/camp-base-expanded.png")
 const CAMP_CRUSHER_ART: Texture2D = preload("res://assets/art/camp-crusher.png")
@@ -17,10 +21,39 @@ const INTRO_ART: Array[Texture2D] = [
 ]
 const DEATH_ART: Texture2D = preload("res://assets/art/death-bones.png")
 const SKELETON_EQUIPMENT_ART: Texture2D = preload("res://assets/art/skeleton-equipment.png")
+const SOUL_ICON_TEXTURE: Texture2D = preload("res://assets/ui/soul-icon.png")
 const DUNGEON_FLOOR_TEXTURE: Texture2D = preload("res://assets/dungeon/floor-stone.png")
 const DUNGEON_WALL_TEXTURE: Texture2D = preload("res://assets/dungeon/wall-stone.png")
 const DUNGEON_CHEST_SPRITE: Texture2D = preload("res://assets/dungeon/chest.png")
 const PLAYER_SKELETON_SPRITE: Texture2D = preload("res://assets/dungeon/player-skeleton.png")
+const PLAYER_SPRITES := {
+	"skeleton": preload("res://assets/dungeon/player-skeleton.png"),
+	"zombie": preload("res://assets/dungeon/player-zombie.png"),
+	"ghoul": preload("res://assets/dungeon/player-ghoul.png"),
+	"revenant": preload("res://assets/dungeon/player-revenant.png"),
+	"almost_human": preload("res://assets/dungeon/player-almost-human.png"),
+}
+const FORM_PORTRAITS := {
+	"skeleton": preload("res://assets/portraits/form-skeleton.png"),
+	"zombie": preload("res://assets/portraits/form-zombie.png"),
+	"ghoul": preload("res://assets/portraits/form-ghoul.png"),
+	"revenant": preload("res://assets/portraits/form-revenant.png"),
+	"almost_human": preload("res://assets/portraits/form-almost-human.png"),
+}
+const FORM_FULLBODY := {
+	"skeleton": preload("res://assets/ui/character-fullbody/form-skeleton.png"),
+	"zombie": preload("res://assets/ui/character-fullbody/form-zombie.png"),
+	"ghoul": preload("res://assets/ui/character-fullbody/form-ghoul.png"),
+	"revenant": preload("res://assets/ui/character-fullbody/form-revenant.png"),
+	"almost_human": preload("res://assets/ui/character-fullbody/form-almost-human.png"),
+}
+const PLAYER_FORM_GLYPHS := {
+	"skeleton": "GLYPH_FORM_SKELETON",
+	"zombie": "GLYPH_FORM_ZOMBIE",
+	"ghoul": "GLYPH_FORM_GHOUL",
+	"revenant": "GLYPH_FORM_REVENANT",
+	"almost_human": "GLYPH_FORM_ALMOST_HUMAN",
+}
 const ENEMY_SPRITES := {
 	"grave_rat": preload("res://assets/dungeon/enemy-grave-rat.png"),
 	"hollow_guard": preload("res://assets/dungeon/enemy-hollow-guard.png"),
@@ -32,11 +65,20 @@ const ENEMY_SPRITES := {
 const BOARD_ORIGIN := Vector2(28, 82)
 const DUNGEON_VIEW_RECT := Rect2(8, 8, 1056, 660)
 const DUNGEON_SIDEBAR_RECT := Rect2(1072, 8, 200, 704)
-const DUNGEON_HP_RECT := Rect2(1080, 158, 184, 26)
-const DUNGEON_MANA_RECT := Rect2(1080, 190, 184, 26)
-const DUNGEON_INSPECTION_RECT := Rect2(1080, 396, 184, 104)
+const DUNGEON_HP_RECT := Rect2(1080, 116, 184, 26)
+const DUNGEON_STATUS_RECT := Rect2(1080, 146, 184, 30)
+const DUNGEON_MANA_RECT := Rect2(1080, 180, 184, 26)
+const DUNGEON_INSPECTION_RECT := Rect2(1080, 238, 184, 262)
 const DUNGEON_HISTORY_RECT := Rect2(1080, 506, 184, 196)
-const CELL_SIZE := 66
+const DUNGEON_ENEMY_HP_RECT := Rect2(1090, 486, 164, 8)
+const SELECTION_BORDER_WIDTH := 2.0
+const PLAYER_FOOT_GLOW_FOOTPRINT := Vector2(0.46, 0.16)
+const PLAYER_FOOT_GLOW_ALPHA := 0.16
+const HEARING_MARKER_RADIUS := 13.0
+const HEARING_MARKER_OUTLINE_WIDTH := 2.0
+const HEARING_MARKER_FONT_SIZE := 22
+const CELL_SIZE := PresentationSettings.DEFAULT_CELL_SIZE
+static var runtime_cell_size := CELL_SIZE
 const MAGIC_TRACE_DURATION := 1.0
 const PROJECTILE_TRACE_DURATION := 0.45
 const FLOOR_TEXTURE_SAMPLE_SIZE := 176
@@ -77,7 +119,7 @@ const COLOR_PANEL_SHADOW := Color(0.015, 0.02, 0.03, 0.72)
 ## retain the denser fog that preserves the boundary contrast.
 const COLOR_FOG_MEMORY := Color(0.008, 0.012, 0.02, 0.32)
 const COLOR_FOG_WALL_MEMORY := Color(0.008, 0.012, 0.02, 0.78)
-const CHARACTER_SKILLS_CARD := Rect2(Vector2(85, 350), Vector2(1110, 300))
+const CHARACTER_SKILLS_CARD := CharacterSheetLayout.SKILLS_CARD_RECT
 
 
 static func draw_frame(
@@ -86,6 +128,7 @@ static func draw_frame(
 	state: RunState,
 	show_sidebar: bool,
 	show_inspection: bool,
+	inspection_target: Dictionary = {},
 ) -> void:
 	canvas.draw_rect(Rect2(Vector2.ZERO, viewport_size), COLOR_BACKGROUND)
 	if not show_sidebar:
@@ -104,6 +147,7 @@ static func draw_frame(
 		draw_resource_bar(
 			canvas, DUNGEON_HP_RECT, state.hp, state.get_max_hp(),
 			Loc.text("PARAM_HP"), Color("a84450"),
+			("+%d" % state.get_temporary_hp()) if state.get_temporary_hp() > 0 else "",
 		)
 		draw_resource_bar(
 			canvas, DUNGEON_MANA_RECT, state.mana, state.get_max_mana(),
@@ -111,6 +155,16 @@ static func draw_frame(
 		)
 		canvas.draw_rect(DUNGEON_INSPECTION_RECT, Color("171d27"))
 		canvas.draw_rect(DUNGEON_INSPECTION_RECT, COLOR_GOLD, false, 2.0)
+		if String(inspection_target.get("kind", "")) == "enemy":
+			var enemy: Dictionary = inspection_target.get("entity", {})
+			var maximum_hp := maxi(1, int(enemy.get("max_hp", 1)))
+			var current_hp := clampi(int(enemy.get("hp", maximum_hp)), 0, maximum_hp)
+			canvas.draw_rect(DUNGEON_ENEMY_HP_RECT, Color("10151d"))
+			canvas.draw_rect(Rect2(
+				DUNGEON_ENEMY_HP_RECT.position,
+				Vector2(DUNGEON_ENEMY_HP_RECT.size.x * float(current_hp) / maximum_hp, DUNGEON_ENEMY_HP_RECT.size.y),
+			), Color("a84450"))
+			canvas.draw_rect(DUNGEON_ENEMY_HP_RECT, COLOR_PANEL_BORDER, false, 1.0)
 		canvas.draw_rect(DUNGEON_HISTORY_RECT, Color("141a23"))
 		canvas.draw_rect(DUNGEON_HISTORY_RECT, COLOR_PANEL_BORDER, false, 2.0)
 		return
@@ -147,6 +201,7 @@ static func draw_resource_bar(
 	maximum_value: int,
 	label: String,
 	fill_color: Color,
+	value_suffix := "",
 ) -> void:
 	canvas.draw_rect(rect, Color("10151d"))
 	var ratio := clampf(float(current_value) / float(maxi(1, maximum_value)), 0.0, 1.0)
@@ -155,7 +210,10 @@ static func draw_resource_bar(
 	_draw_centered_text(
 		canvas,
 		rect,
-		"%s  %d / %d" % [label, current_value, maximum_value],
+		"%s  %d / %d%s" % [
+			label, current_value, maximum_value,
+			("  %s" % value_suffix) if not value_suffix.is_empty() else "",
+		],
 		COLOR_TEXT,
 		15,
 	)
@@ -207,32 +265,48 @@ static func draw_character_sheet(
 	panel_mode: String,
 	selected_stage: String,
 ) -> void:
-	for x in [85.0, 465.0, 845.0]:
-		var card := Rect2(Vector2(x, 82), Vector2(350, 260))
-		canvas.draw_rect(Rect2(card.position + Vector2(0, 4), card.size), COLOR_PANEL_SHADOW)
-		canvas.draw_rect(card, COLOR_PANEL)
-		canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
+	if panel_mode == "inventory":
+		for card in [
+			CharacterSheetLayout.STATS_CARD_RECT,
+			CharacterSheetLayout.FIGURE_CARD_RECT,
+			CharacterSheetLayout.INVENTORY_CARD_RECT,
+		]:
+			canvas.draw_rect(Rect2(card.position + Vector2(0, 4), card.size), COLOR_PANEL_SHADOW)
+			canvas.draw_rect(card, COLOR_PANEL)
+			canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
+		var figure_rect: Rect2 = CharacterSheetLayout.FIGURE_RECT
+		canvas.draw_rect(figure_rect, Color("121720"))
+		var visual_form_id := player_visual_form_id(state)
+		var fullbody: Texture2D = FORM_FULLBODY.get(visual_form_id)
+		if fullbody != null:
+			canvas.draw_texture_rect_region(
+				fullbody,
+				figure_rect,
+				CharacterSheetLayout.FIGURE_SOURCE_RECT,
+				Color.WHITE,
+				false,
+				true,
+			)
+		canvas.draw_line(
+			Vector2(figure_rect.position.x + 24.0, CharacterSheetLayout.FIGURE_BASELINE_Y),
+			Vector2(figure_rect.end.x - 24.0, CharacterSheetLayout.FIGURE_BASELINE_Y),
+			Color(COLOR_PANEL_BORDER, 0.42), 1.0,
+		)
+		return
+
 	var skills_card := CHARACTER_SKILLS_CARD
 	canvas.draw_rect(Rect2(skills_card.position + Vector2(0, 5), skills_card.size), COLOR_PANEL_SHADOW)
 	canvas.draw_rect(skills_card, COLOR_PANEL)
 	canvas.draw_rect(skills_card, COLOR_PANEL_BORDER, false, 2.0)
-	canvas.draw_texture_rect(
-		SKELETON_EQUIPMENT_ART,
-		Rect2(Vector2(493, 121), Vector2(294, 196)),
-		false,
-		Color(1.0, 1.0, 1.0, 0.78),
-	)
-	if panel_mode == "inventory":
-		return
 	if selected_stage != "skeleton":
 		return
 	var node_edges := [
-		{"from": Vector2(325, 503), "to": Vector2(350, 503), "skill": "strong_bones"},
-		{"from": Vector2(570, 503), "to": Vector2(595, 503), "skill": "fundamentals"},
-		{"from": Vector2(815, 503), "to": Vector2(840, 503), "skill": "fundamentals"},
-		{"from": Vector2(325, 597), "to": Vector2(350, 597), "skill": "magic_awakening"},
-		{"from": Vector2(570, 597), "to": Vector2(595, 597), "skill": "magic_missile"},
-		{"from": Vector2(815, 597), "to": Vector2(840, 597), "skill": "magic_missile_range"},
+		{"from": Vector2(325, 311), "to": Vector2(350, 311), "skill": "strong_bones"},
+		{"from": Vector2(570, 311), "to": Vector2(595, 311), "skill": "fundamentals"},
+		{"from": Vector2(815, 311), "to": Vector2(840, 311), "skill": "fundamentals"},
+		{"from": Vector2(325, 455), "to": Vector2(350, 455), "skill": "magic_awakening"},
+		{"from": Vector2(570, 455), "to": Vector2(595, 455), "skill": "magic_missile"},
+		{"from": Vector2(815, 455), "to": Vector2(840, 455), "skill": "magic_missile_range"},
 	]
 	for edge in node_edges:
 		var edge_color := COLOR_PANEL_BORDER
@@ -252,7 +326,12 @@ static func draw_dungeon(
 	has_inspection: bool,
 	manual_inspection: bool,
 	ability_target_cells: Array[Vector2i] = [],
+	ability_unavailable_cells: Dictionary = {},
 	ability_target_cursor := Vector2i(-1, -1),
+	enemy_hit_flashes: Dictionary = {},
+	player_hit_flash_remaining := 0.0,
+	lethal_hit_afterimages: Array[Dictionary] = [],
+	hearing_contact_cells: Array[Vector2i] = [],
 ) -> void:
 	var tiles: Dictionary = floor_data["tiles"]
 	var boss_door: Vector2i = floor_data.get("boss_door", Vector2i(-1, -1))
@@ -293,11 +372,21 @@ static func draw_dungeon(
 					COLOR_FOG_WALL_MEMORY if tiles[cell] == "wall" else COLOR_FOG_MEMORY,
 				)
 	for target_cell in ability_target_cells:
-		var target_rect := cell_rect(target_cell).grow(-6)
-		canvas.draw_rect(target_rect, Color(0.22, 0.78, 0.74, 0.22))
-		canvas.draw_rect(target_rect, COLOR_SOUL, false, 4.0)
+		var target_rect := cell_rect(target_cell).grow(-4)
+		canvas.draw_rect(target_rect, Color(0.22, 0.78, 0.74, 0.11))
+		canvas.draw_rect(target_rect, COLOR_SOUL, false, 2.0)
+	for invalid_cell_variant in ability_unavailable_cells:
+		var invalid_cell: Vector2i = invalid_cell_variant
+		if String(ability_unavailable_cells[invalid_cell]) == "hidden":
+			continue
+		var invalid_rect := cell_rect(invalid_cell).grow(-5)
+		canvas.draw_rect(invalid_rect, Color(0.31, 0.35, 0.42, 0.09))
+		_draw_dashed_rect(canvas, invalid_rect, Color(0.46, 0.50, 0.58, 0.72), 1.0)
+		var invalid_center := invalid_rect.get_center()
+		canvas.draw_line(invalid_center - Vector2(3, 3), invalid_center + Vector2(3, 3), Color(0.58, 0.61, 0.67, 0.78), 1.0)
+		canvas.draw_line(invalid_center + Vector2(3, -3), invalid_center + Vector2(-3, 3), Color(0.58, 0.61, 0.67, 0.78), 1.0)
 	if ability_target_cursor.x >= 0:
-		canvas.draw_rect(cell_rect(ability_target_cursor).grow(-2), COLOR_GOLD, false, 5.0)
+		_draw_corner_ticks(canvas, cell_rect(ability_target_cursor).grow(-3), COLOR_GOLD, 2.0)
 
 	if _is_cell_observed(floor_data, floor_data["start"]):
 		_draw_marker(
@@ -341,34 +430,79 @@ static func draw_dungeon(
 			)
 	_draw_magic_traces(canvas, magic_traces)
 	_draw_projectile_traces(canvas, projectile_traces)
+	for hearing_cell in hearing_contact_cells:
+		if not HearingContactSystem.is_contact_presented(
+			true, floor_data, player_pos, hearing_cell,
+		):
+			continue
+		_draw_hearing_contact(canvas, hearing_cell)
 
 	for enemy in floor_data["enemies"]:
 		if not _is_cell_visible(floor_data, enemy["pos"]):
 			continue
 		var enemy_rules: Dictionary = Rules.ENEMIES[enemy["id"]]
-		var rect := cell_rect(enemy["pos"]).grow(-8)
-		var draw_scale := float(enemy_rules.get("draw_scale", 1.0))
-		canvas.draw_circle(rect.get_center() + Vector2(0, 6), 18, Color(0.02, 0.025, 0.035, 0.72))
-		canvas.draw_circle(rect.get_center(), 24, Color(Color(enemy_rules["color"]), 0.30))
+		var rect := cell_rect(enemy["pos"]).grow(-runtime_cell_size * 0.12)
+		var footprint: Vector2 = enemy_rules.get("draw_footprint", Vector2.ONE)
+		var shadow_center := cell_rect(enemy["pos"]).get_center() + Vector2(0, runtime_cell_size * 0.30)
+		_draw_ellipse(
+			canvas, shadow_center,
+			Vector2(runtime_cell_size * 0.28, runtime_cell_size * 0.09),
+			Color(0.02, 0.025, 0.035, 0.58),
+		)
 		var enemy_texture: Texture2D = ENEMY_SPRITES.get(String(enemy["id"]))
+		var flash_remaining := float(enemy_hit_flashes.get(String(enemy.get("uid", "")), 0.0))
 		if enemy_texture != null:
-			_draw_entity_sprite(canvas, enemy_texture, enemy["pos"], draw_scale)
+			_draw_entity_sprite(
+				canvas, enemy_texture, enemy["pos"], footprint,
+				_hit_flash_modulate(flash_remaining),
+			)
 		else:
 			_draw_centered_text(canvas, rect, Loc.text(String(enemy_rules["glyph"])), Color.WHITE, 28)
-		_draw_health_bar(canvas, enemy["pos"], int(enemy["hp"]), int(enemy["max_hp"]))
 
-	if has_inspection:
+	for afterimage in lethal_hit_afterimages:
+		var afterimage_cell: Vector2i = afterimage.get("pos", Vector2i(-1, -1))
+		if afterimage_cell.x < 0 or not _is_cell_visible(floor_data, afterimage_cell):
+			continue
+		var afterimage_texture: Texture2D = ENEMY_SPRITES.get(String(afterimage.get("enemy_id", "")))
+		if afterimage_texture == null:
+			continue
+		var afterimage_duration := maxf(0.001, float(afterimage.get("duration", 0.22)))
+		var afterimage_alpha := 0.55 * clampf(
+			float(afterimage.get("remaining", 0.0)) / afterimage_duration, 0.0, 1.0,
+		)
+		var afterimage_rules: Dictionary = Rules.ENEMIES.get(
+			String(afterimage.get("enemy_id", "")), {},
+		)
+		_draw_entity_sprite(
+			canvas,
+			afterimage_texture,
+			afterimage_cell,
+			afterimage_rules.get("draw_footprint", Vector2.ONE),
+			Color(1.0, 0.12, 0.12, afterimage_alpha),
+		)
+
+	if has_inspection and manual_inspection and _is_cell_visible(floor_data, inspection_cell):
 		var inspection_color := COLOR_GOLD if manual_inspection else COLOR_SOUL
-		canvas.draw_rect(cell_rect(inspection_cell).grow(-4), inspection_color, false, 4.0)
+		canvas.draw_rect(cell_rect(inspection_cell).grow(-2), inspection_color, false, SELECTION_BORDER_WIDTH)
 
-	var player_rect := cell_rect(player_pos).grow(-8)
-	canvas.draw_circle(player_rect.get_center() + Vector2(0, 6), 18, Color(0.02, 0.025, 0.035, 0.72))
-	canvas.draw_circle(player_rect.get_center(), 22, Color(Color(state.get_form()["color"]), 0.38))
-	canvas.draw_circle(player_rect.get_center(), 28, COLOR_PLAYER_RING, false, 4.0, true)
-	if state.current_form_id == "skeleton":
-		_draw_entity_sprite(canvas, PLAYER_SKELETON_SPRITE, player_pos)
-	else:
-		_draw_centered_text(canvas, player_rect, Loc.text("GLYPH_PLAYER"), Color("17202b"), 28)
+	var visual_form_id := player_visual_form_id(state)
+	var player_cell_rect := cell_rect(player_pos)
+	_draw_ellipse(
+		canvas,
+		player_cell_rect.position + Vector2(runtime_cell_size * 0.5, runtime_cell_size * 0.90),
+		Vector2(runtime_cell_size, runtime_cell_size) * PLAYER_FOOT_GLOW_FOOTPRINT * 0.5,
+		Color(COLOR_PLAYER_RING, PLAYER_FOOT_GLOW_ALPHA),
+	)
+	var player_texture: Texture2D = PLAYER_SPRITES.get(visual_form_id)
+	if player_texture != null:
+		_draw_entity_sprite(
+			canvas, player_texture, player_pos, Vector2.ONE,
+			_hit_flash_modulate(player_hit_flash_remaining),
+		)
+
+
+static func player_visual_form_id(state: RunState) -> String:
+	return state.get_display_form_id()
 
 
 static func draw_base(canvas: CanvasItem, state: RunState = null) -> void:
@@ -426,8 +560,17 @@ static func draw_victory(canvas: CanvasItem) -> void:
 	)
 
 
-static func cell_rect(cell: Vector2i) -> Rect2:
-	return Rect2(Vector2(cell) * CELL_SIZE, Vector2(CELL_SIZE, CELL_SIZE))
+static func set_runtime_cell_size(value: int) -> void:
+	runtime_cell_size = PresentationSettings.sanitize_cell_size(value)
+
+
+static func cell_rect(cell: Vector2i, cell_size := -1) -> Rect2:
+	var resolved_size := (
+		runtime_cell_size
+		if cell_size <= 0
+		else PresentationSettings.sanitize_cell_size(cell_size)
+	)
+	return Rect2(Vector2(cell) * resolved_size, Vector2(resolved_size, resolved_size))
 
 
 static func _draw_dungeon_texture(
@@ -479,31 +622,34 @@ static func _draw_chest_sprite(canvas: CanvasItem, cell: Vector2i, visible_now: 
 		if visible_now
 		else Color(0.34, 0.37, 0.42, 0.82)
 	)
-	_draw_entity_sprite(canvas, DUNGEON_CHEST_SPRITE, cell, 0.88, modulate)
+	_draw_entity_sprite(canvas, DUNGEON_CHEST_SPRITE, cell, Vector2(0.88, 0.88), modulate)
 
 
 static func _draw_entity_sprite(
 	canvas: CanvasItem,
 	texture: Texture2D,
 	cell: Vector2i,
-	draw_scale := 1.0,
+	visual_footprint := Vector2.ONE,
 	modulate := Color.WHITE,
 ) -> void:
 	var source_size := texture.get_size()
 	if source_size.x <= 0.0 or source_size.y <= 0.0:
 		return
-	var available_size := Vector2(CELL_SIZE - 4, CELL_SIZE - 4) * maxf(0.1, draw_scale)
+	var footprint := Vector2(
+		clampf(visual_footprint.x, 0.1, 1.5),
+		clampf(visual_footprint.y, 0.1, 2.0),
+	)
+	var available_size := Vector2(runtime_cell_size, runtime_cell_size) * footprint - Vector2(4, 4)
 	var scale_ratio := minf(
 		available_size.x / source_size.x,
 		available_size.y / source_size.y,
 	)
 	var draw_size := source_size * scale_ratio
 	var logical_rect := cell_rect(cell)
-	var draw_position := logical_rect.get_center() - draw_size * 0.5
-	if draw_scale > 1.0:
-		# Oversized bosses still stand on one logical cell. Anchoring their feet to
-		# that cell makes the larger art clear without changing pathfinding.
-		draw_position.y = logical_rect.end.y - draw_size.y - 2.0
+	var draw_position := Vector2(
+		logical_rect.get_center().x - draw_size.x * 0.5,
+		logical_rect.end.y - draw_size.y - 2.0,
+	)
 	var draw_rect := Rect2(draw_position, draw_size)
 	canvas.draw_texture_rect(texture, draw_rect, false, modulate)
 
@@ -664,17 +810,110 @@ static func _draw_marker(canvas: CanvasItem, cell: Vector2i, glyph: String, colo
 	_draw_centered_text(canvas, rect, glyph, Color.WHITE, 28)
 
 
-static func _draw_health_bar(
-	canvas: CanvasItem,
+## Compatibility probe retained for renderer tests; presentation and input both
+## use HearingContactSystem.is_contact_presented as the authoritative policy.
+static func _hearing_cell_has_visible_occupant(
+	floor_data: Dictionary,
+	player_pos: Vector2i,
 	cell: Vector2i,
-	hp_value: int,
-	max_hp_value: int,
+) -> bool:
+	return not HearingContactSystem.is_contact_presented(true, floor_data, player_pos, cell)
+
+
+static func _draw_hearing_contact(canvas: CanvasItem, cell: Vector2i) -> void:
+	var center := cell_rect(cell).get_center()
+	canvas.draw_circle(center, HEARING_MARKER_RADIUS, Color(0.063, 0.082, 0.114, 0.94))
+	canvas.draw_arc(
+		center, HEARING_MARKER_RADIUS, 0.0, TAU, 32,
+		Color(0.604, 0.639, 0.698, 0.82), HEARING_MARKER_OUTLINE_WIDTH, true,
+	)
+	var font := ThemeDB.fallback_font
+	var glyph := "?"
+	var glyph_size := font.get_string_size(
+		glyph, HORIZONTAL_ALIGNMENT_LEFT, -1.0, HEARING_MARKER_FONT_SIZE,
+	)
+	var baseline := center + Vector2(
+		-glyph_size.x * 0.5,
+		(font.get_ascent(HEARING_MARKER_FONT_SIZE) - font.get_descent(HEARING_MARKER_FONT_SIZE)) * 0.5,
+	)
+	canvas.draw_string(
+		font, baseline, glyph, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+		HEARING_MARKER_FONT_SIZE, Color(0.902, 0.886, 0.847, 0.98),
+	)
+
+
+static func _draw_dashed_rect(
+	canvas: CanvasItem,
+	rect: Rect2,
+	color: Color,
+	width: float,
 ) -> void:
-	var rect := cell_rect(cell)
-	var background := Rect2(rect.position + Vector2(8, 52), Vector2(CELL_SIZE - 16, 8))
-	canvas.draw_rect(background, Color("401f25"))
-	var width := background.size.x * float(hp_value) / float(max_hp_value)
-	canvas.draw_rect(Rect2(background.position, Vector2(width, background.size.y)), COLOR_DANGER)
+	var corners := [
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	]
+	for index in range(corners.size()):
+		_draw_dashed_segment(canvas, corners[index], corners[(index + 1) % 4], color, width)
+
+
+static func _draw_dashed_segment(
+	canvas: CanvasItem,
+	from: Vector2,
+	to: Vector2,
+	color: Color,
+	width: float,
+) -> void:
+	var length := from.distance_to(to)
+	if length <= 0.0:
+		return
+	var direction := (to - from) / length
+	var offset := 0.0
+	while offset < length:
+		var dash_end := minf(offset + 3.0, length)
+		canvas.draw_line(from + direction * offset, from + direction * dash_end, color, width)
+		offset += 6.0
+
+
+static func _draw_corner_ticks(
+	canvas: CanvasItem,
+	rect: Rect2,
+	color: Color,
+	width: float,
+) -> void:
+	var tick := minf(8.0, minf(rect.size.x, rect.size.y) * 0.22)
+	var left := rect.position.x
+	var top := rect.position.y
+	var right := rect.end.x
+	var bottom := rect.end.y
+	for segment in [
+		[Vector2(left, top + tick), Vector2(left, top), Vector2(left + tick, top)],
+		[Vector2(right - tick, top), Vector2(right, top), Vector2(right, top + tick)],
+		[Vector2(right, bottom - tick), Vector2(right, bottom), Vector2(right - tick, bottom)],
+		[Vector2(left + tick, bottom), Vector2(left, bottom), Vector2(left, bottom - tick)],
+	]:
+		canvas.draw_polyline(PackedVector2Array(segment), color, width)
+
+
+static func _draw_ellipse(
+	canvas: CanvasItem,
+	center: Vector2,
+	radius: Vector2,
+	color: Color,
+) -> void:
+	canvas.draw_set_transform(center, 0.0, radius)
+	canvas.draw_circle(Vector2.ZERO, 1.0, color)
+	canvas.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+static func _hit_flash_modulate(remaining: float) -> Color:
+	if remaining <= 0.0:
+		return Color.WHITE
+	var strength := clampf(remaining / 0.18, 0.0, 1.0)
+	if remaining >= 0.13:
+		strength = 1.0
+	return Color(1.0 + 0.30 * strength, 1.0 - 0.72 * strength, 1.0 - 0.72 * strength, 1.0)
 
 
 static func _draw_centered_text(

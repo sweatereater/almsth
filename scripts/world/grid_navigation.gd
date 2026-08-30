@@ -73,9 +73,13 @@ static func next_step(
 	return step
 
 
-static func has_clear_line(tiles: Dictionary, from: Vector2i, to: Vector2i) -> bool:
+static func supercover_trace(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	## Deterministic grid supercover shared by sight, projectiles and movement
+	## abilities. Corner crossings include both touched flank cells, so callers do
+	## not accidentally allow passage through a one-pixel diagonal gap.
+	var result: Array[Vector2i] = [from]
 	if from == to:
-		return true
+		return result
 	var delta := to - from
 	var step_x := signi(delta.x)
 	var step_y := signi(delta.y)
@@ -90,11 +94,10 @@ static func has_clear_line(tiles: Dictionary, from: Vector2i, to: Vector2i) -> b
 			- (1 + 2 * crossed_y) * count_x
 		)
 		if decision == 0:
-			# Either opaque side of a diagonal corner blocks a one-pixel gap.
 			var horizontal := cell + Vector2i(step_x, 0)
 			var vertical := cell + Vector2i(0, step_y)
-			if _cell_blocks_line(tiles, horizontal, to) or _cell_blocks_line(tiles, vertical, to):
-				return false
+			_append_trace_cell(result, horizontal)
+			_append_trace_cell(result, vertical)
 			cell += Vector2i(step_x, step_y)
 			crossed_x += 1
 			crossed_y += 1
@@ -104,9 +107,36 @@ static func has_clear_line(tiles: Dictionary, from: Vector2i, to: Vector2i) -> b
 		else:
 			cell.y += step_y
 			crossed_y += 1
-		if _cell_blocks_line(tiles, cell, to):
-			return false
-	return true
+		_append_trace_cell(result, cell)
+	return result
+
+
+static func line_blocker(
+	tiles: Dictionary,
+	from: Vector2i,
+	to: Vector2i,
+	occupied_blockers: Dictionary = {},
+) -> Dictionary:
+	var trace := supercover_trace(from, to)
+	for index in range(1, trace.size()):
+		var cell := trace[index]
+		if bool(occupied_blockers.get(cell, false)):
+			return {"kind": "occupied", "cell": cell}
+		# Preserve projectile/vision behavior: their target may contain an actor,
+		# while only intermediate opaque tiles block. Movement abilities validate
+		# their endpoint tile separately.
+		if cell != to and tiles.get(cell, "void") != "floor":
+			return {"kind": "tile", "cell": cell}
+	return {}
+
+
+static func has_clear_line(
+	tiles: Dictionary,
+	from: Vector2i,
+	to: Vector2i,
+	occupied_blockers: Dictionary = {},
+) -> bool:
+	return line_blocker(tiles, from, to, occupied_blockers).is_empty()
 
 
 static func _reconstruct_path(
@@ -124,5 +154,6 @@ static func _reconstruct_path(
 	return path
 
 
-static func _cell_blocks_line(tiles: Dictionary, cell: Vector2i, target: Vector2i) -> bool:
-	return cell != target and tiles.get(cell, "void") != "floor"
+static func _append_trace_cell(trace: Array[Vector2i], cell: Vector2i) -> void:
+	if not trace.has(cell):
+		trace.append(cell)

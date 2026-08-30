@@ -1,6 +1,7 @@
 {
   "abilities": [
     {
+      "cooldown": 0,
       "id": "basic_attack",
       "name": {
         "en": "Basic Attack",
@@ -11,6 +12,18 @@
       "target_kind": "adjacent_enemy"
     },
     {
+      "cooldown": 0,
+      "id": "choose_appearance",
+      "name": {
+        "en": "Choose Appearance",
+        "ru": "Выбор облика"
+      },
+      "required_stage": "almost_human",
+      "slot_kind": "active",
+      "target_kind": "appearance_choice"
+    },
+    {
+      "cooldown": 0,
       "id": "circular_attack",
       "name": {
         "en": "Circular Attack",
@@ -21,6 +34,7 @@
       "target_kind": "adjacent_area"
     },
     {
+      "cooldown": 20,
       "id": "dash",
       "name": {
         "en": "Dash",
@@ -31,6 +45,7 @@
       "target_kind": "dash_cell"
     },
     {
+      "cooldown": 15,
       "id": "double_attack",
       "name": {
         "en": "Double Attack",
@@ -41,6 +56,7 @@
       "target_kind": "adjacent_enemy"
     },
     {
+      "cooldown": 0,
       "id": "magic_missile",
       "name": {
         "en": "Magic Missile",
@@ -102,12 +118,13 @@
     }
   ],
   "counts": {
-    "abilities": 5,
+    "abilities": 6,
     "camp_upgrades": 4,
     "enemies": 5,
-    "equipment": 8,
+    "equipment": 9,
     "forms": 5,
-    "skills": 12
+    "skills": 13,
+    "statuses": 1
   },
   "enemies": [
     {
@@ -243,6 +260,7 @@
   },
   "equipment": [
     {
+      "category": "weapon",
       "id": "bone_bow",
       "min_depth": 0,
       "name": {
@@ -253,7 +271,9 @@
         "cloth": 1,
         "wood": 2
       },
-      "slot": "weapon",
+      "slots": [
+        "right_hand"
+      ],
       "stats": {
         "range": 5,
         "ranged_damage": 1,
@@ -261,6 +281,7 @@
       }
     },
     {
+      "category": "weapon",
       "id": "bone_knife",
       "min_depth": 0,
       "name": {
@@ -271,13 +292,16 @@
         "stone": 1,
         "wood": 1
       },
-      "slot": "weapon",
+      "slots": [
+        "right_hand"
+      ],
       "stats": {
         "accuracy": 1,
         "damage": 1
       }
     },
     {
+      "category": "weapon",
       "id": "grave_mace",
       "min_depth": 8,
       "name": {
@@ -288,13 +312,16 @@
         "stone": 2,
         "wood": 1
       },
-      "slot": "weapon",
+      "slots": [
+        "right_hand"
+      ],
       "stats": {
         "accuracy": -1,
         "damage": 2
       }
     },
     {
+      "category": "offhand",
       "id": "hollow_lantern",
       "min_depth": 18,
       "name": {
@@ -305,7 +332,9 @@
         "stone": 1,
         "wood": 1
       },
-      "slot": "relic",
+      "slots": [
+        "left_hand"
+      ],
       "stats": {
         "mana": 10,
         "max_hp": 2,
@@ -314,6 +343,7 @@
       }
     },
     {
+      "category": "hands",
       "id": "leather_gloves",
       "min_depth": 10,
       "name": {
@@ -323,13 +353,16 @@
       "salvage": {
         "cloth": 1
       },
-      "slot": "hands",
+      "slots": [
+        "hands"
+      ],
       "stats": {
         "accuracy": 1,
         "max_hp": 1
       }
     },
     {
+      "category": "offhand",
       "id": "pilgrim_shield",
       "min_depth": 28,
       "name": {
@@ -340,13 +373,16 @@
         "stone": 1,
         "wood": 2
       },
-      "slot": "offhand",
+      "slots": [
+        "left_hand"
+      ],
       "stats": {
         "dodge": -1,
         "max_hp": 4
       }
     },
     {
+      "category": "body",
       "id": "rotting_mail",
       "min_depth": 3,
       "name": {
@@ -356,13 +392,16 @@
       "salvage": {
         "cloth": 2
       },
-      "slot": "armor",
+      "slots": [
+        "body"
+      ],
       "stats": {
         "dodge": -1,
         "max_hp": 3
       }
     },
     {
+      "category": "talisman",
       "id": "soul_locket",
       "min_depth": 0,
       "name": {
@@ -372,11 +411,29 @@
       "salvage": {
         "stone": 1
       },
-      "slot": "charm",
+      "slots": [
+        "talisman"
+      ],
       "stats": {
         "mana": 5,
         "soul_bonus": 1,
         "spell_power": 1
+      }
+    },
+    {
+      "category": "body",
+      "id": "unexpectedly_comfortable_jacket",
+      "min_depth": 0,
+      "name": {
+        "en": "Cozy Jacket",
+        "ru": "Уютный пиджак"
+      },
+      "salvage": {},
+      "slots": [
+        "jacket"
+      ],
+      "stats": {
+        "soul_level_bonus": 1
       }
     }
   ],
@@ -391,22 +448,39 @@
         "ru": "Скелет"
       },
       "regeneration": 0,
+      "required_soul_level": 1,
       "slot_ids": [
-        "weapon",
-        "charm"
+        "jacket",
+        "right_hand",
+        "left_hand",
+        "talisman"
       ],
       "slots": [
         {
-          "id": "weapon",
+          "id": "jacket",
           "name": {
-            "en": "Weapon",
-            "ru": "Оружие"
+            "en": "Cloak",
+            "ru": "Плащ"
           }
         },
         {
-          "id": "charm",
+          "id": "right_hand",
           "name": {
-            "en": "Charm",
+            "en": "Right hand",
+            "ru": "Правая рука"
+          }
+        },
+        {
+          "id": "left_hand",
+          "name": {
+            "en": "Left hand",
+            "ru": "Левая рука"
+          }
+        },
+        {
+          "id": "talisman",
+          "name": {
+            "en": "Talisman",
             "ru": "Талисман"
           }
         }
@@ -423,31 +497,56 @@
         "ru": "Зомби"
       },
       "regeneration": 1,
+      "required_soul_level": 1,
       "slot_ids": [
-        "weapon",
-        "charm",
-        "armor"
+        "jacket",
+        "right_hand",
+        "left_hand",
+        "talisman",
+        "feet",
+        "head"
       ],
       "slots": [
         {
-          "id": "weapon",
+          "id": "jacket",
           "name": {
-            "en": "Weapon",
-            "ru": "Оружие"
+            "en": "Cloak",
+            "ru": "Плащ"
           }
         },
         {
-          "id": "charm",
+          "id": "right_hand",
           "name": {
-            "en": "Charm",
+            "en": "Right hand",
+            "ru": "Правая рука"
+          }
+        },
+        {
+          "id": "left_hand",
+          "name": {
+            "en": "Left hand",
+            "ru": "Левая рука"
+          }
+        },
+        {
+          "id": "talisman",
+          "name": {
+            "en": "Talisman",
             "ru": "Талисман"
           }
         },
         {
-          "id": "armor",
+          "id": "feet",
           "name": {
-            "en": "Armor",
-            "ru": "Броня"
+            "en": "Footwear",
+            "ru": "Обувь"
+          }
+        },
+        {
+          "id": "head",
+          "name": {
+            "en": "Helmet",
+            "ru": "Шлем"
           }
         }
       ],
@@ -463,32 +562,73 @@
         "ru": "Гуль"
       },
       "regeneration": 1,
+      "required_soul_level": 2,
       "slot_ids": [
-        "weapon",
-        "charm",
-        "armor",
+        "jacket",
+        "right_hand",
+        "left_hand",
+        "talisman",
+        "feet",
+        "head",
+        "body",
+        "legs",
         "hands"
       ],
       "slots": [
         {
-          "id": "weapon",
+          "id": "jacket",
           "name": {
-            "en": "Weapon",
-            "ru": "Оружие"
+            "en": "Cloak",
+            "ru": "Плащ"
           }
         },
         {
-          "id": "charm",
+          "id": "right_hand",
           "name": {
-            "en": "Charm",
+            "en": "Right hand",
+            "ru": "Правая рука"
+          }
+        },
+        {
+          "id": "left_hand",
+          "name": {
+            "en": "Left hand",
+            "ru": "Левая рука"
+          }
+        },
+        {
+          "id": "talisman",
+          "name": {
+            "en": "Talisman",
             "ru": "Талисман"
           }
         },
         {
-          "id": "armor",
+          "id": "feet",
           "name": {
-            "en": "Armor",
-            "ru": "Броня"
+            "en": "Footwear",
+            "ru": "Обувь"
+          }
+        },
+        {
+          "id": "head",
+          "name": {
+            "en": "Helmet",
+            "ru": "Шлем"
+          }
+        },
+        {
+          "id": "body",
+          "name": {
+            "en": "Body",
+            "ru": "Тело"
+          }
+        },
+        {
+          "id": "legs",
+          "name": {
+            "en": "Legs",
+            "ru": "Поножи"
           }
         },
         {
@@ -511,33 +651,74 @@
         "ru": "Ревенант"
       },
       "regeneration": 1,
+      "required_soul_level": 3,
       "slot_ids": [
-        "weapon",
-        "charm",
-        "armor",
+        "jacket",
+        "right_hand",
+        "left_hand",
+        "talisman",
+        "feet",
+        "head",
+        "body",
+        "legs",
         "hands",
-        "relic"
+        "back"
       ],
       "slots": [
         {
-          "id": "weapon",
+          "id": "jacket",
           "name": {
-            "en": "Weapon",
-            "ru": "Оружие"
+            "en": "Cloak",
+            "ru": "Плащ"
           }
         },
         {
-          "id": "charm",
+          "id": "right_hand",
           "name": {
-            "en": "Charm",
+            "en": "Right hand",
+            "ru": "Правая рука"
+          }
+        },
+        {
+          "id": "left_hand",
+          "name": {
+            "en": "Left hand",
+            "ru": "Левая рука"
+          }
+        },
+        {
+          "id": "talisman",
+          "name": {
+            "en": "Talisman",
             "ru": "Талисман"
           }
         },
         {
-          "id": "armor",
+          "id": "feet",
           "name": {
-            "en": "Armor",
-            "ru": "Броня"
+            "en": "Footwear",
+            "ru": "Обувь"
+          }
+        },
+        {
+          "id": "head",
+          "name": {
+            "en": "Helmet",
+            "ru": "Шлем"
+          }
+        },
+        {
+          "id": "body",
+          "name": {
+            "en": "Body",
+            "ru": "Тело"
+          }
+        },
+        {
+          "id": "legs",
+          "name": {
+            "en": "Legs",
+            "ru": "Поножи"
           }
         },
         {
@@ -548,10 +729,10 @@
           }
         },
         {
-          "id": "relic",
+          "id": "back",
           "name": {
-            "en": "Relic",
-            "ru": "Реликвия"
+            "en": "Backpack",
+            "ru": "Рюкзак"
           }
         }
       ],
@@ -567,34 +748,34 @@
         "ru": "Почти человек"
       },
       "regeneration": 1,
+      "required_soul_level": 4,
       "slot_ids": [
-        "weapon",
-        "charm",
-        "armor",
+        "head",
+        "body",
         "hands",
-        "relic",
-        "offhand"
+        "legs",
+        "feet",
+        "ring_1",
+        "jacket",
+        "talisman",
+        "back",
+        "right_hand",
+        "left_hand",
+        "ring_2"
       ],
       "slots": [
         {
-          "id": "weapon",
+          "id": "head",
           "name": {
-            "en": "Weapon",
-            "ru": "Оружие"
+            "en": "Helmet",
+            "ru": "Шлем"
           }
         },
         {
-          "id": "charm",
+          "id": "body",
           "name": {
-            "en": "Charm",
-            "ru": "Талисман"
-          }
-        },
-        {
-          "id": "armor",
-          "name": {
-            "en": "Armor",
-            "ru": "Броня"
+            "en": "Body",
+            "ru": "Тело"
           }
         },
         {
@@ -605,17 +786,66 @@
           }
         },
         {
-          "id": "relic",
+          "id": "legs",
           "name": {
-            "en": "Relic",
-            "ru": "Реликвия"
+            "en": "Legs",
+            "ru": "Поножи"
           }
         },
         {
-          "id": "offhand",
+          "id": "feet",
           "name": {
-            "en": "Off hand",
-            "ru": "Вторая рука"
+            "en": "Footwear",
+            "ru": "Обувь"
+          }
+        },
+        {
+          "id": "ring_1",
+          "name": {
+            "en": "Ring 1",
+            "ru": "Кольцо 1"
+          }
+        },
+        {
+          "id": "jacket",
+          "name": {
+            "en": "Cloak",
+            "ru": "Плащ"
+          }
+        },
+        {
+          "id": "talisman",
+          "name": {
+            "en": "Talisman",
+            "ru": "Талисман"
+          }
+        },
+        {
+          "id": "back",
+          "name": {
+            "en": "Backpack",
+            "ru": "Рюкзак"
+          }
+        },
+        {
+          "id": "right_hand",
+          "name": {
+            "en": "Right hand",
+            "ru": "Правая рука"
+          }
+        },
+        {
+          "id": "left_hand",
+          "name": {
+            "en": "Left hand",
+            "ru": "Левая рука"
+          }
+        },
+        {
+          "id": "ring_2",
+          "name": {
+            "en": "Ring 2",
+            "ru": "Кольцо 2"
           }
         }
       ],
@@ -625,12 +855,13 @@
   "generated_from": [
     "scripts/game/game_rules.gd",
     "scripts/game/skill_system.gd",
+    "scripts/game/status_system.gd",
     "scripts/localization/localization.gd",
     "scripts/world/floor_generator.gd",
     "scripts/world/fixed_floor_90.gd"
   ],
   "rule_constants": {
-    "campfire_max_hp_bonus": 1,
+    "campfire_soul_level_bonus": 1,
     "cradle_base_chance": 0.05,
     "cradle_miss_bonus": 0.05,
     "item_binding_soul_cost": 25,
@@ -643,8 +874,10 @@
     "magic_ricochet_range": 4,
     "mana_regeneration_base_percent": 2,
     "mana_regeneration_wisdom_step": 5,
+    "player_hearing_radius_offset": 1,
     "player_vision_base_radius": 4,
     "sharp_vision_bonus_per_level": 1,
+    "soul_level_start": 1,
     "weapon_upgrade_chances": {
       "1": 1.0,
       "2": 0.5,
@@ -690,6 +923,27 @@
       "stage": "almost_human"
     },
     {
+      "ability_id": "choose_appearance",
+      "base_cost": 100,
+      "cost_step": 0,
+      "costs": [
+        100
+      ],
+      "description": {
+        "en": "Choose the appearance of any unlocked body form",
+        "ru": "Позволяет выбрать облик любой открытой формы"
+      },
+      "id": "choose_appearance",
+      "kind": "active",
+      "max_level": 1,
+      "name": {
+        "en": "Choose Appearance",
+        "ru": "Выбор облика"
+      },
+      "requires": {},
+      "stage": "almost_human"
+    },
+    {
       "ability_id": "circular_attack",
       "base_cost": 100,
       "cost_step": 0,
@@ -718,8 +972,8 @@
         50
       ],
       "description": {
-        "en": "Move 1–3 cells in a straight line, including diagonals",
-        "ru": "1–3 клетки по прямой, включая диагонали"
+        "en": "Move up to 3 cells in any direction along a clear line",
+        "ru": "До 3 клеток в любом направлении по свободной линии"
       },
       "id": "dash",
       "kind": "active",
@@ -942,6 +1196,32 @@
       },
       "requires": {},
       "stage": "skeleton"
+    }
+  ],
+  "statuses": [
+    {
+      "cooldown_reduction": {
+        "dash": 10,
+        "double_attack": 5
+      },
+      "default_duration": 500,
+      "description": {
+        "en": "+5 temporary HP · +1 physical damage · faster Dash and Double Attack",
+        "ru": "+5 временного HP · +1 физический урон · ускорение Рывка и Двойной атаки"
+      },
+      "icon": "rested_ember",
+      "id": "rested",
+      "max_duration": 500,
+      "modifiers": {
+        "damage": 1,
+        "ranged_damage": 1
+      },
+      "name": {
+        "en": "Rested",
+        "ru": "Отдохнувший"
+      },
+      "priority": 100,
+      "temporary_hp_grant": 5
     }
   ]
 }

@@ -7,9 +7,16 @@ const RegressionSuite := preload("res://tests/regression_test.gd")
 const AbilitySuite := preload("res://tests/ability_test.gd")
 const RangedCombatSuite := preload("res://tests/ranged_combat_test.gd")
 const InventoryUiSuite := preload("res://tests/inventory_ui_test.gd")
+const SkillTreeUiSuite := preload("res://tests/skill_tree_ui_test.gd")
 const RitualCampSuite := preload("res://tests/ritual_camp_test.gd")
 const AudioSuite := preload("res://tests/audio_test.gd")
 const DungeonViewportSuite := preload("res://tests/dungeon_viewport_test.gd")
+const SaveSlotsSuite := preload("res://tests/save_slots_test.gd")
+const SoulLevelSuite := preload("res://tests/soul_level_test.gd")
+const AppearanceSuite := preload("res://tests/appearance_test.gd")
+const VisualOverhaulSuite := preload("res://tests/visual_overhaul_test.gd")
+const StatusCooldownSuite := preload("res://tests/status_cooldown_test.gd")
+const HearingContactSuite := preload("res://tests/hearing_contact_test.gd")
 const WikiContractSuite := preload("res://tests/wiki_contract_test.gd")
 
 var failures: Array[String] = []
@@ -32,12 +39,26 @@ func _run() -> void:
 	failures.append_array(ranged_failures)
 	var inventory_ui_failures: Array[String] = await InventoryUiSuite.new().run(self)
 	failures.append_array(inventory_ui_failures)
+	var skill_tree_ui_failures: Array[String] = await SkillTreeUiSuite.new().run(self)
+	failures.append_array(skill_tree_ui_failures)
 	var ritual_camp_failures: Array[String] = await RitualCampSuite.new().run(self)
 	failures.append_array(ritual_camp_failures)
 	var audio_failures: Array[String] = await AudioSuite.new().run(self)
 	failures.append_array(audio_failures)
 	var dungeon_viewport_failures: Array[String] = await DungeonViewportSuite.new().run(self)
 	failures.append_array(dungeon_viewport_failures)
+	var save_slots_failures: Array[String] = await SaveSlotsSuite.new().run(self)
+	failures.append_array(save_slots_failures)
+	var soul_level_failures: Array[String] = await SoulLevelSuite.new().run(self)
+	failures.append_array(soul_level_failures)
+	var appearance_failures: Array[String] = await AppearanceSuite.new().run(self)
+	failures.append_array(appearance_failures)
+	var visual_overhaul_failures: Array[String] = await VisualOverhaulSuite.new().run(self)
+	failures.append_array(visual_overhaul_failures)
+	var status_cooldown_failures: Array[String] = await StatusCooldownSuite.new().run(self)
+	failures.append_array(status_cooldown_failures)
+	var hearing_contact_failures: Array[String] = await HearingContactSuite.new().run(self)
+	failures.append_array(hearing_contact_failures)
 	var wiki_contract_failures: Array[String] = WikiContractSuite.new().run(self)
 	failures.append_array(wiki_contract_failures)
 	await _test_main_scene()
@@ -150,7 +171,7 @@ func _test_run_state() -> void:
 		{"hands": GameRules.make_item_key("leather_gloves")},
 	)
 	_expect(
-		glove_rules["slot"] == "hands"
+		GameRules.compatible_slots("leather_gloves") == ["hands"]
 		and glove_rules["damage"] == 0
 		and ghoul_with_gloves["damage"] == ghoul_without_gloves["damage"],
 		"Leather Gloves must occupy hands and grant no damage",
@@ -266,8 +287,8 @@ func _test_run_state() -> void:
 	_expect(run.current_form_id == "zombie", "A Cradle must advance exactly to the next form")
 	_expect(run.carried_souls == 2, "Evolution cost must be removed from carried souls")
 
-	var equipment := run.equip("rotting_mail")
-	_expect(equipment["ok"], "Zombie form must be able to equip armor")
+	var equipment := run.equip("pilgrim_shield")
+	_expect(equipment["ok"], "Zombie form must retain the inherited left-hand slot")
 	run.current_floor = 87
 	var delivered := run.safe_return()
 	_expect(delivered == 2 and run.banked_souls == 2, "Safe return must bank every carried soul")
@@ -284,7 +305,10 @@ func _test_run_state() -> void:
 	_expect(losses["souls"] == 3, "Death must report unbanked souls as lost")
 	_expect(run.banked_souls == 2, "Death must never remove banked souls")
 	_expect(run.current_form_id == "skeleton", "Death must rebuild the player as a skeleton")
-	_expect(run.loadout.is_empty(), "Death must remove equipped gear")
+	_expect(
+		run.loadout == {GameRules.PERMANENT_JACKET_SLOT_ID: GameRules.permanent_jacket_key()},
+		"Death must remove expedition gear while retaining the permanent jacket",
+	)
 	_expect(run.cradle_miss_streak == 0, "Death must reset accumulated Cradle chance")
 
 	var inventory_run := RunState.new()
@@ -296,10 +320,10 @@ func _test_run_state() -> void:
 	_expect(inventory_run.equip_from_inventory(knife_key)["ok"], "Inventory equipment must move into a body slot")
 	_expect(
 		inventory_run.inventory.get(knife_key, 0) == 1
-		and inventory_run.loadout.get("weapon", "") == knife_key,
+		and inventory_run.loadout.get("right_hand", "") == knife_key,
 		"Equipping must consume one stack entry without duplicating it",
 	)
-	_expect(inventory_run.unequip("weapon")["ok"], "Equipped items must return to inventory")
+	_expect(inventory_run.unequip("right_hand")["ok"], "Equipped items must return to inventory")
 	_expect(inventory_run.inventory.get(knife_key, 0) == 2, "Unequipping must restore the stack count")
 	inventory_run.add_resources({"wood": 20, "stone": 20, "cloth": 5})
 	_expect(inventory_run.build_camp_upgrade("crusher")["ok"], "Crusher must be buildable for 5 wood and 5 stone")
@@ -343,7 +367,7 @@ func _test_run_state() -> void:
 	upgraded = inventory_run.upgrade_weapon(String(upgraded["item_key"]), 0.14, 1.0)
 	_expect(upgraded["new_level"] == 3, "The +3 upgrade must use a fifteen-percent success chance")
 	var upgraded_stats := GameRules.calculate_derived_stats(
-		GameRules.default_attributes(), "skeleton", {"weapon": upgraded["item_key"]}
+		GameRules.default_attributes(), "skeleton", {"right_hand": upgraded["item_key"]}
 	)
 	_expect(
 		upgraded_stats["damage"] == 5 and upgraded_stats["accuracy"] == 5,
@@ -358,11 +382,11 @@ func _test_run_state() -> void:
 		"Equipped-upgrade test must place the weapon in the character's hand",
 	)
 	var equipped_upgrade_result := equipped_upgrade.upgrade_weapon(
-		equipped_knife_key, 1.0, 1.0, "weapon"
+		equipped_knife_key, 1.0, 1.0, "right_hand"
 	)
 	_expect(
 		equipped_upgrade_result["ok"]
-		and GameRules.item_upgrade_level(equipped_upgrade.loadout["weapon"]) == 1
+		and GameRules.item_upgrade_level(equipped_upgrade.loadout["right_hand"]) == 1
 		and equipped_upgrade.inventory.is_empty(),
 		"Sharpening an equipped weapon must keep its upgraded version equipped",
 	)
@@ -484,8 +508,8 @@ func _test_run_state() -> void:
 
 	run.configure_character("Saved", high_attributes)
 	run.banked_souls = 17
-	run.absorbed_souls = 10
-	run.current_form_id = "zombie"
+	run.absorbed_souls = 24
+	run.current_form_id = "ghoul"
 	run.loadout = {"armor": "rotting_mail"}
 	var restored := RunState.new()
 	_expect(restored.restore_save_data(run.to_save_data()), "Versioned run data must restore")
@@ -493,8 +517,8 @@ func _test_run_state() -> void:
 		restored.character_name == "Saved"
 		and restored.banked_souls == 17
 		and restored.rope_floor == 87
-		and restored.current_form_id == "zombie"
-		and GameRules.base_item_id(restored.loadout.get("armor", "")) == "rotting_mail",
+		and restored.current_form_id == "ghoul"
+		and GameRules.base_item_id(restored.loadout.get("body", "")) == "rotting_mail",
 		"Save data must preserve permanent progress, form and valid equipment",
 	)
 	var legacy_gloves_data := run.to_save_data()
@@ -750,9 +774,11 @@ func _test_main_scene() -> void:
 	main._change_inspection_radius(1)
 	_expect(main.inspection_radius == 7, "Inspection radius must be adjustable from settings")
 	main._change_inspection_radius(-1)
-	_expect(main.settings_exit_button.visible, "Settings menu must contain an exit button")
-	main._on_exit_pressed()
-	_expect(main.exit_confirmation_pending, "Exit must require a confirming second click")
+	_expect(
+		not main.settings_exit_button.visible
+		and main.settings_new_game_button.text == Loc.text("BTN_MAIN_MENU"),
+		"Settings must return to the unified main menu instead of duplicating New Game/Exit",
+	)
 	main._close_settings()
 	_expect(
 		not main.settings_open and main.inspection_radius == 6 and not main.language_button.visible,
@@ -784,17 +810,27 @@ func _test_main_scene() -> void:
 		"Camp construction must remain disabled without enough materials",
 	)
 	main._show_character()
+	main._select_character_panel("inventory")
 	var cheat_points_before: int = main.state.unspent_attribute_points
+	var cheat_soul_level_before: int = main.state.soul_level
+	var cheat_effective_soul_level_before: int = main.state.get_effective_soul_level()
+	var cheat_carried_souls_before: int = main.state.carried_souls
+	var cheat_lifetime_souls_before: int = main.state.lifetime_souls_earned
 	_expect(
 		main.character_cheat_stats_button.visible
 		and main.character_cheat_stats_button.text == Loc.text("BTN_CHEAT_ADD_STATS"),
-		"The temporary +5 stat test button must be visible and localized on the character sheet",
+		"The temporary progression test button must be visible and localized on the character sheet",
 	)
 	main._on_cheat_add_stats_pressed()
 	_expect(
-		main.state.unspent_attribute_points == cheat_points_before + 5,
-		"The temporary stat test button must grant exactly five spendable points",
+		main.state.unspent_attribute_points == cheat_points_before + 5
+		and main.state.soul_level == cheat_soul_level_before + 1
+		and main.state.get_effective_soul_level() == cheat_effective_soul_level_before + 1
+		and main.state.carried_souls == cheat_carried_souls_before + 100
+		and main.state.lifetime_souls_earned == cheat_lifetime_souls_before + 100,
+		"The temporary test button must grant exactly five points, one Soul Level and 100 souls",
 	)
+	main._select_character_panel("skills")
 	_expect(main.skills_title_label.visible, "Character sheet must include the large skills block")
 	_expect(main.skill_node_buttons["strong_bones"].visible, "Skeleton skill tree must be visible by default")
 	_expect(
@@ -814,15 +850,20 @@ func _test_main_scene() -> void:
 	)
 	main.state.highest_unlocked_form_index = 0
 	main._select_skill_stage("skeleton")
+	main._select_character_panel("inventory")
 	_expect(
-		main.character_equipment_label.position.x < main.character_derived_label.position.x,
-		"Equipment must occupy the center card and derived parameters the right card",
+		main.character_equipment_label.position.x > main.character_primary_label.position.x
+		and main.inventory_panel.position.x > main.character_equipment_label.position.x,
+		"Character Inventory must use stats, figure/slots and inventory columns in order",
 	)
 	_expect(
 		main.character_equipment_buttons.size() == GameRules.SLOT_NAMES.size(),
 		"The skeleton equipment portrait must display every equipment slot",
 	)
-	_expect(main.SKELETON_EQUIPMENT_ART != null, "The equipment card must use the generated pencil skeleton art")
+	_expect(
+		main.Renderer.FORM_FULLBODY.size() == GameRules.FORM_ORDER.size(),
+		"The equipment card must preload one approved full-body cutout per form",
+	)
 	var primary_header_width: float = main.character_primary_label.get_theme_font("font").get_string_size(
 		Loc.text("PRIMARY_ATTRIBUTES"),
 		HORIZONTAL_ALIGNMENT_LEFT,
@@ -845,7 +886,7 @@ func _test_main_scene() -> void:
 	)
 	_expect(
 		main.character_attribute_spend_buttons["agility"].position.y
-		- main.character_attribute_spend_buttons["strength"].position.y == 27,
+		- main.character_attribute_spend_buttons["strength"].position.y == 22,
 		"Attribute plus buttons must follow the text line spacing exactly",
 	)
 	main._close_character()
@@ -873,13 +914,13 @@ func _test_main_scene() -> void:
 	)
 	main._on_inventory_equip_pressed()
 	_expect(
-		main.state.loadout.get("weapon", "") == ui_knife_key
+		main.state.loadout.get("right_hand", "") == ui_knife_key
 		and main.state.inventory.get(ui_knife_key, 0) == 1,
 		"The character sheet must equip exactly one item from a stack",
 	)
-	main._on_equipment_slot_pressed("weapon")
+	main._on_equipment_slot_pressed("right_hand")
 	_expect(
-		main.selected_equipment_slot == "weapon"
+		main.selected_equipment_slot == "right_hand"
 		and Loc.text("ITEM_BONE_KNIFE") in main.inventory_detail_label.text,
 		"Selecting a humanoid equipment slot must show that item's details below",
 	)
@@ -892,8 +933,8 @@ func _test_main_scene() -> void:
 	)
 	main._on_inventory_upgrade_pressed()
 	_expect(
-		GameRules.item_upgrade_level(main.state.loadout["weapon"]) == 1
-		and main.selected_equipment_slot == "weapon",
+		GameRules.item_upgrade_level(main.state.loadout["right_hand"]) == 1
+		and main.selected_equipment_slot == "right_hand",
 		"The Whetstone action must apply guaranteed +1 without unequipping the weapon",
 	)
 	_expect(
@@ -910,7 +951,7 @@ func _test_main_scene() -> void:
 	main._on_inventory_dismantle_all_pressed()
 	_expect(
 		main.state.inventory.is_empty()
-		and GameRules.item_upgrade_level(main.state.loadout["weapon"]) == 1,
+		and GameRules.item_upgrade_level(main.state.loadout["right_hand"]) == 1,
 		"Confirmed dismantle all must clear inventory while preserving equipped upgraded gear",
 	)
 	main._close_character()
@@ -948,8 +989,9 @@ func _test_main_scene() -> void:
 			found_unexplored_cell = true
 	_expect(found_unexplored_cell, "A new floor must retain unexplored cells behind fog of war")
 	_expect(
-		not main.camp_upgrades_label.visible and main.equipment_label.visible,
-		"Dungeon sidebar must switch back from camp upgrades to worn equipment",
+		not main.camp_upgrades_label.visible and not main.equipment_label.visible
+		and main.soul_icon.visible,
+		"Dungeon sidebar must use the compact soul/status HUD without the equipment list",
 	)
 	_expect(
 		Loc.text("SIDEBAR_CRADLE_CHANCE").get_slice(":", 0) not in main.sidebar_progress_label.text,
@@ -1090,10 +1132,18 @@ func _test_main_scene() -> void:
 	main._unhandled_input(character_event)
 	_expect(main.screen == main.Screen.CHARACTER, "E must replace evolution and open the character sheet")
 	main.state.carried_souls = 5
+	var souls_before_skill_selection: int = main.state.carried_souls
 	main._on_skill_pressed("strong_bones")
 	_expect(
+		main.state.get_skill_level("strong_bones") == 0
+		and main.state.carried_souls == souls_before_skill_selection
+		and main.skill_tree_panel.selected_node_id == "strong_bones",
+		"Selecting a skill must update details without spending souls or changing its level",
+	)
+	main._on_skill_purchase_pressed("strong_bones")
+	_expect(
 		main.state.get_skill_level("strong_bones") == 1 and main.state.carried_souls == 0,
-		"A skill must be learnable from the dungeon using carried souls",
+		"The separate skill action must learn from the dungeon using carried souls",
 	)
 	main.state.unspent_attribute_points = 1
 	var dungeon_strength_before: int = main.state.attributes["strength"]
@@ -1599,14 +1649,18 @@ func _test_main_scene() -> void:
 	main._advance_story()
 	_expect(main.screen == main.Screen.BASE, "Acknowledging the death illustration must return the player to base")
 	_expect(main.state.banked_souls == 4, "Death after a new run must preserve previously banked souls")
-	_expect(main.state.carried_souls == 0 and main.state.loadout.is_empty(), "Death must clear run loot")
-	main._open_settings()
-	main._on_new_game_pressed()
 	_expect(
-		main.new_game_confirmation_pending and main.state.character_name == "Тестовый",
+		main.state.carried_souls == 0
+		and main.state.loadout == {GameRules.PERMANENT_JACKET_SLOT_ID: GameRules.permanent_jacket_key()},
+		"Death must clear run loot while retaining the permanent jacket",
+	)
+	main._open_main_menu()
+	main.save_menu_panel.new_game_button.pressed.emit()
+	_expect(
+		main.save_menu_panel.new_game_confirmation_pending and main.state.character_name == "Тестовый",
 		"New game must ask for confirmation before discarding progress",
 	)
-	main._on_new_game_pressed()
+	main.save_menu_panel.new_game_button.pressed.emit()
 	_expect(
 		main.screen == main.Screen.NAME_CREATION and main.state.character_name.is_empty(),
 		"Confirmed new game must reset state and return to character creation",

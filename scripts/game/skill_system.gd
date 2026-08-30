@@ -1,6 +1,8 @@
 class_name SkillSystem
 extends RefCounted
 
+const GridNavigation := preload("res://scripts/world/grid_navigation.gd")
+
 ## Actor-neutral ability metadata and deterministic geometry. Scene state,
 ## animation and turn completion deliberately stay in Main.
 
@@ -41,18 +43,28 @@ const ABILITIES := {
 		"slot_kind": "active",
 		"target_kind": "dash_cell",
 		"required_stage": "ghoul",
+		"cooldown": 20,
 	},
 	"double_attack": {
 		"name": "ABILITY_DOUBLE_ATTACK",
 		"slot_kind": "attack",
 		"target_kind": "adjacent_enemy",
 		"required_stage": "ghoul",
+		"cooldown": 15,
 	},
 	"circular_attack": {
 		"name": "ABILITY_CIRCULAR_ATTACK",
 		"slot_kind": "attack",
 		"target_kind": "adjacent_area",
 		"required_stage": "almost_human",
+	},
+	"choose_appearance": {
+		"name": "ABILITY_CHOOSE_APPEARANCE",
+		"slot_kind": "active",
+		"target_kind": "appearance_choice",
+		"required_stage": "almost_human",
+		"mana_cost": 0,
+		"turn_cost": 0,
 	},
 }
 
@@ -68,6 +80,28 @@ static func default_loadout() -> Dictionary:
 
 static func ability(ability_id: String) -> Dictionary:
 	return ABILITIES.get(ability_id, {})
+
+
+static func base_cooldown(ability_id: String) -> int:
+	return maxi(0, int(ability(ability_id).get("cooldown", 0)))
+
+
+static func sanitize_cooldowns(saved_value: Variant) -> Dictionary:
+	var result := {}
+	if not saved_value is Dictionary:
+		return result
+	var saved: Dictionary = saved_value
+	for ability_id in ABILITIES:
+		var maximum := base_cooldown(ability_id)
+		if maximum <= 0 or not saved.has(ability_id):
+			continue
+		var value: Variant = saved[ability_id]
+		if value is bool or (not value is int and not value is float):
+			continue
+		var remaining := clampi(floori(float(value)), 0, maximum)
+		if remaining > 0:
+			result[ability_id] = remaining
+	return result
 
 
 static func slot_accepts(slot_id: String, ability_id: String) -> bool:
@@ -155,12 +189,68 @@ static func dash_targets(
 	occupied_cells: Dictionary,
 	maximum_distance := 3,
 ) -> Array[Vector2i]:
+	var partition := dash_partition(
+		tiles, origin, explored_cells, explored_cells, occupied_cells, maximum_distance,
+	)
 	var result: Array[Vector2i] = []
-	for direction in DASH_DIRECTIONS:
-		result.append_array(dash_targets_in_direction(
-			tiles, origin, direction, explored_cells, occupied_cells, maximum_distance,
-		))
+	result.append_array(partition.get("valid", []))
 	return result
+
+
+static func dash_partition(
+	tiles: Dictionary,
+	origin: Vector2i,
+	explored_cells: Dictionary,
+	visible_cells: Dictionary,
+	occupied_cells: Dictionary,
+	maximum_distance := 3,
+) -> Dictionary:
+	## Player Dash is a Chebyshev-radius choice, not a set of eight rays. Known
+	## invalid cells keep a reason for renderer/input feedback; unexplored cells
+	## are omitted so targeting never reveals hidden geometry.
+	var valid: Array[Vector2i] = []
+	var invalid: Dictionary = {}
+	for y_offset in range(-maximum_distance, maximum_distance + 1):
+		for x_offset in range(-maximum_distance, maximum_distance + 1):
+			if x_offset == 0 and y_offset == 0:
+				continue
+			if maxi(absi(x_offset), absi(y_offset)) > maximum_distance:
+				continue
+			var cell := origin + Vector2i(x_offset, y_offset)
+			if not bool(explored_cells.get(cell, false)):
+				continue
+			if not bool(visible_cells.get(cell, false)):
+				invalid[cell] = "hidden"
+				continue
+			if tiles.get(cell, "void") != "floor":
+				invalid[cell] = "blocked_tile"
+				continue
+			if bool(occupied_cells.get(cell, false)):
+				invalid[cell] = "occupied_endpoint"
+				continue
+			var path_hidden := false
+			for trace_cell in GridNavigation.supercover_trace(origin, cell):
+				if trace_cell == origin:
+					continue
+				if (
+					not bool(explored_cells.get(trace_cell, false))
+					or not bool(visible_cells.get(trace_cell, false))
+				):
+					path_hidden = true
+					break
+			if path_hidden:
+				invalid[cell] = "hidden"
+				continue
+			var blocker := GridNavigation.line_blocker(
+				tiles, origin, cell, occupied_cells,
+			)
+			if not blocker.is_empty():
+				invalid[cell] = (
+					"occupied_path" if blocker.get("kind", "") == "occupied" else "blocked_path"
+				)
+				continue
+			valid.append(cell)
+	return {"valid": valid, "invalid": invalid}
 
 
 static func dash_targets_in_direction(

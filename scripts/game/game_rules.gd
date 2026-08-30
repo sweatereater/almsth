@@ -5,9 +5,12 @@ extends RefCounted
 ## rules instead of hard-coding thresholds, equipment slots or enemy stats.
 
 const FORM_ORDER := ["skeleton", "zombie", "ghoul", "revenant", "almost_human"]
+const SOUL_LEVEL_START := 1
+const CAMPFIRE_SOUL_LEVEL_BONUS := 1
 const CRADLE_BASE_CHANCE := 0.05
 const CRADLE_MISS_BONUS := 0.05
 const PLAYER_VISION_BASE_RADIUS := 4
+const PLAYER_HEARING_RADIUS_OFFSET := 1
 const SHARP_VISION_BONUS_PER_LEVEL := 1
 const MANA_REGENERATION_BASE_PERCENT := 2
 const MANA_REGENERATION_WISDOM_STEP := 5
@@ -23,7 +26,8 @@ const ITEM_BOUND_SUFFIX := ":bound"
 const WEAPON_UPGRADE_CHANCES := {1: 1.0, 2: 0.5, 3: 0.15}
 const WEAPON_UPGRADE_COST := {"wood": 2, "stone": 10, "cloth": 1}
 const ITEM_BINDING_SOUL_COST := 25
-const CAMPFIRE_MAX_HP_BONUS := 1
+const PERMANENT_JACKET_ITEM_ID := "unexpectedly_comfortable_jacket"
+const PERMANENT_JACKET_SLOT_ID := "jacket"
 const CAMP_UPGRADES := {
 	"crusher": {
 		"name": "CAMP_CRUSHER",
@@ -42,6 +46,22 @@ const CAMP_UPGRADES := {
 		"cost": {"wood": 3, "stone": 3, "cloth": 0},
 	},
 }
+
+const INTRINSIC_FEATURES := {
+	"nervous_system": {
+		"name": "FEATURE_NERVOUS_SYSTEM",
+		"description": "FEATURE_NERVOUS_SYSTEM_DESC",
+		"stage": "ghoul",
+		"kind": "passive",
+	},
+}
+
+
+static func has_intrinsic_feature(form_id: String, feature_id: String) -> bool:
+	if not INTRINSIC_FEATURES.has(feature_id):
+		return false
+	var required_stage := String(INTRINSIC_FEATURES[feature_id].get("stage", "skeleton"))
+	return FORM_ORDER.find(form_id) >= FORM_ORDER.find(required_stage)
 
 const ATTRIBUTE_ORDER := ["strength", "agility", "perception", "vitality", "wisdom"]
 const ATTRIBUTE_NAMES := {
@@ -67,72 +87,120 @@ const ATTRIBUTE_EFFECTS := {
 	"spell_power_per_wisdom": 0.1,
 }
 
+const EQUIPMENT_SLOT_ORDER: Array[String] = [
+	"head", "body", "hands", "legs", "feet", "ring_1",
+	"jacket", "talisman", "back", "right_hand", "left_hand", "ring_2",
+]
+const EQUIPMENT_SLOTS := {
+	"right_hand": {"name": "SLOT_RIGHT_HAND", "category": "weapon", "allowed_tags": ["weapon"], "portrait_position": Vector2(595, 378), "filter_order": 1},
+	"left_hand": {"name": "SLOT_LEFT_HAND", "category": "offhand", "allowed_tags": ["offhand"], "portrait_position": Vector2(595, 472), "filter_order": 2},
+	"feet": {"name": "SLOT_FEET", "category": "feet", "allowed_tags": ["feet"], "portrait_position": Vector2(323, 472), "filter_order": 3},
+	"body": {"name": "SLOT_BODY", "category": "body", "allowed_tags": ["body"], "portrait_position": Vector2(323, 190), "filter_order": 4},
+	"legs": {"name": "SLOT_LEGS", "category": "legs", "allowed_tags": ["legs"], "portrait_position": Vector2(323, 378), "filter_order": 5},
+	"hands": {"name": "SLOT_HANDS", "category": "hands", "allowed_tags": ["hands"], "portrait_position": Vector2(323, 284), "filter_order": 6},
+	"head": {"name": "SLOT_HEAD", "category": "head", "allowed_tags": ["head"], "portrait_position": Vector2(323, 96), "filter_order": 7},
+	"talisman": {"name": "SLOT_TALISMAN", "category": "talisman", "allowed_tags": ["talisman"], "portrait_position": Vector2(595, 190), "filter_order": 8},
+	"ring_1": {"name": "SLOT_RING_1", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(323, 566), "filter_order": 9},
+	"ring_2": {"name": "SLOT_RING_2", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(595, 566), "filter_order": 9},
+	"back": {"name": "SLOT_BACK", "category": "back", "allowed_tags": ["back"], "portrait_position": Vector2(595, 284), "filter_order": 10},
+	"jacket": {"name": "SLOT_JACKET", "category": "body", "allowed_tags": ["jacket"], "portrait_position": Vector2(595, 96), "filter_order": 4},
+}
+const EQUIPMENT_CATEGORY_ORDER: Array[String] = [
+	"weapon", "offhand", "feet", "body", "legs", "hands", "head", "talisman", "ring", "back",
+]
+const EQUIPMENT_CATEGORY_NAMES := {
+	"weapon": "CATEGORY_WEAPON", "offhand": "CATEGORY_OFFHAND", "feet": "CATEGORY_FEET",
+	"body": "CATEGORY_BODY", "legs": "CATEGORY_LEGS", "hands": "CATEGORY_HANDS",
+	"head": "CATEGORY_HEAD", "talisman": "CATEGORY_TALISMAN", "ring": "CATEGORY_RING",
+	"back": "CATEGORY_BACK",
+}
+const LEGACY_SLOT_MIGRATION := {
+	"weapon": "right_hand", "offhand": "left_hand", "charm": "talisman",
+	"armor": "body", "hands": "hands", "mutation": "hands", "relic": "left_hand",
+}
+
 const FORMS := {
 	"skeleton": {
 		"name": "FORM_SKELETON",
+		"required_soul_level": 1,
 		"threshold": 0,
 		"max_hp": 6,
 		"damage": 0,
 		"regeneration": 0,
 		"color": "b8c0cc",
-		"slots": ["weapon", "charm"],
+		"slots": ["jacket", "right_hand", "left_hand", "talisman"],
 		"trait": "TRAIT_SKELETON",
 	},
 	"zombie": {
 		"name": "FORM_ZOMBIE",
+		"required_soul_level": 1,
 		"threshold": 10,
 		"max_hp": 9,
 		"damage": 0,
 		"regeneration": 1,
 		"color": "78966b",
-		"slots": ["weapon", "charm", "armor"],
+		"slots": ["jacket", "right_hand", "left_hand", "talisman", "feet", "head"],
 		"trait": "TRAIT_ZOMBIE",
 	},
 	"ghoul": {
 		"name": "FORM_GHOUL",
+		"required_soul_level": 2,
 		"threshold": 24,
 		"max_hp": 11,
 		"damage": 1,
 		"regeneration": 1,
 		"color": "9a7bb5",
-		"slots": ["weapon", "charm", "armor", "hands"],
+		"slots": ["jacket", "right_hand", "left_hand", "talisman", "feet", "head", "body", "legs", "hands"],
 		"trait": "TRAIT_GHOUL",
 	},
 	"revenant": {
 		"name": "FORM_REVENANT",
+		"required_soul_level": 3,
 		"threshold": 48,
 		"max_hp": 13,
 		"damage": 1,
 		"regeneration": 1,
 		"color": "6fa8b8",
-		"slots": ["weapon", "charm", "armor", "hands", "relic"],
+		"slots": ["jacket", "right_hand", "left_hand", "talisman", "feet", "head", "body", "legs", "hands", "back"],
 		"trait": "TRAIT_REVENANT",
 	},
 	"almost_human": {
 		"name": "FORM_ALMOST_HUMAN",
+		"required_soul_level": 4,
 		"threshold": 80,
 		"max_hp": 16,
 		"damage": 2,
 		"regeneration": 1,
 		"color": "d4a07a",
-		"slots": ["weapon", "charm", "armor", "hands", "relic", "offhand"],
+		"slots": EQUIPMENT_SLOT_ORDER,
 		"trait": "TRAIT_ALMOST_HUMAN",
 	},
 }
 
 const SLOT_NAMES := {
-	"weapon": "SLOT_WEAPON",
-	"charm": "SLOT_CHARM",
-	"armor": "SLOT_ARMOR",
-	"hands": "SLOT_HANDS",
-	"relic": "SLOT_RELIC",
-	"offhand": "SLOT_OFFHAND",
+	"right_hand": "SLOT_RIGHT_HAND", "left_hand": "SLOT_LEFT_HAND", "feet": "SLOT_FEET",
+	"body": "SLOT_BODY", "legs": "SLOT_LEGS", "hands": "SLOT_HANDS", "head": "SLOT_HEAD",
+	"talisman": "SLOT_TALISMAN", "ring_1": "SLOT_RING_1", "ring_2": "SLOT_RING_2", "back": "SLOT_BACK",
+	"jacket": "SLOT_JACKET",
 }
 
 const EQUIPMENT := {
+	"unexpectedly_comfortable_jacket": {
+		"name": "ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET",
+		"description": "ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET_DESC",
+		"category": "body", "tags": ["jacket"], "slots": ["jacket"],
+		"icon": "res://assets/items/item-unexpectedly-comfortable-jacket.png",
+		"soul_level_bonus": 1,
+		"lootable": false,
+		"movable": false,
+		"permanent": true,
+		"min_depth": 0,
+		"salvage": {},
+	},
 	"bone_knife": {
 		"name": "ITEM_BONE_KNIFE",
-		"slot": "weapon",
+		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
+		"icon": "res://assets/items/item-bone-knife.png",
 		"damage": 1,
 		"max_hp": 0,
 		"soul_bonus": 0,
@@ -142,7 +210,8 @@ const EQUIPMENT := {
 	},
 	"grave_mace": {
 		"name": "ITEM_GRAVE_MACE",
-		"slot": "weapon",
+		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
+		"icon": "res://assets/items/item-grave-mace.png",
 		"damage": 2,
 		"max_hp": 0,
 		"soul_bonus": 0,
@@ -152,7 +221,8 @@ const EQUIPMENT := {
 	},
 	"bone_bow": {
 		"name": "ITEM_BONE_BOW",
-		"slot": "weapon",
+		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
+		"icon": "res://assets/items/item-bone-bow.png",
 		"weapon_type": "ranged",
 		"range": 5,
 		"damage": 0,
@@ -165,7 +235,8 @@ const EQUIPMENT := {
 	},
 	"soul_locket": {
 		"name": "ITEM_SOUL_LOCKET",
-		"slot": "charm",
+		"category": "talisman", "tags": ["talisman"], "slots": ["talisman"],
+		"icon": "res://assets/items/item-soul-locket.png",
 		"damage": 0,
 		"max_hp": 0,
 		"soul_bonus": 1,
@@ -176,7 +247,8 @@ const EQUIPMENT := {
 	},
 	"rotting_mail": {
 		"name": "ITEM_ROTTING_MAIL",
-		"slot": "armor",
+		"category": "body", "tags": ["body"], "slots": ["body"],
+		"icon": "res://assets/items/item-rotting-mail.png",
 		"damage": 0,
 		"max_hp": 3,
 		"soul_bonus": 0,
@@ -186,7 +258,8 @@ const EQUIPMENT := {
 	},
 	"leather_gloves": {
 		"name": "ITEM_LEATHER_GLOVES",
-		"slot": "hands",
+		"category": "hands", "tags": ["hands"], "slots": ["hands"],
+		"icon": "res://assets/items/item-leather-gloves.png",
 		"damage": 0,
 		"max_hp": 1,
 		"soul_bonus": 0,
@@ -196,7 +269,8 @@ const EQUIPMENT := {
 	},
 	"hollow_lantern": {
 		"name": "ITEM_HOLLOW_LANTERN",
-		"slot": "relic",
+		"category": "offhand", "tags": ["offhand"], "slots": ["left_hand"],
+		"icon": "res://assets/items/item-hollow-lantern.png",
 		"damage": 0,
 		"max_hp": 2,
 		"soul_bonus": 1,
@@ -207,7 +281,8 @@ const EQUIPMENT := {
 	},
 	"pilgrim_shield": {
 		"name": "ITEM_PILGRIM_SHIELD",
-		"slot": "offhand",
+		"category": "offhand", "tags": ["offhand"], "slots": ["left_hand"],
+		"icon": "res://assets/items/item-pilgrim-shield.png",
 		"damage": 0,
 		"max_hp": 4,
 		"soul_bonus": 0,
@@ -279,7 +354,7 @@ const ENEMIES := {
 		"dodge": 0,
 		"vision": 6,
 		"meat": true,
-		"draw_scale": 2.5,
+		"draw_footprint": Vector2(1.5, 2.0),
 		"abilities": ["dash"],
 		"color": "8f4c3e",
 	},
@@ -410,11 +485,105 @@ const SKILLS := {
 		"kind": "active",
 		"ability_id": "circular_attack",
 	},
+	"choose_appearance": {
+		"name": "SKILL_CHOOSE_APPEARANCE",
+		"description": "SKILL_CHOOSE_APPEARANCE_DESC",
+		"stage": "almost_human",
+		"max_level": 1,
+		"base_cost": 100,
+		"cost_step": 0,
+		"requires": {},
+		"kind": "active",
+		"ability_id": "choose_appearance",
+	},
 }
 
 
 static func get_form(form_id: String) -> Dictionary:
 	return FORMS.get(form_id, FORMS["skeleton"])
+
+
+static func is_slot_unlocked(form_id: String, slot_id: String) -> bool:
+	return EQUIPMENT_SLOTS.has(slot_id) and get_form(form_id).get("slots", []).has(slot_id)
+
+
+static func slot_category(slot_id: String) -> String:
+	return String(EQUIPMENT_SLOTS.get(slot_id, {}).get("category", ""))
+
+
+static func item_category(item_key: String) -> String:
+	return String(item_rules(item_key).get("category", ""))
+
+
+static func item_tags(item_key: String) -> Array:
+	return item_rules(item_key).get("tags", [])
+
+
+static func compatible_slots(item_key: String) -> Array[String]:
+	var result: Array[String] = []
+	var item := item_rules(item_key)
+	if item.is_empty():
+		return result
+	for slot_variant in item.get("slots", []):
+		var slot_id := String(slot_variant)
+		if EQUIPMENT_SLOTS.has(slot_id):
+			result.append(slot_id)
+	return result
+
+
+static func item_fits_slot(item_key: String, slot_id: String) -> bool:
+	if not EQUIPMENT_SLOTS.has(slot_id):
+		return false
+	var item := item_rules(item_key)
+	if item.is_empty() or not compatible_slots(item_key).has(slot_id):
+		return false
+	var allowed: Array = EQUIPMENT_SLOTS[slot_id].get("allowed_tags", [])
+	for tag_variant in item.get("tags", []):
+		if allowed.has(String(tag_variant)):
+			return true
+	return false
+
+
+static func is_weapon(item_key: String) -> bool:
+	return item_category(item_key) == "weapon" or item_tags(item_key).has("weapon")
+
+
+static func default_equip_slot(item_key: String, form_id: String, loadout: Dictionary = {}) -> String:
+	var candidates := compatible_slots(item_key)
+	for slot_id in candidates:
+		if is_slot_unlocked(form_id, slot_id) and not loadout.has(slot_id):
+			return slot_id
+	if candidates.size() == 1 and is_slot_unlocked(form_id, candidates[0]):
+		return candidates[0]
+	return ""
+
+
+static func resolve_physical_slot(
+	candidates: Array[String],
+	form_id: String,
+	loadout: Dictionary = {},
+	requested_slot := "",
+) -> Dictionary:
+	## Resolves a category's compatible physical destinations without knowing the
+	## item itself. This keeps dual-position equipment (rings) deterministic and
+	## lets the UI request replacement of an exact occupied slot.
+	var requested := String(requested_slot)
+	if not requested.is_empty():
+		if not candidates.has(requested) or not is_slot_unlocked(form_id, requested):
+			return {"ok": false, "reason": "slot_locked", "slot": requested}
+		return {"ok": true, "slot": requested}
+	var unlocked: Array[String] = []
+	for slot_id in candidates:
+		if not is_slot_unlocked(form_id, slot_id):
+			continue
+		unlocked.append(slot_id)
+		if not loadout.has(slot_id):
+			return {"ok": true, "slot": slot_id}
+	if unlocked.is_empty():
+		return {"ok": false, "reason": "slot_locked", "slot": ""}
+	if unlocked.size() > 1:
+		return {"ok": false, "reason": "slot_choice_required", "slots": unlocked}
+	return {"ok": true, "slot": unlocked[0]}
 
 
 static func form_for_absorbed_souls(absorbed_souls: int) -> String:
@@ -433,6 +602,10 @@ static func next_form(form_id: String) -> Dictionary:
 	var data: Dictionary = FORMS[next_id].duplicate(true)
 	data["id"] = next_id
 	return data
+
+
+static func required_soul_level(form_id: String) -> int:
+	return maxi(SOUL_LEVEL_START, int(get_form(form_id).get("required_soul_level", SOUL_LEVEL_START)))
 
 
 static func evolution_cost(form_id: String) -> int:
@@ -503,7 +676,7 @@ static func _equipment_bonus(loadout: Dictionary, parameter: String) -> float:
 		var item_id := base_item_id(String(item_key))
 		var item: Dictionary = EQUIPMENT.get(item_id, {})
 		result += float(item.get(parameter, 0.0))
-		if item.get("slot", "") != "weapon":
+		if not is_weapon(String(item_key)):
 			continue
 		var type := String(item.get("weapon_type", "melee"))
 		if (
@@ -517,7 +690,7 @@ static func _equipment_bonus(loadout: Dictionary, parameter: String) -> float:
 
 static func weapon_type(item_key: String) -> String:
 	var item := item_rules(item_key)
-	if item.get("slot", "") != "weapon":
+	if not is_weapon(item_key):
 		return ""
 	return String(item.get("weapon_type", "melee"))
 
@@ -548,6 +721,25 @@ static func is_item_bound(item_key: String) -> bool:
 	return item_key.ends_with(ITEM_BOUND_SUFFIX)
 
 
+static func is_item_lootable(item_key: String) -> bool:
+	var rules := item_rules(item_key)
+	return not rules.is_empty() and bool(rules.get("lootable", true))
+
+
+static func is_item_movable(item_key: String) -> bool:
+	var rules := item_rules(item_key)
+	return not rules.is_empty() and bool(rules.get("movable", true))
+
+
+static func is_item_permanent(item_key: String) -> bool:
+	var rules := item_rules(item_key)
+	return not rules.is_empty() and bool(rules.get("permanent", false))
+
+
+static func permanent_jacket_key() -> String:
+	return make_item_key(PERMANENT_JACKET_ITEM_ID)
+
+
 static func bound_item_key(item_key: String) -> String:
 	return make_item_key(base_item_id(item_key), item_upgrade_level(item_key), true)
 
@@ -575,7 +767,7 @@ static func available_equipment_ids(floor_number: int) -> Array:
 	var depth := 100 - floor_number
 	var result: Array = []
 	for item_id in EQUIPMENT:
-		if depth >= int(EQUIPMENT[item_id]["min_depth"]):
+		if bool(EQUIPMENT[item_id].get("lootable", true)) and depth >= int(EQUIPMENT[item_id]["min_depth"]):
 			result.append(item_id)
 	return result
 

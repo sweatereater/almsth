@@ -3,6 +3,7 @@ extends RefCounted
 
 const Loc := preload("res://scripts/localization/localization.gd")
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
+const StatusSystem := preload("res://scripts/game/status_system.gd")
 
 ## Persistent state and current-run state are kept together for the prototype,
 ## but all transitions happen through methods so they can be split later.
@@ -10,9 +11,17 @@ const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 var banked_souls := 0
 var carried_souls := 0
 var absorbed_souls := 0
+## Monotonic total awarded through add_souls(). Older saves cannot reconstruct souls
+## already spent at the base, so their banked + carried + absorbed sum is a safe lower bound.
+var lifetime_souls_earned := 0
 var character_name := ""
 var attributes := GameRules.default_attributes()
 var current_form_id := "skeleton"
+## Optional cosmetic override. Empty means the appearance follows current_form_id.
+## Gameplay rules must continue to read current_form_id/get_form(), never this field.
+var display_form_id := ""
+## Permanent progression gate for body evolution. Death never reduces it.
+var soul_level := GameRules.SOUL_LEVEL_START
 var base_level := 0
 var checkpoint_floor := 100
 ## Lowest-numbered floor (closest to the surface) from which the player has
@@ -21,7 +30,9 @@ var rope_floor := 100
 var current_floor := 99
 var hp := 1
 var mana := 0
-var loadout: Dictionary = {}
+var loadout: Dictionary = {
+	GameRules.PERMANENT_JACKET_SLOT_ID: GameRules.permanent_jacket_key(),
+}
 ## Unequipped items are stacked by their stable key (for example bone_knife@2).
 ## Equipment worn by the character lives in loadout and is therefore not
 ## duplicated in the inventory count.
@@ -39,6 +50,8 @@ var camp_upgrades := {
 }
 var skill_levels: Dictionary = GameRules.default_skill_levels()
 var ability_loadout: Dictionary = AbilitySystem.default_loadout()
+var ability_cooldowns: Dictionary = {}
+var active_statuses: Dictionary = {}
 var unspent_attribute_points := 0
 var highest_unlocked_form_index := 0
 var food := 0
@@ -62,21 +75,28 @@ func get_form() -> Dictionary:
 func configure_character(name_value: String, attribute_values: Dictionary) -> void:
 	character_name = name_value.strip_edges()
 	attributes = attribute_values.duplicate(true)
+	_ensure_permanent_jacket()
 	hp = get_max_hp()
 	mana = get_max_mana()
 
 
 func to_save_data() -> Dictionary:
+	_ensure_permanent_jacket()
 	return {
 		"character_name": character_name,
 		"attributes": attributes.duplicate(true),
 		"banked_souls": banked_souls,
 		"carried_souls": carried_souls,
 		"absorbed_souls": absorbed_souls,
+		"lifetime_souls_earned": maxi(
+			lifetime_souls_earned, banked_souls + carried_souls + absorbed_souls,
+		),
 		"base_level": base_level,
 		"checkpoint_floor": checkpoint_floor,
 		"rope_floor": rope_floor,
 		"current_form_id": current_form_id,
+		"display_form_id": display_form_id,
+		"soul_level": maxi(soul_level, _minimum_soul_level_for_progress()),
 		"hp": hp,
 		"mana": mana,
 		"loadout": loadout.duplicate(true),
@@ -85,6 +105,8 @@ func to_save_data() -> Dictionary:
 		"camp_upgrades": camp_upgrades.duplicate(true),
 		"skill_levels": _complete_skill_levels(),
 		"ability_loadout": AbilitySystem.sanitize_loadout(ability_loadout, skill_levels),
+		"ability_cooldowns": AbilitySystem.sanitize_cooldowns(ability_cooldowns),
+		"active_statuses": StatusSystem.sanitize(active_statuses),
 		"unspent_attribute_points": unspent_attribute_points,
 		"highest_unlocked_form_index": highest_unlocked_form_index,
 		"food": food,
@@ -108,6 +130,25 @@ func _complete_skill_levels() -> Dictionary:
 	return result
 
 
+func _minimum_soul_level_for_progress(use_permanent_bonus := true) -> int:
+	var highest_index := clampi(highest_unlocked_form_index, 0, GameRules.FORM_ORDER.size() - 1)
+	var highest_form_id: String = GameRules.FORM_ORDER[highest_index]
+	var jacket_bonus := (
+		int(GameRules.EQUIPMENT[GameRules.PERMANENT_JACKET_ITEM_ID].get("soul_level_bonus", 0))
+		if use_permanent_bonus else 0
+	)
+	return maxi(
+		maxi(
+			maxi(GameRules.SOUL_LEVEL_START, GameRules.required_soul_level(current_form_id) - jacket_bonus),
+			maxi(GameRules.SOUL_LEVEL_START, GameRules.required_soul_level(highest_form_id) - jacket_bonus),
+		),
+		GameRules.SOUL_LEVEL_START + (
+			GameRules.CAMPFIRE_SOUL_LEVEL_BONUS
+			if bool(camp_upgrades.get("campfire", false)) else 0
+		),
+	)
+
+
 func restore_save_data(data: Dictionary) -> bool:
 	var restored_name := String(data.get("character_name", "")).strip_edges()
 	if restored_name.is_empty():
@@ -125,6 +166,13 @@ func restore_save_data(data: Dictionary) -> bool:
 	banked_souls = maxi(0, int(data.get("banked_souls", 0)))
 	carried_souls = maxi(0, int(data.get("carried_souls", 0)))
 	absorbed_souls = maxi(0, int(data.get("absorbed_souls", 0)))
+	lifetime_souls_earned = maxi(
+		banked_souls + carried_souls + absorbed_souls,
+		int(data.get(
+			"lifetime_souls_earned",
+			banked_souls + carried_souls + absorbed_souls,
+		)),
+	)
 	base_level = maxi(0, int(data.get("base_level", 0)))
 	checkpoint_floor = clampi(int(data.get("checkpoint_floor", 100)), 1, 100)
 	rope_floor = clampi(int(data.get("rope_floor", 100)), 1, 100)
@@ -151,6 +199,15 @@ func restore_save_data(data: Dictionary) -> bool:
 		data.get("ability_loadout", null),
 		skill_levels,
 	)
+	ability_cooldowns = AbilitySystem.sanitize_cooldowns(data.get("ability_cooldowns", {}))
+	active_statuses = StatusSystem.sanitize(data.get("active_statuses", {}))
+	display_form_id = String(data.get("display_form_id", ""))
+	if (
+		display_form_id == current_form_id
+		or not available_display_form_ids().has(display_form_id)
+		or get_skill_level("choose_appearance") <= 0
+	):
+		display_form_id = ""
 	unspent_attribute_points = maxi(0, int(data.get("unspent_attribute_points", 0)))
 	food = maxi(0, int(data.get("food", 0)))
 	hunger = clampi(int(data.get("hunger", 100)), 0, 100)
@@ -174,27 +231,59 @@ func restore_save_data(data: Dictionary) -> bool:
 	if saved_camp_upgrades is Dictionary:
 		for upgrade_id in camp_upgrades:
 			camp_upgrades[upgrade_id] = bool(saved_camp_upgrades.get(upgrade_id, false))
+	# Soul Level was introduced after camp/highest-form persistence. Presence-aware
+	# migration prevents a built Campfire from granting its one-time bonus on every load.
+	# Saves that already serialize Soul Level store the raw permanent value. Their
+	# progress floor is reduced by the canonical jacket bonus so a reload never
+	# turns an effective level N into N + 1. Older saves without the field retain
+	# the previous safe raw minimum, then receive the jacket bonus exactly once.
+	var minimum_soul_level := _minimum_soul_level_for_progress(data.has("soul_level"))
+	soul_level = maxi(
+		minimum_soul_level,
+		int(data.get("soul_level", minimum_soul_level)) if data.has("soul_level") else minimum_soul_level,
+	)
 	inventory.clear()
 	var saved_inventory = data.get("inventory", {})
 	if saved_inventory is Dictionary:
 		for saved_key in saved_inventory:
 			var item_key := _sanitized_item_key(String(saved_key))
 			var count := maxi(0, int(saved_inventory[saved_key]))
-			if not item_key.is_empty() and count > 0:
+			if not item_key.is_empty() and GameRules.is_item_movable(item_key) and count > 0:
 				inventory[item_key] = int(inventory.get(item_key, 0)) + count
 	loadout.clear()
 	var saved_loadout = data.get("loadout", {})
 	if saved_loadout is Dictionary:
+		var restore_order: Array[String] = []
+		for physical_slot in GameRules.EQUIPMENT_SLOT_ORDER:
+			if saved_loadout.has(physical_slot):
+				restore_order.append(physical_slot)
+		for legacy_slot in ["weapon", "offhand", "charm", "armor", "hands", "mutation", "relic"]:
+			if saved_loadout.has(legacy_slot) and not restore_order.has(legacy_slot):
+				restore_order.append(legacy_slot)
 		for saved_slot in saved_loadout:
-			var slot := "hands" if String(saved_slot) == "mutation" else String(saved_slot)
-			var item_key := _sanitized_item_key(String(saved_loadout[saved_slot]))
-			var item := GameRules.item_rules(item_key)
+			if not restore_order.has(String(saved_slot)):
+				restore_order.append(String(saved_slot))
+		for saved_slot in restore_order:
+			var item_key := _sanitized_item_key(String(saved_loadout.get(saved_slot, "")))
+			if item_key.is_empty():
+				continue
+			if GameRules.base_item_id(item_key) == GameRules.PERMANENT_JACKET_ITEM_ID:
+				continue
+			var destination := (
+				saved_slot
+				if GameRules.EQUIPMENT_SLOTS.has(saved_slot)
+				else String(GameRules.LEGACY_SLOT_MIGRATION.get(saved_slot, ""))
+			)
 			if (
-				get_form()["slots"].has(slot)
-				and not item.is_empty()
-				and item["slot"] == slot
+				not destination.is_empty()
+				and GameRules.is_slot_unlocked(current_form_id, destination)
+				and GameRules.item_fits_slot(item_key, destination)
+				and not loadout.has(destination)
 			):
-				loadout[slot] = item_key
+				loadout[destination] = item_key
+			else:
+				add_item_key(item_key)
+	_ensure_permanent_jacket()
 	hp = clampi(int(data.get("hp", get_max_hp())), 1, get_max_hp())
 	mana = clampi(int(data.get("mana", get_max_mana())), 0, get_max_mana())
 	return true
@@ -203,10 +292,18 @@ func restore_save_data(data: Dictionary) -> bool:
 func get_derived_stats() -> Dictionary:
 	var result := GameRules.calculate_derived_stats(attributes, current_form_id, loadout, base_level)
 	result["max_hp"] += get_skill_level("strong_bones") * 3
-	if bool(camp_upgrades.get("campfire", false)):
-		result["max_hp"] += GameRules.CAMPFIRE_MAX_HP_BONUS
 	result["mana"] += get_skill_level("magic_awakening") * 5
+	result["damage"] += StatusSystem.modifier(active_statuses, "damage")
+	result["ranged_damage"] += StatusSystem.modifier(active_statuses, "ranged_damage")
 	return result
+
+
+func get_effective_soul_level() -> int:
+	# This bonus is canonical progression, not an equipment sum. Reading exactly
+	# one rules entry prevents malformed duplicate loadout/save values from stacking.
+	return maxi(GameRules.SOUL_LEVEL_START, soul_level) + int(
+		GameRules.EQUIPMENT[GameRules.PERMANENT_JACKET_ITEM_ID].get("soul_level_bonus", 0)
+	)
 
 
 func get_max_hp() -> int:
@@ -226,7 +323,7 @@ func get_ranged_damage() -> int:
 
 
 func get_equipped_weapon_key() -> String:
-	return String(loadout.get("weapon", ""))
+	return String(loadout.get("right_hand", ""))
 
 
 func get_equipped_weapon_type() -> String:
@@ -250,6 +347,10 @@ func get_vision_radius() -> int:
 		GameRules.PLAYER_VISION_BASE_RADIUS
 		+ get_skill_level("sharp_vision") * GameRules.SHARP_VISION_BONUS_PER_LEVEL
 	)
+
+
+func get_hearing_radius() -> int:
+	return get_vision_radius() + GameRules.PLAYER_HEARING_RADIUS_OFFSET
 
 
 func get_mana_regeneration_percent() -> int:
@@ -308,6 +409,7 @@ func get_soul_bonus() -> int:
 
 
 func begin_expedition(start_floor := 99) -> void:
+	_ensure_permanent_jacket()
 	current_floor = clampi(start_floor, 1, 99)
 	hp = get_max_hp()
 	mana = get_max_mana()
@@ -319,8 +421,9 @@ func has_rope_destination() -> bool:
 
 
 func add_souls(base_amount: int) -> int:
-	var amount := base_amount + get_soul_bonus()
+	var amount := maxi(0, base_amount + get_soul_bonus())
 	carried_souls += amount
+	lifetime_souls_earned += amount
 	return amount
 
 
@@ -341,9 +444,19 @@ func record_cradle_result(appeared: bool) -> void:
 
 
 func evolve_at_cradle() -> Dictionary:
+	_ensure_permanent_jacket()
 	var next := GameRules.next_form(current_form_id)
 	if next.is_empty():
 		return {"ok": false, "reason": "maximum"}
+	var required_soul_level := GameRules.required_soul_level(String(next["id"]))
+	var effective_soul_level := get_effective_soul_level()
+	if effective_soul_level < required_soul_level:
+		return {
+			"ok": false,
+			"reason": "soul_level",
+			"required_soul_level": required_soul_level,
+			"soul_level": effective_soul_level,
+		}
 	var cost := GameRules.evolution_cost(current_form_id)
 	if carried_souls < cost:
 		return {"ok": false, "reason": "souls", "cost": cost}
@@ -371,23 +484,36 @@ func evolve_at_cradle() -> Dictionary:
 	}
 
 
-func equip(item_id: String) -> Dictionary:
+func equip(item_id: String, destination_slot := "") -> Dictionary:
 ## Direct equipping is kept as a setup helper for tests and debug tools. Normal
 ## play uses equip_from_inventory(), which moves a real stack entry.
 	var item_key := _sanitized_item_key(item_id)
 	var item: Dictionary = GameRules.item_rules(item_key)
 	if item.is_empty():
 		return {"ok": false, "message": Loc.text("MSG_UNKNOWN_ITEM")}
-	var slot: String = item["slot"]
-	var unlocked_slots: Array = get_form()["slots"]
-	if not unlocked_slots.has(slot):
+	if not GameRules.is_item_movable(item_key):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent", "message": Loc.text("INVENTORY_PERMANENT_LOCKED")}
+	var candidates := GameRules.compatible_slots(item_key)
+	var destination := GameRules.resolve_physical_slot(
+		candidates, current_form_id, loadout, destination_slot,
+	)
+	if not bool(destination.get("ok", false)):
+		if String(destination.get("reason", "")) == "slot_choice_required":
+			return destination
+		var rejected_slot := String(destination.get("slot", destination_slot))
 		return {
 			"ok": false,
+			"reason": "slot_locked",
+			"slot": rejected_slot,
 			"message": Loc.text("MSG_FORM_CANNOT_USE", [
 				Loc.text(String(get_form()["name"])),
 				Loc.text(String(item["name"])),
 			]),
 		}
+	var slot := String(destination["slot"])
+	if not GameRules.item_fits_slot(item_key, slot):
+		return {"ok": false, "reason": "slot_locked", "slot": slot}
 
 	var old_max_hp := get_max_hp()
 	var old_max_mana := get_max_mana()
@@ -407,7 +533,7 @@ func equip(item_id: String) -> Dictionary:
 
 func add_item(item_id: String, upgrade_level := 0, count := 1) -> String:
 	var item_key := GameRules.make_item_key(item_id, upgrade_level)
-	if not GameRules.EQUIPMENT.has(item_id) or count <= 0:
+	if not GameRules.EQUIPMENT.has(item_id) or not GameRules.is_item_movable(item_key) or count <= 0:
 		return ""
 	inventory[item_key] = int(inventory.get(item_key, 0)) + count
 	return item_key
@@ -415,7 +541,7 @@ func add_item(item_id: String, upgrade_level := 0, count := 1) -> String:
 
 func add_item_key(item_key: String, count := 1) -> String:
 	item_key = _sanitized_item_key(item_key)
-	if item_key.is_empty() or count <= 0:
+	if item_key.is_empty() or not GameRules.is_item_movable(item_key) or count <= 0:
 		return ""
 	inventory[item_key] = int(inventory.get(item_key, 0)) + count
 	return item_key
@@ -423,6 +549,8 @@ func add_item_key(item_key: String, count := 1) -> String:
 
 func remove_item(item_key: String, count := 1) -> bool:
 	item_key = _sanitized_item_key(item_key)
+	if item_key.is_empty() or not GameRules.is_item_movable(item_key):
+		return false
 	var available := int(inventory.get(item_key, 0))
 	if count <= 0 or available < count:
 		return false
@@ -438,28 +566,36 @@ func get_inventory_keys() -> Array:
 	keys.sort_custom(func(a, b):
 		var item_a := GameRules.item_rules(String(a))
 		var item_b := GameRules.item_rules(String(b))
-		var slot_compare := String(item_a.get("slot", "")) < String(item_b.get("slot", ""))
-		if item_a.get("slot", "") == item_b.get("slot", ""):
+		var slot_compare := GameRules.item_category(String(a)) < GameRules.item_category(String(b))
+		if GameRules.item_category(String(a)) == GameRules.item_category(String(b)):
 			return String(a) < String(b)
 		return slot_compare
 	)
 	return keys
 
 
-func equip_from_inventory(item_key: String) -> Dictionary:
+func equip_from_inventory(item_key: String, destination_slot := "") -> Dictionary:
 	item_key = _sanitized_item_key(item_key)
+	if not GameRules.is_item_movable(item_key):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent"}
 	if int(inventory.get(item_key, 0)) <= 0:
 		return {"ok": false, "reason": "missing"}
 	var item := GameRules.item_rules(item_key)
 	if item.is_empty():
 		return {"ok": false, "reason": "unknown"}
-	var slot := String(item["slot"])
-	if not get_form()["slots"].has(slot):
+	var destination := GameRules.resolve_physical_slot(
+		GameRules.compatible_slots(item_key), current_form_id, loadout, destination_slot,
+	)
+	if not bool(destination.get("ok", false)):
+		return destination
+	var slot := String(destination["slot"])
+	if not GameRules.item_fits_slot(item_key, slot):
 		return {"ok": false, "reason": "slot_locked", "slot": slot}
 	if not remove_item(item_key):
 		return {"ok": false, "reason": "missing"}
 	var replaced_key := String(loadout.get(slot, ""))
-	var result := equip(item_key)
+	var result := equip(item_key, slot)
 	if not bool(result.get("ok", false)):
 		add_item_key(item_key)
 		return result
@@ -472,6 +608,9 @@ func equip_from_inventory(item_key: String) -> Dictionary:
 func unequip(slot: String) -> Dictionary:
 	if not loadout.has(slot):
 		return {"ok": false, "reason": "empty"}
+	if slot == GameRules.PERMANENT_JACKET_SLOT_ID or not GameRules.is_item_movable(String(loadout[slot])):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent", "message": Loc.text("INVENTORY_PERMANENT_LOCKED")}
 	var old_max_hp := get_max_hp()
 	var old_max_mana := get_max_mana()
 	var item_key := String(loadout[slot])
@@ -508,13 +647,12 @@ func build_camp_upgrade(upgrade_id: String) -> Dictionary:
 		return {"ok": false, "reason": "built"}
 	if not can_build_camp_upgrade(upgrade_id):
 		return {"ok": false, "reason": "resources"}
-	var old_max_hp := get_max_hp()
 	var cost: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]["cost"]
 	for resource_id in cost:
 		resources[resource_id] = int(resources.get(resource_id, 0)) - int(cost[resource_id])
 	camp_upgrades[upgrade_id] = true
 	if upgrade_id == "campfire":
-		hp = mini(get_max_hp(), hp + maxi(0, get_max_hp() - old_max_hp))
+		soul_level += GameRules.CAMPFIRE_SOUL_LEVEL_BONUS
 	return {"ok": true, "upgrade_id": upgrade_id}
 
 
@@ -522,6 +660,7 @@ func can_bind_item(item_key: String, source := "inventory", equipped_slot := "")
 	item_key = _sanitized_item_key(item_key)
 	if (
 		item_key.is_empty()
+		or not GameRules.is_item_movable(item_key)
 		or GameRules.is_item_bound(item_key)
 		or not bool(camp_upgrades.get("ritual_table", false))
 		or get_total_souls() < GameRules.ITEM_BINDING_SOUL_COST
@@ -534,6 +673,9 @@ func can_bind_item(item_key: String, source := "inventory", equipped_slot := "")
 
 func bind_item(item_key: String, source := "inventory", equipped_slot := "") -> Dictionary:
 	item_key = _sanitized_item_key(item_key)
+	if not GameRules.is_item_movable(item_key):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent"}
 	if not bool(camp_upgrades.get("ritual_table", false)):
 		return {"ok": false, "reason": "ritual_table"}
 	if item_key.is_empty():
@@ -569,6 +711,9 @@ func bind_item(item_key: String, source := "inventory", equipped_slot := "") -> 
 
 func dismantle_item(item_key: String) -> Dictionary:
 	item_key = _sanitized_item_key(item_key)
+	if not GameRules.is_item_movable(item_key):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent"}
 	if not bool(camp_upgrades.get("crusher", false)):
 		return {"ok": false, "reason": "crusher"}
 	var item := GameRules.item_rules(item_key)
@@ -584,6 +729,7 @@ func dismantle_item(item_key: String) -> Dictionary:
 
 
 func dismantle_all_items() -> Dictionary:
+	_ensure_permanent_jacket()
 	if not bool(camp_upgrades.get("crusher", false)):
 		return {"ok": false, "reason": "crusher"}
 	if count_unbound_inventory_items() <= 0:
@@ -591,7 +737,7 @@ func dismantle_all_items() -> Dictionary:
 	var total_gained := {"wood": 0, "stone": 0, "cloth": 0}
 	var dismantled_count := 0
 	for item_key in inventory.keys():
-		if GameRules.is_item_bound(String(item_key)):
+		if GameRules.is_item_bound(String(item_key)) or not GameRules.is_item_movable(String(item_key)):
 			continue
 		var count := int(inventory[item_key])
 		var salvage: Dictionary = GameRules.item_rules(String(item_key)).get("salvage", {})
@@ -599,7 +745,7 @@ func dismantle_all_items() -> Dictionary:
 			total_gained[resource_id] += int(salvage.get(resource_id, 0)) * count
 		dismantled_count += count
 	for item_key in inventory.keys():
-		if not GameRules.is_item_bound(String(item_key)):
+		if not GameRules.is_item_bound(String(item_key)) and GameRules.is_item_movable(String(item_key)):
 			inventory.erase(item_key)
 	add_resources(total_gained)
 	return {
@@ -610,9 +756,10 @@ func dismantle_all_items() -> Dictionary:
 
 
 func count_unbound_inventory_items() -> int:
+	_ensure_permanent_jacket()
 	var result := 0
 	for item_key in inventory:
-		if not GameRules.is_item_bound(String(item_key)):
+		if not GameRules.is_item_bound(String(item_key)) and GameRules.is_item_movable(String(item_key)):
 			result += int(inventory[item_key])
 	return result
 
@@ -634,10 +781,13 @@ func upgrade_weapon(
 	equipped_slot := ""
 ) -> Dictionary:
 	item_key = _sanitized_item_key(item_key)
+	if not GameRules.is_item_movable(item_key):
+		_ensure_permanent_jacket()
+		return {"ok": false, "reason": "permanent"}
 	if not bool(camp_upgrades.get("whetstone", false)):
 		return {"ok": false, "reason": "whetstone"}
 	var item := GameRules.item_rules(item_key)
-	if item.is_empty() or item.get("slot", "") != "weapon":
+	if item.is_empty() or not GameRules.is_weapon(item_key):
 		return {"ok": false, "reason": "weapon"}
 	var upgrading_equipped := not equipped_slot.is_empty()
 	if upgrading_equipped:
@@ -705,13 +855,106 @@ func _sanitized_item_key(value: String) -> String:
 	)
 
 
+func apply_damage(amount: int) -> Dictionary:
+	var remaining := maxi(0, amount)
+	var absorbed := 0
+	for status_id in StatusSystem.ordered_active_ids(active_statuses):
+		if remaining <= 0:
+			break
+		var entry: Dictionary = active_statuses[status_id]
+		var pool := maxi(0, int(entry.get("temporary_hp", 0)))
+		var consumed := mini(pool, remaining)
+		if consumed <= 0:
+			continue
+		entry["temporary_hp"] = pool - consumed
+		active_statuses[status_id] = entry
+		absorbed += consumed
+		remaining -= consumed
+	hp -= remaining
+	return {
+		"requested": maxi(0, amount),
+		"temporary_hp_absorbed": absorbed,
+		"hp_damage": remaining,
+		"died": hp <= 0,
+	}
+
+
 func take_damage(amount: int) -> bool:
-	hp -= amount
-	return hp <= 0
+	return bool(apply_damage(amount)["died"])
+
+
+func get_temporary_hp() -> int:
+	var result := 0
+	for status_id in StatusSystem.ordered_active_ids(active_statuses):
+		result += maxi(0, int(active_statuses[status_id].get("temporary_hp", 0)))
+	return result
+
+
+func get_effective_health() -> int:
+	return hp + get_temporary_hp()
+
+
+func has_status(status_id: String) -> bool:
+	return active_statuses.has(status_id)
+
+
+func add_or_refresh_status(status_id: String, duration := -1, temporary_hp := -1) -> bool:
+	return StatusSystem.add_or_refresh(active_statuses, status_id, duration, temporary_hp)
+
+
+func status_remaining(status_id: String) -> int:
+	return int(active_statuses.get(status_id, {}).get("remaining_turns", 0))
+
+
+func cooldown_remaining(ability_id: String) -> int:
+	return maxi(0, int(ability_cooldowns.get(ability_id, 0)))
+
+
+func effective_cooldown(ability_id: String) -> int:
+	var base := AbilitySystem.base_cooldown(ability_id)
+	return maxi(0, base - StatusSystem.cooldown_reduction(active_statuses, ability_id))
+
+
+func finish_completed_round(pending_ability_id := "", pending_duration := 0) -> Array[Dictionary]:
+	var running_ids := ability_cooldowns.keys()
+	for ability_id in running_ids:
+		var remaining := maxi(0, int(ability_cooldowns.get(ability_id, 0)) - 1)
+		if remaining <= 0:
+			ability_cooldowns.erase(ability_id)
+		else:
+			ability_cooldowns[ability_id] = remaining
+	var events := StatusSystem.tick(active_statuses)
+	if not pending_ability_id.is_empty() and pending_duration > 0 and hp > 0:
+		ability_cooldowns[pending_ability_id] = pending_duration
+	return events
 
 
 func get_skill_level(skill_id: String) -> int:
 	return int(skill_levels.get(skill_id, 0))
+
+
+func get_display_form_id() -> String:
+	return display_form_id if available_display_form_ids().has(display_form_id) else current_form_id
+
+
+func available_display_form_ids() -> Array[String]:
+	var result: Array[String] = []
+	var maximum_index := clampi(highest_unlocked_form_index, 0, GameRules.FORM_ORDER.size() - 1)
+	for index in range(maximum_index + 1):
+		result.append(GameRules.FORM_ORDER[index])
+	return result
+
+
+func set_display_form_id(form_id: String) -> bool:
+	if get_skill_level("choose_appearance") <= 0:
+		return false
+	if form_id == current_form_id or form_id.is_empty():
+		display_form_id = ""
+		return true
+	if not available_display_form_ids().has(form_id):
+		return false
+	display_form_id = form_id
+	return true
 
 
 func get_slotted_ability(slot_id: String) -> String:
@@ -847,9 +1090,11 @@ func advance_survival_turn() -> Dictionary:
 	if hunger <= 0:
 		regeneration_progress = 0
 		var starvation_damage := maxi(1, ceili(get_max_hp() * 0.02))
-		hp -= starvation_damage
+		var damage_result := apply_damage(starvation_damage)
 		result["starvation_damage"] = starvation_damage
-		result["died"] = hp <= 0
+		result["temporary_hp_absorbed"] = damage_result["temporary_hp_absorbed"]
+		result["hp_damage"] = damage_result["hp_damage"]
+		result["died"] = damage_result["died"]
 		return result
 
 	if has_regeneration_skill():
@@ -888,6 +1133,7 @@ func activate_checkpoint(floor_number: int) -> bool:
 
 
 func safe_return() -> int:
+	_ensure_permanent_jacket()
 	var delivered := carried_souls
 	rope_floor = mini(rope_floor, current_floor)
 	banked_souls += carried_souls
@@ -895,29 +1141,47 @@ func safe_return() -> int:
 	hp = get_max_hp()
 	mana = get_max_mana()
 	mana_regeneration_progress = 0.0
+	apply_camp_entry_effects()
 	return delivered
 
 
+func apply_camp_entry_effects() -> Dictionary:
+	var result := {"hunger_refilled": false, "rested_granted": false}
+	if uses_hunger():
+		result["hunger_refilled"] = hunger < 100
+		hunger = 100
+	if GameRules.has_intrinsic_feature(current_form_id, "nervous_system"):
+		add_or_refresh_status("rested", 500, 5)
+		result["rested_granted"] = true
+	return result
+
+
 func die() -> Dictionary:
+	_ensure_permanent_jacket()
 	var lost_souls := carried_souls
 	var lost_items := 0
 	var kept_inventory: Dictionary = {}
 	var kept_loadout: Dictionary = {}
 	for item_key in inventory:
 		var count := int(inventory[item_key])
-		if GameRules.is_item_bound(String(item_key)):
+		if GameRules.is_item_permanent(String(item_key)):
+			continue
+		elif GameRules.is_item_bound(String(item_key)):
 			kept_inventory[item_key] = count
 		else:
 			lost_items += count
 	for slot in loadout:
 		var equipped_key := String(loadout[slot])
-		if GameRules.is_item_bound(equipped_key):
+		if slot == GameRules.PERMANENT_JACKET_SLOT_ID or GameRules.is_item_permanent(equipped_key):
+			continue
+		elif GameRules.is_item_bound(equipped_key):
 			kept_loadout[slot] = equipped_key
 		else:
 			lost_items += 1
 	carried_souls = 0
 	absorbed_souls = 0
 	current_form_id = "skeleton"
+	display_form_id = ""
 	loadout.clear()
 	inventory.clear()
 	for item_key in kept_inventory:
@@ -925,10 +1189,11 @@ func die() -> Dictionary:
 	for slot in kept_loadout:
 		var item_key := String(kept_loadout[slot])
 		var item := GameRules.item_rules(item_key)
-		if get_form()["slots"].has(slot) and String(item.get("slot", "")) == slot:
+		if GameRules.is_slot_unlocked(current_form_id, slot) and GameRules.item_fits_slot(item_key, slot):
 			loadout[slot] = item_key
 		else:
 			add_item_key(item_key)
+	_ensure_permanent_jacket()
 	food = 0
 	hunger = 100
 	hunger_turn_progress = 0
@@ -936,9 +1201,28 @@ func die() -> Dictionary:
 	mana_regeneration_progress = 0.0
 	total_turns = 0
 	cradle_miss_streak = 0
+	ability_cooldowns.clear()
+	active_statuses.clear()
 	hp = get_max_hp()
 	mana = get_max_mana()
 	return {"souls": lost_souls, "items": lost_items}
+
+
+func _ensure_permanent_jacket() -> void:
+	var canonical_key := GameRules.permanent_jacket_key()
+	for inventory_key in inventory.keys():
+		if GameRules.base_item_id(String(inventory_key)) == GameRules.PERMANENT_JACKET_ITEM_ID:
+			inventory.erase(inventory_key)
+	for slot in loadout.keys():
+		if (
+			slot != GameRules.PERMANENT_JACKET_SLOT_ID
+			and GameRules.base_item_id(String(loadout[slot])) == GameRules.PERMANENT_JACKET_ITEM_ID
+		):
+			loadout.erase(slot)
+	var displaced_key := _sanitized_item_key(String(loadout.get(GameRules.PERMANENT_JACKET_SLOT_ID, "")))
+	if not displaced_key.is_empty() and GameRules.is_item_movable(displaced_key):
+		inventory[displaced_key] = int(inventory.get(displaced_key, 0)) + 1
+	loadout[GameRules.PERMANENT_JACKET_SLOT_ID] = canonical_key
 
 
 func can_upgrade_base() -> bool:
