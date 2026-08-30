@@ -32,7 +32,8 @@ func _rebuild_chips() -> void:
 	for child in get_children():
 		child.queue_free()
 	var active_ids := StatusSystem.ordered_active_ids(status_snapshot)
-	var shown_count := mini(active_ids.size(), MAX_VISIBLE_STATUSES)
+	var counts := presentation_counts(active_ids.size())
+	var shown_count := counts.x
 	for index in range(shown_count):
 		var status_id: String = active_ids[index]
 		var chip := StatusChip.new()
@@ -40,12 +41,17 @@ func _rebuild_chips() -> void:
 		chip.size = CHIP_SIZE
 		chip.configure(status_id, status_snapshot[status_id])
 		add_child(chip)
-	if active_ids.size() > MAX_VISIBLE_STATUSES:
+	if counts.y > 0:
 		var summary := StatusChip.new()
 		summary.position = Vector2(shown_count * (CHIP_SIZE.x + CHIP_GAP), 1)
 		summary.size = CHIP_SIZE
-		summary.configure_summary(active_ids.size() - shown_count)
+		summary.configure_summary(counts.y)
 		add_child(summary)
+
+
+static func presentation_counts(active_count: int) -> Vector2i:
+	var shown_count := mini(maxi(active_count, 0), MAX_VISIBLE_STATUSES)
+	return Vector2i(shown_count, maxi(0, active_count - shown_count))
 
 
 class StatusChip extends Control:
@@ -58,6 +64,7 @@ class StatusChip extends Control:
 
 	func _ready() -> void:
 		focus_mode = Control.FOCUS_ALL
+		mouse_filter = Control.MOUSE_FILTER_PASS
 		mouse_default_cursor_shape = Control.CURSOR_HELP
 
 	func configure(value: String, status_entry: Dictionary) -> void:
@@ -85,6 +92,8 @@ class StatusChip extends Control:
 			return
 		if status_id == "rested":
 			_draw_rested_ember()
+		elif status_id == "satiated":
+			_draw_satiated_meal()
 		var duration := int(entry.get("remaining_turns", 0))
 		_draw_text(str(duration), Vector2(12, 25), 8 if duration >= 100 else 9, Color("fff0ca"))
 
@@ -105,6 +114,14 @@ class StatusChip extends Control:
 		draw_colored_polygon(PackedVector2Array([
 			Vector2(10, 18), Vector2(12, 12), Vector2(14, 18),
 		]), Color("ffd37a"))
+
+	func _draw_satiated_meal() -> void:
+		draw_circle(Vector2(11, 15), 6.0, Color("35513a"))
+		draw_circle(Vector2(11, 15), 4.5, Color("e7c675"))
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(6, 14), Vector2(16, 14), Vector2(14, 19), Vector2(8, 19),
+		]), Color("9e5937"))
+		draw_line(Vector2(8, 20), Vector2(14, 20), Color("f2d79a"), 1.5)
 
 	func _draw_text(text: String, position: Vector2, font_size: int, color: Color) -> void:
 		draw_string(

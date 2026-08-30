@@ -14,6 +14,7 @@ func run(_tree: SceneTree) -> Array[String]:
 	_test_attack_memory_ttl_and_priority()
 	_test_pruning_and_deduplication()
 	_test_renderer_contracts()
+	await _test_locked_and_purchase_contract(_tree)
 	await _test_main_turn_input_and_automation(_tree)
 	return failures
 
@@ -21,13 +22,29 @@ func run(_tree: SceneTree) -> Array[String]:
 func _test_radius_contract() -> void:
 	var state := RunState.new()
 	_expect(
-		state.get_vision_radius() == 4 and state.get_hearing_radius() == 5,
-		"Base hearing radius must derive as current vision radius plus one",
+		state.get_vision_radius() == 4 and not state.has_hearing()
+		and state.get_hearing_radius() == 0,
+		"Hearing must remain fully locked for a new character",
+	)
+	state.current_form_id = "ghoul"
+	state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	state.display_form_id = "skeleton"
+	state.skill_levels["ears"] = 1
+	_expect(
+		state.has_hearing() and state.get_hearing_radius() == 5,
+		"An actual Ghoul with Ears must hear at current vision plus one under any display form",
 	)
 	state.skill_levels["sharp_vision"] = 2
 	_expect(
 		state.get_hearing_radius() == state.get_vision_radius() + 1,
 		"Sharp Vision must automatically extend hearing through effective vision",
+	)
+	state.current_form_id = "zombie"
+	state.display_form_id = "ghoul"
+	_expect(
+		not state.has_hearing() and state.get_hearing_radius() == 0,
+		"A cosmetic Ghoul must never unlock Ears for an actual Zombie",
 	)
 
 
@@ -144,6 +161,113 @@ func _test_renderer_contracts() -> void:
 			"Hearing marker radius/stroke must not scale with cell size %d" % zoom,
 		)
 	Renderer.set_runtime_cell_size(original_cell_size)
+
+
+func _test_locked_and_purchase_contract(tree: SceneTree) -> void:
+	var main = await _new_main(tree, false)
+	main.state.current_form_id = "ghoul"
+	main.state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	main.state.hp = main.state.get_max_hp()
+	main.player_pos = Vector2i(2, 3)
+	main.floor_data = _floor_fixture()
+	main.floor_data["enemies"] = [_game_enemy("locked-archer", Vector2i(8, 3), 0, 10, 10)]
+	main._update_player_visibility(false)
+	main.held_direction = Vector2i.RIGHT
+	main.auto_explore_active = true
+	main.auto_travel_active = true
+	_expect(
+		not main._sync_hearing_proximity()
+		and main.hearing_contacts.event_revision == 0
+		and main.hearing_contacts.presentation_positions().is_empty()
+		and main.held_direction == Vector2i.RIGHT
+		and main.auto_explore_active and main.auto_travel_active,
+		"Locked hearing must create no proximity event or hearing-only automation interruption",
+	)
+	main.auto_explore_active = false
+	main.auto_travel_active = true
+	main._log_action("locked hidden attack")
+	main._try_enemy_ranged_attack(0, 1)
+	main._flush_hidden_attack_hearing_log()
+	_expect(
+		main.hearing_contacts.event_revision == 0
+		and main.hearing_contacts.attack_memory_count() == 0
+		and not main.action_history.has(Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
+		and main.held_direction == Vector2i.RIGHT
+		and not main.auto_explore_active and main.auto_travel_active,
+		"A locked hidden miss must keep normal ranged interruption but add no hearing snapshot, log, or route stop",
+	)
+	main.auto_travel_active = false
+	main.floor_data["enemies"][0]["accuracy"] = 100
+	main.floor_data["enemies"][0]["damage"] = 1
+	main.wait_turn_count = 10
+	var hp_before_locked_hit: int = main.state.hp
+	var turns_before_locked_hit: int = main.state.total_turns
+	main._on_wait_pressed()
+	_expect(
+		main.state.total_turns == turns_before_locked_hit + 1
+		and main.state.hp == hp_before_locked_hit - 1
+		and main.action_history[0] == Loc.text("MSG_WAIT_INTERRUPTED_HP", [1])
+		and main.hearing_contacts.event_revision == 0
+		and not main.action_history.has(Loc.text("MSG_HEARING_HIDDEN_ATTACK")),
+		"Locked hearing must not change real damage or HP-loss interruption from a hidden hit",
+	)
+	main.hearing_contacts.record_hidden_attack("stale-locked", Vector2i(7, 3), main.state.total_turns)
+	main.inspected_target = {"kind": "noise", "pos": Vector2i(7, 3)}
+	main._refresh_dungeon_viewport()
+	_expect(
+		main.hearing_contacts.event_revision == 0
+		and main.hearing_contacts.presentation_positions().is_empty()
+		and main.inspected_target.is_empty(),
+		"Locked presentation refresh must clear stale pre-unlock contacts and noise inspection",
+	)
+	main.floor_data["enemies"].clear()
+	main.hearing_contacts.record_hidden_attack("stale-wait", Vector2i(7, 3), main.state.total_turns)
+	main.auto_travel_active = false
+	main.wait_turn_count = 10
+	var turns_before_locked_wait: int = main.state.total_turns
+	main._on_wait_pressed()
+	_expect(
+		main.state.total_turns == turns_before_locked_wait + 10
+		and main.action_history[0] == Loc.text("MSG_WAIT_COMPLETED", [10])
+		and main.hearing_contacts.event_revision == 0,
+		"Locked long wait must ignore and clear stale hearing revision without a hearing interruption",
+	)
+
+	main.floor_data["enemies"] = [_game_enemy("purchase-nearby", Vector2i(7, 3), 0, 0, 0)]
+	main.state.banked_souls = 20
+	main.screen = main.Screen.DUNGEON
+	main._show_character()
+	main._on_skill_purchase_pressed("ears")
+	_expect(
+		main.state.get_skill_level("ears") == 1 and main.state.get_total_souls() == 0
+		and main.state.has_hearing() and main.state.get_hearing_radius() == 5
+		and main.hearing_contacts.event_revision == 1
+		and main.hearing_contacts.presentation_positions() == [Vector2i(7, 3)]
+		and main.action_history.has(Loc.text("MSG_HEARING_MOVEMENT")),
+		"Buying Ears in a dungeon must cost 20 souls and immediately sync current nearby noise",
+	)
+	var restored := RunState.new()
+	_expect(
+		restored.restore_save_data(main.state.to_save_data())
+		and restored.get_skill_level("ears") == 1 and restored.has_hearing(),
+		"Learned Ears must round-trip additively in save version 13",
+	)
+	var legacy_source := RunState.new()
+	legacy_source.configure_character("Legacy Listener", GameRules.default_attributes())
+	var legacy_data := legacy_source.to_save_data()
+	legacy_data["current_form_id"] = "ghoul"
+	legacy_data["absorbed_souls"] = int(GameRules.FORMS["ghoul"]["threshold"])
+	legacy_data["highest_unlocked_form_index"] = GameRules.FORM_ORDER.find("ghoul")
+	var legacy := RunState.new()
+	_expect(
+		legacy.restore_save_data(legacy_data)
+		and legacy.get_skill_level("ears") == 0
+		and not legacy.has_hearing() and legacy.get_hearing_radius() == 0,
+		"Legacy saves must never receive Ears automatically",
+	)
+	main.queue_free()
+	await tree.process_frame
 
 
 func _test_main_turn_input_and_automation(tree: SceneTree) -> void:
@@ -385,7 +509,7 @@ func _test_main_turn_input_and_automation(tree: SceneTree) -> void:
 	await tree.process_frame
 
 
-func _new_main(tree: SceneTree):
+func _new_main(tree: SceneTree, with_hearing := true):
 	var packed := load("res://scenes/main.tscn") as PackedScene
 	var main = packed.instantiate()
 	main.persistence_enabled = false
@@ -395,6 +519,13 @@ func _new_main(tree: SceneTree):
 	main.save_menu_panel.close()
 	main.screen = main.Screen.DUNGEON
 	main.state = RunState.new()
+	main.state.configure_character("Hearing Test", GameRules.default_attributes())
+	if with_hearing:
+		main.state.current_form_id = "ghoul"
+		main.state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+		main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+		main.state.skill_levels["ears"] = 1
+		main.state.hp = main.state.get_max_hp()
 	main._apply_dungeon_layout(true)
 	return main
 

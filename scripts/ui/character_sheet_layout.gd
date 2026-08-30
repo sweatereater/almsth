@@ -21,6 +21,14 @@ const FIGURE_BASELINE_Y := 612.0
 
 const SOUL_FORM_RECT := Rect2(28, 88, 252, 48)
 const PRIMARY_ATTRIBUTES_RECT := Rect2(28, 142, 220, 140)
+const PRIMARY_ATTRIBUTES_HEADER_RECT := Rect2(28, 142, 220, 22)
+const ATTRIBUTE_ROW_COUNT := 5
+const ATTRIBUTE_ROW_START_Y := 165.0
+const ATTRIBUTE_ROW_STRIDE := 23.0
+const ATTRIBUTE_ROW_SIZE := Vector2(220, 22)
+const ATTRIBUTE_LABEL_SIZE := Vector2(186, 22)
+const ATTRIBUTE_BUTTON_SIZE := Vector2(28, 22)
+const ATTRIBUTE_BUTTON_X := 220.0
 const FREE_STATS_RECT := Rect2(28, 290, 220, 32)
 const STATUS_STRIP_RECT := Rect2(28, 326, 252, 30)
 const DERIVED_STATS_RECT := Rect2(28, 364, 252, 228)
@@ -49,3 +57,25 @@ const INVENTORY_FILTER_ROWS := [6, 5]
 
 static func slot_rect(slot_id: String) -> Rect2:
 	return SLOT_RECTS.get(slot_id, Rect2())
+
+
+static func attribute_row_rect(index: int) -> Rect2:
+	if index < 0 or index >= ATTRIBUTE_ROW_COUNT:
+		return Rect2()
+	return Rect2(
+		Vector2(PRIMARY_ATTRIBUTES_RECT.position.x, ATTRIBUTE_ROW_START_Y + index * ATTRIBUTE_ROW_STRIDE),
+		ATTRIBUTE_ROW_SIZE,
+	)
+
+
+static func attribute_label_rect(index: int) -> Rect2:
+	var row := attribute_row_rect(index)
+	return Rect2(row.position, ATTRIBUTE_LABEL_SIZE) if row.has_area() else Rect2()
+
+
+static func attribute_button_rect(index: int) -> Rect2:
+	var row := attribute_row_rect(index)
+	return (
+		Rect2(Vector2(ATTRIBUTE_BUTTON_X, row.position.y), ATTRIBUTE_BUTTON_SIZE)
+		if row.has_area() else Rect2()
+	)

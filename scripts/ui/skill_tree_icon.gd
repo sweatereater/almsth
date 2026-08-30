@@ -192,6 +192,15 @@ func _draw_glyph(center: Vector2, color: Color) -> void:
 			]), color, thin, true)
 			draw_line(center + Vector2(-5, 1), center + Vector2(5, 1), color, thin, true)
 			draw_line(center + Vector2(0, -4), center + Vector2(0, 6), color, thin, true)
+		"stomach":
+			draw_arc(center + Vector2(-2, 1), 11.0, -1.35, 1.75, 24, color, 3.0, true)
+			draw_arc(center + Vector2(5, 5), 6.0, 1.1, 3.5, 16, color, thin, true)
+			draw_line(center + Vector2(-1, -10), center + Vector2(4, -4), color, thin, true)
+		"ears":
+			for offset in [-7.0, 7.0]:
+				draw_arc(center + Vector2(offset, 0), 7.0, -1.25, 1.25, 18, color, 2.5, true)
+				draw_arc(center + Vector2(offset, 1), 3.5, -1.1, 1.1, 12, color, thin, true)
+			draw_line(center + Vector2(-1, -8), center + Vector2(1, 8), color, thin, true)
 		"dash":
 			for offset in [-5.0, 5.0]:
 				draw_polyline(PackedVector2Array([

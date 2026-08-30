@@ -46,7 +46,7 @@ const STAGE_BRANCHES := {
 	"ghoul": [
 		{"label": "SKILL_BRANCH_MANEUVER", "nodes": ["dash", "ghoul_maneuver_soon"]},
 		{"label": "SKILL_BRANCH_COMBAT", "nodes": ["double_attack", "ghoul_combat_soon"]},
-		{"label": "SKILL_BRANCH_BODY", "nodes": ["nervous_system"]},
+		{"label": "SKILL_BRANCH_BODY", "nodes": ["stomach", "ears", "nervous_system"]},
 	],
 	"revenant": [
 		{"label": "SKILL_BRANCH_SENSES", "nodes": ["sharp_vision", "revenant_soon_1", "revenant_soon_2", "revenant_soon_3"]},

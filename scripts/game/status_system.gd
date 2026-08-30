@@ -4,7 +4,7 @@ extends RefCounted
 ## Immutable status definitions live here; saves contain only the mutable fields
 ## explicitly sanitized below. Gameplay modifiers are never trusted from save data.
 
-const STATUS_ORDER: Array[String] = ["rested"]
+const STATUS_ORDER: Array[String] = ["rested", "satiated"]
 const STATUSES := {
 	"rested": {
 		"name": "STATUS_RESTED",
@@ -23,6 +23,20 @@ const STATUSES := {
 			"dash": 10,
 			"double_attack": 5,
 		},
+	},
+	"satiated": {
+		"name": "STATUS_SATIATED",
+		"description": "STATUS_SATIATED_DESC",
+		"icon": "satiated_meal",
+		"priority": 90,
+		"default_duration": 400,
+		"max_duration": 400,
+		"temporary_hp_grant": 3,
+		"per_turn_effect": {},
+		"modifiers": {
+			"regeneration": 1,
+		},
+		"cooldown_reduction": {},
 	},
 }
 

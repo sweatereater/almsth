@@ -5,6 +5,7 @@ const Audio := preload("res://scripts/audio/audio_manager.gd")
 const SaveSystem := preload("res://scripts/system/persistence.gd")
 const InputProfile := preload("res://scripts/system/input_bindings.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
+const Presentation := preload("res://scripts/system/presentation_settings.gd")
 
 const SETTINGS_PATH := "res://.tmp/audio-settings.cfg"
 const AUDIO_FILES := [
@@ -40,6 +41,7 @@ func _test_settings_persistence() -> void:
 		"fullscreen": true,
 		"inspection_radius": 9,
 		"dungeon_cell_size": 44,
+		"auto_movement_speed_percent": 225,
 		"locale": "en",
 		"bindings": bindings,
 		"audio": {"muted": true, "background_volume": 35, "actions_volume": 80},
@@ -53,6 +55,7 @@ func _test_settings_persistence() -> void:
 		}
 		and loaded.get("bindings", {}) == bindings
 		and int(loaded.get("dungeon_cell_size", 0)) == 44
+		and int(loaded.get("auto_movement_speed_percent", 0)) == 225
 		and retained.get_value("custom", "retained", "") == "platform-value",
 		"Audio round-trip must preserve bindings and unrelated settings fields",
 	)
@@ -65,6 +68,7 @@ func _test_settings_persistence() -> void:
 		and int(loaded.get("inspection_radius", 0)) == 9
 		and String(loaded.get("locale", "")) == "en"
 		and int(loaded.get("dungeon_cell_size", 0)) == 44
+		and int(loaded.get("auto_movement_speed_percent", 0)) == 225
 		and loaded.get("bindings", {}) == bindings
 		and loaded.get("audio", {}) == {
 			"muted": false, "background_volume": 55, "actions_volume": 70,
@@ -80,6 +84,7 @@ func _test_settings_persistence() -> void:
 		not loaded["fullscreen"]
 		and int(loaded["inspection_radius"]) == 6
 		and int(loaded["dungeon_cell_size"]) == 66
+		and int(loaded["auto_movement_speed_percent"]) == 100
 		and String(loaded["locale"]) == "ru"
 		and loaded["bindings"] == {}
 		and loaded["audio"] == {
@@ -95,7 +100,8 @@ func _test_settings_persistence() -> void:
 	loaded = SaveSystem.load_settings(SETTINGS_PATH)
 	_expect(
 		loaded.get("audio", {}) == SaveSystem.DEFAULT_AUDIO_SETTINGS
-		and int(loaded.get("dungeon_cell_size", 0)) == 66,
+		and int(loaded.get("dungeon_cell_size", 0)) == 66
+		and int(loaded.get("auto_movement_speed_percent", 0)) == 100,
 		"Legacy settings without an audio section must use documented defaults",
 	)
 	for cell_size in [44, 66, 88]:
@@ -104,6 +110,33 @@ func _test_settings_persistence() -> void:
 			and int(SaveSystem.load_settings(SETTINGS_PATH).get("dungeon_cell_size", 0)) == cell_size,
 			"Dungeon cell-size setting must round-trip %d" % cell_size,
 		)
+	for speed_percent in Presentation.AUTO_MOVEMENT_SPEED_PERCENTS:
+		_expect(
+			SaveSystem.save_settings({
+				"auto_movement_speed_percent": speed_percent,
+			}, SETTINGS_PATH) == OK
+			and int(SaveSystem.load_settings(SETTINGS_PATH).get(
+				"auto_movement_speed_percent", 0,
+			)) == speed_percent,
+			"Automatic movement speed setting must round-trip %d" % speed_percent,
+		)
+	var partial_before := ConfigFile.new()
+	partial_before.load(SETTINGS_PATH)
+	partial_before.set_value("custom", "future_key", 713)
+	partial_before.save(SETTINGS_PATH)
+	_expect(
+		SaveSystem.save_settings({"inspection_radius": 7}, SETTINGS_PATH) == OK,
+		"A partial gameplay settings update must remain writable",
+	)
+	var partial_after := ConfigFile.new()
+	partial_after.load(SETTINGS_PATH)
+	_expect(
+		int(SaveSystem.load_settings(SETTINGS_PATH).get(
+			"auto_movement_speed_percent", 0,
+		)) == 225
+		and int(partial_after.get_value("custom", "future_key", 0)) == 713,
+		"Partial settings writes must preserve automatic speed and unknown sections",
+	)
 	var malformed_zoom := ConfigFile.new()
 	malformed_zoom.set_value("gameplay", "dungeon_cell_size", 99)
 	malformed_zoom.save(SETTINGS_PATH)
@@ -111,6 +144,18 @@ func _test_settings_persistence() -> void:
 		int(SaveSystem.load_settings(SETTINGS_PATH).get("dungeon_cell_size", 0)) == 66,
 		"Malformed dungeon cell size must fall back to 66",
 	)
+	for malformed_speed in [175, 150.5, "225", null]:
+		var malformed_auto_speed := ConfigFile.new()
+		malformed_auto_speed.set_value(
+			"gameplay", "auto_movement_speed_percent", malformed_speed,
+		)
+		malformed_auto_speed.save(SETTINGS_PATH)
+		_expect(
+			int(SaveSystem.load_settings(SETTINGS_PATH).get(
+				"auto_movement_speed_percent", 0,
+			)) == 100,
+			"Malformed/unsupported automatic movement speed must fall back to 100",
+		)
 	var malformed := ConfigFile.new()
 	malformed.set_value("audio", "muted", "yes")
 	malformed.set_value("audio", "background_volume", "loud")
@@ -437,14 +482,52 @@ func _test_settings_input(tree: SceneTree) -> void:
 		"Opening Settings must begin at the radius controls",
 	)
 	_expect(
-		main.settings_sound_button.size.y >= 42
+		main.settings_auto_movement_speed_button.size == Vector2(400, 42)
+		and main.settings_auto_movement_speed_button.position == Vector2(440, 208)
+		and main.settings_sound_button.position.y == 256
+		and main.settings_sound_button.size.y >= 42
 		and main.settings_background_slider.size.y >= 42
-		and main.settings_actions_slider.size.y >= 42,
-		"Audio settings need virtual touch targets of at least 42px",
+		and main.settings_actions_slider.size.y >= 42
+		and Rect2(330, 40, 620, 670).encloses(Rect2(
+			main.settings_auto_movement_speed_button.position,
+			main.settings_auto_movement_speed_button.size,
+		)),
+		"Automatic speed and audio settings need ordered 42px touch targets inside the card",
 	)
+	var settings_card := Rect2(330, 40, 620, 670)
+	var downstream_controls: Array[Control] = [
+		main.settings_auto_movement_speed_button,
+		main.settings_sound_button,
+		main.settings_background_slider,
+		main.settings_actions_slider,
+		main.settings_display_button,
+		main.language_button,
+		main.settings_input_label,
+		main.settings_controls_button,
+		main.settings_new_game_button,
+		main.settings_close_button,
+	]
+	for control in downstream_controls:
+		_expect(
+			settings_card.encloses(Rect2(control.position, control.size)),
+			"Every downstream Settings row must remain inside the existing card",
+		)
+	for index in range(downstream_controls.size() - 1):
+		_expect(
+			not Rect2(
+				downstream_controls[index].position, downstream_controls[index].size,
+			).intersects(Rect2(
+				downstream_controls[index + 1].position,
+				downstream_controls[index + 1].size,
+			)),
+			"Consecutive Settings rows must not overlap after inserting automatic speed",
+		)
 	_expect(
 		main.settings_minus_button.focus_neighbor_bottom == main.settings_zoom_button.get_path()
-		and main.settings_zoom_button.focus_neighbor_bottom == main.settings_sound_button.get_path()
+		and main.settings_zoom_button.focus_neighbor_bottom
+		== main.settings_auto_movement_speed_button.get_path()
+		and main.settings_auto_movement_speed_button.focus_neighbor_bottom
+		== main.settings_sound_button.get_path()
 		and main.settings_sound_button.focus_neighbor_bottom == main.settings_background_slider.get_path()
 		and main.settings_background_slider.focus_neighbor_bottom == main.settings_actions_slider.get_path()
 		and main.settings_actions_slider.focus_neighbor_bottom == main.settings_display_button.get_path()
@@ -452,8 +535,60 @@ func _test_settings_input(tree: SceneTree) -> void:
 		and main.language_button.focus_neighbor_bottom == main.settings_controls_button.get_path()
 		and main.settings_controls_button.focus_neighbor_bottom == main.settings_new_game_button.get_path()
 		and main.settings_new_game_button.focus_neighbor_bottom == main.settings_close_button.get_path(),
-		"Settings focus order must include both audio sliders and return to the unified menu",
+		"Settings focus order must include automatic speed, both audio sliders and unified return",
 	)
+	_expect(
+		main.settings_auto_movement_speed_button.text == Loc.text("SETTINGS_AUTO_SPEED", [
+			Loc.text("SETTINGS_AUTO_SPEED_BASE"),
+		])
+		and not main.settings_auto_movement_speed_button.tooltip_text.is_empty()
+		and main.settings_auto_movement_speed_button.accessibility_name.contains(
+			main.settings_auto_movement_speed_button.tooltip_text
+		),
+		"Automatic movement speed must expose its Base value, tooltip and accessibility text",
+	)
+	main.settings_auto_movement_speed_button.grab_focus()
+	var speed_accept := InputEventAction.new()
+	speed_accept.action = "ui_accept"
+	speed_accept.pressed = true
+	main.get_viewport().push_input(speed_accept, true)
+	await tree.process_frame
+	_expect(main.auto_movement_speed_percent == 150, "Keyboard Enter must cycle automatic speed to +50")
+	speed_accept = speed_accept.duplicate()
+	speed_accept.pressed = false
+	main.get_viewport().push_input(speed_accept, true)
+	await tree.process_frame
+	var speed_gamepad_accept := InputEventJoypadButton.new()
+	speed_gamepad_accept.button_index = JOY_BUTTON_A
+	speed_gamepad_accept.pressed = true
+	main.get_viewport().push_input(speed_gamepad_accept, true)
+	await tree.process_frame
+	_expect(main.auto_movement_speed_percent == 200, "Gamepad A must cycle automatic speed to +100")
+	speed_gamepad_accept = speed_gamepad_accept.duplicate()
+	speed_gamepad_accept.pressed = false
+	main.get_viewport().push_input(speed_gamepad_accept, true)
+	await tree.process_frame
+	var speed_center: Vector2 = main.settings_auto_movement_speed_button.get_global_rect().get_center()
+	var speed_click := InputEventMouseButton.new()
+	speed_click.button_index = MOUSE_BUTTON_LEFT
+	speed_click.pressed = true
+	speed_click.position = speed_center
+	main.get_viewport().push_input(speed_click, true)
+	speed_click = speed_click.duplicate()
+	speed_click.pressed = false
+	main.get_viewport().push_input(speed_click, true)
+	await tree.process_frame
+	_expect(main.auto_movement_speed_percent == 225, "Mouse must cycle automatic speed to +125")
+	var speed_touch := InputEventScreenTouch.new()
+	speed_touch.index = 7
+	speed_touch.pressed = true
+	speed_touch.position = speed_center
+	main.get_viewport().push_input(speed_touch, true)
+	speed_touch = speed_touch.duplicate()
+	speed_touch.pressed = false
+	main.get_viewport().push_input(speed_touch, true)
+	await tree.process_frame
+	_expect(main.auto_movement_speed_percent == 100, "Touch must wrap automatic speed to Base")
 	main.settings_sound_button.grab_focus()
 	var accept := InputEventAction.new()
 	accept.action = "ui_accept"
@@ -558,10 +693,23 @@ func _test_settings_input(tree: SceneTree) -> void:
 	)
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
-		main._apply_locale()
+		for speed_percent in Presentation.AUTO_MOVEMENT_SPEED_PERCENTS:
+			main.auto_movement_speed_percent = speed_percent
+			main._apply_locale()
+			var option_key := Presentation.auto_movement_speed_locale_key(speed_percent)
+			_expect(
+				main.settings_auto_movement_speed_button.text == Loc.text(
+					"SETTINGS_AUTO_SPEED", [Loc.text(option_key)],
+				)
+				and ["Base", "База", "+50", "+100", "+125"].has(Loc.text(option_key))
+				and main.settings_auto_movement_speed_button.size == Vector2(400, 42),
+				"Automatic speed option %d must fit the RU/EN settings row" % speed_percent,
+			)
 		for key in [
 			"SETTINGS_SOUND_ON", "SETTINGS_SOUND_OFF", "SETTINGS_BACKGROUND_VOLUME",
-			"SETTINGS_ACTIONS_VOLUME",
+			"SETTINGS_ACTIONS_VOLUME", "SETTINGS_AUTO_SPEED", "SETTINGS_AUTO_SPEED_BASE",
+			"SETTINGS_AUTO_SPEED_PLUS_50", "SETTINGS_AUTO_SPEED_PLUS_100",
+			"SETTINGS_AUTO_SPEED_PLUS_125", "SETTINGS_AUTO_SPEED_DESC",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Audio Settings localization %s missing in %s" % [key, locale])
 	main.queue_free()

@@ -101,8 +101,13 @@ func _soak_progression_and_survival() -> void:
 		_check(state.current_form_id == expected_form, "Evolution skipped or selected the wrong form")
 		_check(state.carried_souls == old_souls - expected_cost, "Evolution charged the wrong amount")
 	_check(not state.evolve_at_cradle()["ok"], "Final form evolved past its maximum")
+	_check(
+		state.purchase_skill("stomach") == {"ok": true, "level": 1, "cost": 20},
+		"Progression soak could not buy the Ghoul Stomach skill",
+	)
 	state.apply_camp_entry_effects()
 	_check(state.status_remaining("rested") == 500, "Camp did not start the 500-turn Rested soak")
+	_check(state.status_remaining("satiated") == 400, "Camp did not start the 400-turn Satiated soak")
 	state.finish_completed_round("dash", state.effective_cooldown("dash"))
 	_check(state.cooldown_remaining("dash") == 10, "Rested Dash soak did not snapshot 10")
 	for status_turn in range(501):
@@ -113,13 +118,16 @@ func _soak_progression_and_survival() -> void:
 			"Cooldown escaped bounds during Rested soak at turn %d" % status_turn,
 		)
 	_check(not state.has_status("rested"), "Rested must expire within the 501-turn soak")
+	_check(not state.has_status("satiated"), "Satiated must expire within the 501-turn soak")
 	_check(state.cooldown_remaining("dash") == 0, "Dash cooldown must be ready after 501 turns")
 
 	state.die()
-	state.add_souls(10)
-	state.evolve_at_cradle()
+	state.add_souls(24)
+	_check(state.evolve_at_cradle()["ok"], "Post-death soak could not restore Zombie form")
+	_check(state.evolve_at_cradle()["ok"], "Post-death soak could not restore Ghoul form")
 	state.banked_souls = 20
-	state.purchase_skill("flesh_regeneration")
+	_check(state.purchase_skill("flesh_regeneration")["ok"], "Post-death soak could not buy Regeneration")
+	_check(state.uses_hunger(), "Learned Stomach must reactivate only after restoring a Ghoul body")
 	state.attributes["vitality"] = 1000
 	state.hp = state.get_max_hp() - 100
 	state.mana = 0
@@ -128,7 +136,7 @@ func _soak_progression_and_survival() -> void:
 		if state.hunger <= 80 and state.food > 0:
 			state.camp_and_eat()
 		var result := state.advance_survival_turn()
-		_check(state.hunger >= 0 and state.hunger <= 100, "Hunger escaped its range")
+		_check(state.hunger >= 0 and state.hunger <= 100, "Satiety escaped its range")
 		_check(state.hp <= state.get_max_hp(), "Regeneration exceeded maximum HP")
 		_check(state.mana >= 0 and state.mana <= state.get_max_mana(), "Mana regeneration escaped its range")
 		_check(not result["died"], "Fed regeneration soak died unexpectedly")

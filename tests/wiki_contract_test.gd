@@ -4,6 +4,7 @@ extends RefCounted
 const Reference := preload("res://tools/wiki_reference.gd")
 const Floors := preload("res://scripts/world/floor_generator.gd")
 const FixedFloor := preload("res://scripts/world/fixed_floor_90.gd")
+const SaveSystem := preload("res://scripts/system/persistence.gd")
 
 
 func run(_tree: SceneTree) -> Array[String]:
@@ -17,6 +18,9 @@ func run(_tree: SceneTree) -> Array[String]:
 		failures.append("Wiki equipment count must follow GameRules")
 	if int(data["counts"]["enemies"]) != GameRules.ENEMIES.size():
 		failures.append("Wiki enemy count must follow GameRules")
+	var roadmap := FileAccess.get_file_as_string("res://docs/wiki/roadmap.md")
+	if not roadmap.contains("atomic-сохранения v%d" % SaveSystem.SAVE_VERSION):
+		failures.append("Wiki roadmap save version must follow Persistence.SAVE_VERSION")
 	_test_floor_scaling_constants(data, failures)
 	return failures
 

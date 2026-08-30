@@ -24,6 +24,7 @@
 | `circular_attack` | Круговая атака / Circular Attack | `almost_human` | `active` | 1 | 100 | — | `circular_attack` |
 | `dash` | Рывок / Dash | `ghoul` | `active` | 1 | 50 | — | `dash` |
 | `double_attack` | Двойная атака / Double Attack | `ghoul` | `active` | 1 | 75 | — | `double_attack` |
+| `ears` | Уши / Ears | `ghoul` | `passive` | 1 | 20 | — | — |
 | `flesh_regeneration` | Регенерация / Regeneration | `zombie` | `passive` | 1 | 20 | — | — |
 | `fundamentals` | Развитие основ / Develop Fundamentals | `skeleton` | `passive` | 1 | 25 | `strong_bones` 1 | — |
 | `magic_awakening` | Пробуждение магии / Magic Awakening | `skeleton` | `passive` | 1 | 40 | — | — |
@@ -31,6 +32,7 @@
 | `magic_missile_range` | Дальняя стрела / Long Missile | `skeleton` | `passive` | 1 | 50 | `magic_missile` 1 | — |
 | `magic_ricochet` | Рикошет / Ricochet | `skeleton` | `passive` | 4 | 60, 80, 100, 120 | `magic_missile_range` 1 | — |
 | `sharp_vision` | Острое зрение / Sharp Vision | `revenant` | `passive` | 2 | 80, 120 | — | — |
+| `stomach` | Желудок / Stomach | `ghoul` | `passive` | 1 | 20 | — | — |
 | `strong_bones` | Крепкие кости / Sturdy Bones | `skeleton` | `passive` | 10 | 5, 10, 15, 20, 25, 30, 35, 40, 45, 50 | — | — |
 
 ## Способности
@@ -48,7 +50,8 @@
 
 | ID | RU / EN | Длительность | Временные HP | Модификаторы | Сокращение перезарядки |
 | --- | --- | ---: | ---: | --- | --- |
-| `rested` | Отдохнувший / Rested | 500 | 5 | `damage` 1, `ranged_damage` 1 | `dash` 10, `double_attack` 5 |
+| `rested` | Отдых / Rested | 500 | 5 | `damage` 1, `ranged_damage` 1 | `dash` 10, `double_attack` 5 |
+| `satiated` | Сытость / Satiated | 400 | 3 | `regeneration` 1 | — |
 
 ## Предметы
 

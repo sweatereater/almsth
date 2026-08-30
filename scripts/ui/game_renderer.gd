@@ -7,6 +7,7 @@ const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
 const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
 const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
+const BaseLayout := preload("res://scripts/ui/base_layout.gd")
 
 const CAMP_ART: Texture2D = preload("res://assets/art/camp-base-expanded.png")
 const CAMP_CRUSHER_ART: Texture2D = preload("res://assets/art/camp-crusher.png")
@@ -127,6 +128,7 @@ static func draw_frame(
 	viewport_size: Vector2,
 	state: RunState,
 	show_sidebar: bool,
+	show_base_layout: bool,
 	show_inspection: bool,
 	inspection_target: Dictionary = {},
 ) -> void:
@@ -168,13 +170,24 @@ static func draw_frame(
 		canvas.draw_rect(DUNGEON_HISTORY_RECT, Color("141a23"))
 		canvas.draw_rect(DUNGEON_HISTORY_RECT, COLOR_PANEL_BORDER, false, 2.0)
 		return
-	canvas.draw_rect(Rect2(Vector2(834, 68), Vector2(428, 640)), COLOR_PANEL_SHADOW)
-	canvas.draw_rect(Rect2(Vector2(828, 62), Vector2(428, 640)), COLOR_PANEL)
-	canvas.draw_rect(Rect2(Vector2(828, 62), Vector2(428, 640)), COLOR_PANEL_BORDER, false, 2.0)
-	canvas.draw_line(Vector2(830, 64), Vector2(1254, 64), Color(COLOR_SOUL, 0.38), 2.0)
+	var sidebar_rect := BaseLayout.SIDEBAR_RECT if show_base_layout else Rect2(828, 62, 428, 640)
+	var shadow_rect := (
+		BaseLayout.SIDEBAR_SHADOW_RECT
+		if show_base_layout else Rect2(834, 68, 428, 640)
+	)
+	var hp_rect := BaseLayout.HP_RECT if show_base_layout else Rect2(846, 140, 400, 28)
+	var mana_rect := BaseLayout.MANA_RECT if show_base_layout else Rect2(846, 180, 400, 28)
+	canvas.draw_rect(shadow_rect, COLOR_PANEL_SHADOW)
+	canvas.draw_rect(sidebar_rect, COLOR_PANEL)
+	canvas.draw_rect(sidebar_rect, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_line(
+		sidebar_rect.position + Vector2(2, 2),
+		Vector2(sidebar_rect.end.x - 2, sidebar_rect.position.y + 2),
+		Color(COLOR_SOUL, 0.38), 2.0,
+	)
 	draw_resource_bar(
 		canvas,
-		Rect2(Vector2(846, 140), Vector2(400, 28)),
+		hp_rect,
 		state.hp,
 		state.get_max_hp(),
 		Loc.text("PARAM_HP"),
@@ -182,7 +195,7 @@ static func draw_frame(
 	)
 	draw_resource_bar(
 		canvas,
-		Rect2(Vector2(846, 180), Vector2(400, 28)),
+		mana_rect,
 		state.mana,
 		state.get_max_mana(),
 		Loc.text("PARAM_MANA"),
@@ -506,37 +519,34 @@ static func player_visual_form_id(state: RunState) -> String:
 
 
 static func draw_base(canvas: CanvasItem, state: RunState = null) -> void:
-	var area := Rect2(BOARD_ORIGIN, Vector2(780, 458))
+	var area := BaseLayout.IMAGE_RECT
 	canvas.draw_texture_rect(CAMP_ART, area, false)
 	canvas.draw_rect(area, Color(0.02, 0.025, 0.035, 0.10))
 	if state != null and bool(state.camp_upgrades.get("crusher", false)):
 		canvas.draw_texture_rect(
 			CAMP_CRUSHER_ART,
-			Rect2(Vector2(52, 244), Vector2(250, 178)),
+			BaseLayout.station_overlay_rect("crusher"),
 			false,
 		)
 	if state != null and bool(state.camp_upgrades.get("whetstone", false)):
 		canvas.draw_texture_rect(
 			CAMP_WHETSTONE_ART,
-			Rect2(Vector2(558, 244), Vector2(205, 174)),
+			BaseLayout.station_overlay_rect("whetstone"),
 			false,
 		)
 	if state != null and bool(state.camp_upgrades.get("ritual_table", false)):
 		canvas.draw_texture_rect(
 			CAMP_RITUAL_TABLE_ART,
-			Rect2(Vector2(294, 218), Vector2(270, 180)),
+			BaseLayout.station_overlay_rect("ritual_table"),
 			false,
 		)
 	if state != null and bool(state.camp_upgrades.get("campfire", false)):
 		canvas.draw_texture_rect(
 			CAMP_CAMPFIRE_ART,
-			Rect2(Vector2(340, 354), Vector2(170, 112)),
+			BaseLayout.station_overlay_rect("campfire"),
 			false,
 		)
 	canvas.draw_rect(area, COLOR_PANEL_BORDER, false, 2.0)
-	var caption_rect := Rect2(area.position + Vector2(0, 390), Vector2(area.size.x, 68))
-	canvas.draw_rect(caption_rect, Color(0.02, 0.025, 0.035, 0.72))
-	_draw_centered_text(canvas, caption_rect, Loc.text("BASE_SUBTITLE"), COLOR_TEXT, 18)
 
 
 static func draw_victory(canvas: CanvasItem) -> void:

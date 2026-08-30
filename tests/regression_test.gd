@@ -21,6 +21,7 @@ func run(tree: SceneTree) -> Array[String]:
 	Loc.set_locale("ru")
 	_test_full_state_persistence()
 	_test_malformed_and_versioned_saves()
+	_test_v12_to_v13_additive_ids()
 	_test_input_binding_serialization_conflicts_and_reset()
 	_test_grid_navigation_contracts()
 	await _test_fixed_boss_floor_contracts(tree)
@@ -422,19 +423,24 @@ func _test_full_state_persistence() -> void:
 		"magic_missile_range": 1,
 		"magic_ricochet": 4,
 		"flesh_regeneration": 1,
+		"stomach": 1,
+		"ears": 1,
 		"sharp_vision": 2,
 	}
 	original.unspent_attribute_points = 3
 	original.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
 	original.food = 6
-	original.hunger = 73
-	original.hunger_turn_progress = 8
+	original.hunger = 100
+	original.hunger_turn_progress = 0
 	original.regeneration_progress = 37
 	original.mana_regeneration_progress = 0.375
 	original.total_turns = 4321
 	original.cradle_miss_streak = 9
 	original.ability_cooldowns = {"dash": 7, "double_attack": 3}
-	original.active_statuses = {"rested": {"remaining_turns": 321, "temporary_hp": 4}}
+	original.active_statuses = {
+		"rested": {"remaining_turns": 321, "temporary_hp": 4},
+		"satiated": {"remaining_turns": 222, "temporary_hp": 2},
+	}
 	original.hp = original.get_max_hp() - 3
 	original.mana = original.get_max_mana() - 4
 
@@ -530,6 +536,88 @@ func _test_malformed_and_versioned_saves() -> void:
 		SaveSystem.delete_game(MALFORMED_SAVE_PATH) == OK
 		and not FileAccess.file_exists(MALFORMED_SAVE_PATH),
 		"Version fixtures must be deleted after the test",
+	)
+
+
+func _test_v12_to_v13_additive_ids() -> void:
+	var legacy_source := RunState.new()
+	legacy_source.configure_character("Legacy v12", GameRules.default_attributes())
+	legacy_source.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	legacy_source.current_form_id = "ghoul"
+	legacy_source.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	legacy_source.active_statuses = {
+		"rested": {"remaining_turns": 123, "temporary_hp": 4},
+	}
+	var legacy_data := legacy_source.to_save_data()
+	var legacy_skills: Dictionary = legacy_data["skill_levels"]
+	legacy_skills.erase("stomach")
+	legacy_skills.erase("ears")
+	var legacy_statuses: Dictionary = legacy_data["active_statuses"]
+	legacy_statuses.erase("satiated")
+	_expect(
+		_write_json(SAVE_PATH, {"version": 12, "state": legacy_data}) == OK,
+		"A true v12 fixture without the additive v13 ids must be writable",
+	)
+	var migrated := RunState.new()
+	_expect(
+		migrated.restore_save_data(SaveSystem.load_game(SAVE_PATH))
+		and migrated.get_skill_level("stomach") == 0
+		and migrated.get_skill_level("ears") == 0
+		and not migrated.uses_hunger()
+		and not migrated.has_hearing()
+		and not migrated.has_status("satiated")
+		and migrated.has_status("rested")
+		and migrated.status_remaining("rested") == 123,
+		"A v12 save without Stomach, Ears or Satiated must load with safe defaults",
+	)
+	_expect(
+		SaveSystem.save_game(migrated, SAVE_PATH) == OK,
+		"A migrated v12 state must publish as the current schema",
+	)
+	var migrated_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	var migrated_roundtrip := RunState.new()
+	_expect(
+		migrated_envelope is Dictionary
+		and int(migrated_envelope.get("version", 0)) == 13
+		and migrated_roundtrip.restore_save_data(SaveSystem.load_game(SAVE_PATH))
+		and migrated_roundtrip.get_skill_level("stomach") == 0
+		and migrated_roundtrip.get_skill_level("ears") == 0
+		and not migrated_roundtrip.has_status("satiated"),
+		"A migrated v12 save must round-trip under v13 without inventing new progression",
+	)
+
+	var current := RunState.new()
+	current.configure_character("Current v13", GameRules.default_attributes())
+	current.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	current.current_form_id = "ghoul"
+	current.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	current.skill_levels["stomach"] = 1
+	current.skill_levels["ears"] = 1
+	current.add_or_refresh_status("satiated", 222, 3)
+	_expect(
+		SaveSystem.save_game(current, SAVE_PATH) == OK,
+		"A current v13 state with additive ids must be writable",
+	)
+	var current_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	var current_roundtrip := RunState.new()
+	_expect(
+		current_envelope is Dictionary
+		and int(current_envelope.get("version", 0)) == SaveSystem.SAVE_VERSION
+		and current_roundtrip.restore_save_data(SaveSystem.load_game(SAVE_PATH))
+		and current_roundtrip.get_skill_level("stomach") == 1
+		and current_roundtrip.get_skill_level("ears") == 1
+		and current_roundtrip.uses_hunger()
+		and current_roundtrip.has_hearing()
+		and current_roundtrip.has_status("satiated")
+		and current_roundtrip.status_remaining("satiated") == 222
+		and int(current_roundtrip.active_statuses["satiated"].get("temporary_hp", 0)) == 3,
+		"A current v13 save must preserve learned Stomach/Ears and Satiated exactly",
+	)
+	_expect(
+		SaveSystem.delete_game(SAVE_PATH) == OK
+		and not FileAccess.file_exists(SAVE_PATH)
+		and not FileAccess.file_exists(SAVE_PATH + ".bak"),
+		"v12/v13 migration fixtures must be deleted after the test",
 	)
 
 
@@ -689,13 +777,15 @@ func _test_survival_accumulators() -> void:
 	)
 
 	var hunger := RunState.new()
-	hunger.current_form_id = "zombie"
-	hunger.absorbed_souls = 10
+	hunger.current_form_id = "ghoul"
+	hunger.absorbed_souls = 24
+	hunger.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	hunger.skill_levels["stomach"] = 1
 	for _turn in range(9):
 		hunger.advance_survival_turn()
-	_expect(hunger.hunger == 100, "Hunger must not decrease before the tenth turn")
+	_expect(hunger.hunger == 100, "Satiety must not decrease before the tenth turn")
 	hunger.advance_survival_turn()
-	_expect(hunger.hunger == 99, "Hunger must decrease exactly on the tenth turn")
+	_expect(hunger.hunger == 99, "Satiety must decrease exactly on the tenth turn")
 
 	var mana_cap := RunState.new()
 	mana_cap.mana = mana_cap.get_max_mana() - 1
@@ -896,11 +986,17 @@ func _test_automatic_exploration_and_visible_waiting(tree: SceneTree) -> void:
 	var packed := load("res://scenes/main.tscn") as PackedScene
 	var main = packed.instantiate()
 	main.persistence_enabled = false
+	main.auto_step_delay_override = 0.0
 	tree.root.add_child(main)
 	await tree.process_frame
 
 	main.state = RunState.new()
 	main.state.configure_character("Explorer", GameRules.default_attributes())
+	main.state.current_form_id = "ghoul"
+	main.state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	main.state.skill_levels["ears"] = 1
+	main.state.hp = main.state.get_max_hp()
 	main.state.current_floor = 99
 	main.screen = main.Screen.DUNGEON
 	main.floor_data = _exploration_floor()
@@ -998,6 +1094,44 @@ func _test_automatic_exploration_and_visible_waiting(tree: SceneTree) -> void:
 		and main.message == Loc.text("MSG_EXPLORE_CANCELLED"),
 		"Pressing automatic exploration again must cancel it without leaving input locked",
 	)
+
+	# The route to known stairs uses the same delayed-turn contract. Cancelling
+	# during that delay must invalidate the old coroutine before its next step.
+	main.floor_data = _exploration_floor()
+	main.player_pos = Vector2i(1, 1)
+	main.floor_data["exit_known"] = true
+	for cell_variant in main.floor_data["tiles"]:
+		if main.floor_data["tiles"][cell_variant] == "floor":
+			main.floor_data["explored_cells"][cell_variant] = true
+	main.floor_data["visible_cells"] = main.floor_data["explored_cells"].duplicate(true)
+	main.floor_data["observed_cells"] = main.floor_data["explored_cells"].duplicate(true)
+	main.auto_step_delay_override = 0.05
+	var turns_before_route: int = main.state.total_turns
+	main._on_ascend_pressed()
+	var first_route_position: Vector2i = main.player_pos
+	_expect(
+		first_route_position == Vector2i(2, 1)
+		and main.state.total_turns == turns_before_route + 1
+		and main.auto_travel_active,
+		"Known-stairs travel must take only its first turn before the shared delay",
+	)
+	await tree.process_frame
+	_expect(
+		main.player_pos == first_route_position
+		and main.state.total_turns == turns_before_route + 1
+		and main.auto_travel_active,
+		"Known-stairs travel must wait for its configured delay before a second turn",
+	)
+	main._open_main_menu()
+	await tree.create_timer(0.08).timeout
+	_expect(
+		main.player_pos == first_route_position
+		and main.state.total_turns == turns_before_route + 1
+		and not main.auto_travel_active,
+		"Cancelling known-stairs travel during its delay must prevent a stale extra turn",
+	)
+	main._resume_from_main_menu()
+	main.auto_step_delay_override = 0.0
 
 	main.queue_free()
 	await tree.process_frame

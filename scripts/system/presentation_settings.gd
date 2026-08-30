@@ -10,6 +10,18 @@ const CELL_SIZE_DETAILS := 88
 const DEFAULT_CELL_SIZE := CELL_SIZE_TACTICS
 const CELL_SIZES: Array[int] = [CELL_SIZE_MAP, CELL_SIZE_TACTICS, CELL_SIZE_DETAILS]
 
+const AUTO_MOVEMENT_SPEED_BASE := 100
+const AUTO_MOVEMENT_SPEED_PLUS_50 := 150
+const AUTO_MOVEMENT_SPEED_PLUS_100 := 200
+const AUTO_MOVEMENT_SPEED_PLUS_125 := 225
+const DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT := AUTO_MOVEMENT_SPEED_BASE
+const AUTO_MOVEMENT_SPEED_PERCENTS: Array[int] = [
+	AUTO_MOVEMENT_SPEED_BASE,
+	AUTO_MOVEMENT_SPEED_PLUS_50,
+	AUTO_MOVEMENT_SPEED_PLUS_100,
+	AUTO_MOVEMENT_SPEED_PLUS_125,
+]
+
 
 static func sanitize_cell_size(value: Variant) -> int:
 	if not value is int and not value is float:
@@ -35,3 +47,35 @@ static func locale_key(cell_size: int) -> String:
 		CELL_SIZE_MAP: return "SETTINGS_ZOOM_MAP"
 		CELL_SIZE_DETAILS: return "SETTINGS_ZOOM_DETAILS"
 	return "SETTINGS_ZOOM_TACTICS"
+
+
+static func sanitize_auto_movement_speed_percent(value: Variant) -> int:
+	if not value is int and not value is float:
+		return DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT
+	var numeric := float(value)
+	if numeric != roundf(numeric):
+		return DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT
+	var percent := roundi(numeric)
+	return (
+		percent
+		if AUTO_MOVEMENT_SPEED_PERCENTS.has(percent)
+		else DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT
+	)
+
+
+static func next_auto_movement_speed_percent(current: Variant) -> int:
+	var sanitized := sanitize_auto_movement_speed_percent(current)
+	var index := AUTO_MOVEMENT_SPEED_PERCENTS.find(sanitized)
+	return AUTO_MOVEMENT_SPEED_PERCENTS[(index + 1) % AUTO_MOVEMENT_SPEED_PERCENTS.size()]
+
+
+static func auto_movement_speed_multiplier(percent: Variant) -> float:
+	return sanitize_auto_movement_speed_percent(percent) / 100.0
+
+
+static func auto_movement_speed_locale_key(percent: Variant) -> String:
+	match sanitize_auto_movement_speed_percent(percent):
+		AUTO_MOVEMENT_SPEED_PLUS_50: return "SETTINGS_AUTO_SPEED_PLUS_50"
+		AUTO_MOVEMENT_SPEED_PLUS_100: return "SETTINGS_AUTO_SPEED_PLUS_100"
+		AUTO_MOVEMENT_SPEED_PLUS_125: return "SETTINGS_AUTO_SPEED_PLUS_125"
+	return "SETTINGS_AUTO_SPEED_BASE"

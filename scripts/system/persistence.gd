@@ -3,7 +3,7 @@ extends RefCounted
 
 const Presentation := preload("res://scripts/system/presentation_settings.gd")
 
-const SAVE_VERSION := 12
+const SAVE_VERSION := 13
 const MIN_SUPPORTED_SAVE_VERSION := 1
 const SAVE_PATH := "user://savegame.json"
 const SAVES_DIR := "user://saves"
@@ -400,6 +400,13 @@ static func save_settings(data: Dictionary, path := SETTINGS_PATH) -> Error:
 			"gameplay", "dungeon_cell_size",
 			Presentation.sanitize_cell_size(data["dungeon_cell_size"]),
 		)
+	if data.has("auto_movement_speed_percent"):
+		config.set_value(
+			"gameplay", "auto_movement_speed_percent",
+			Presentation.sanitize_auto_movement_speed_percent(
+				data["auto_movement_speed_percent"]
+			),
+		)
 	if data.has("locale"):
 		config.set_value("localization", "locale", String(data["locale"]))
 	if data.has("bindings"):
@@ -432,6 +439,12 @@ static func load_settings(path := SETTINGS_PATH) -> Dictionary:
 		"dungeon_cell_size": Presentation.sanitize_cell_size(
 			config.get_value(
 				"gameplay", "dungeon_cell_size", Presentation.DEFAULT_CELL_SIZE,
+			),
+		),
+		"auto_movement_speed_percent": Presentation.sanitize_auto_movement_speed_percent(
+			config.get_value(
+				"gameplay", "auto_movement_speed_percent",
+				Presentation.DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT,
 			),
 		),
 		"locale": String(config.get_value("localization", "locale", "ru")),

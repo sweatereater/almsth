@@ -123,8 +123,8 @@
     "enemies": 5,
     "equipment": 9,
     "forms": 5,
-    "skills": 13,
-    "statuses": 1
+    "skills": 15,
+    "statuses": 2
   },
   "enemies": [
     {
@@ -1014,6 +1014,27 @@
         20
       ],
       "description": {
+        "en": "Unlocks hearing and anonymous hidden-noise markers",
+        "ru": "Открывает слух и обезличенные отметки скрытого шума"
+      },
+      "id": "ears",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Ears",
+        "ru": "Уши"
+      },
+      "requires": {},
+      "stage": "ghoul"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 20,
+      "cost_step": 0,
+      "costs": [
+        20
+      ],
+      "description": {
         "en": "Activates healing from regeneration (zombie base: +1)",
         "ru": "Активирует лечение по параметру регенерации (база зомби: +1)"
       },
@@ -1169,6 +1190,27 @@
     },
     {
       "ability_id": "",
+      "base_cost": 20,
+      "cost_step": 0,
+      "costs": [
+        20
+      ],
+      "description": {
+        "en": "Unlocks Satiety and the camp Satiated status",
+        "ru": "Открывает сытость и лагерный статус «Сытость»"
+      },
+      "id": "stomach",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Stomach",
+        "ru": "Желудок"
+      },
+      "requires": {},
+      "stage": "ghoul"
+    },
+    {
+      "ability_id": "",
       "base_cost": 5,
       "cost_step": 5,
       "costs": [
@@ -1218,10 +1260,30 @@
       },
       "name": {
         "en": "Rested",
-        "ru": "Отдохнувший"
+        "ru": "Отдых"
       },
       "priority": 100,
       "temporary_hp_grant": 5
+    },
+    {
+      "cooldown_reduction": {},
+      "default_duration": 400,
+      "description": {
+        "en": "+3 temporary HP · +1 HP regeneration · satiety does not decrease",
+        "ru": "+3 временных HP · +1 к регенерации HP · сытость не снижается"
+      },
+      "icon": "satiated_meal",
+      "id": "satiated",
+      "max_duration": 400,
+      "modifiers": {
+        "regeneration": 1
+      },
+      "name": {
+        "en": "Satiated",
+        "ru": "Сытость"
+      },
+      "priority": 90,
+      "temporary_hp_grant": 3
     }
   ]
 }

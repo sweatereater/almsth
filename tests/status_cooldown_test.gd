@@ -3,7 +3,9 @@ extends RefCounted
 
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 const StatusSystem := preload("res://scripts/game/status_system.gd")
+const StatusStripClass := preload("res://scripts/ui/status_strip.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
+const BaseLayout := preload("res://scripts/ui/base_layout.gd")
 
 var failures: Array[String] = []
 
@@ -11,8 +13,10 @@ var failures: Array[String] = []
 func run(tree: SceneTree) -> Array[String]:
 	_test_registry_and_sanitation()
 	_test_status_lifecycle_and_damage()
+	_test_satiated_round_boundary()
 	_test_cooldown_boundaries()
 	_test_camp_entry_contract()
+	await _test_base_status_presentation(tree)
 	await _test_action_integration(tree)
 	return failures
 
@@ -37,14 +41,19 @@ func _test_registry_and_sanitation() -> void:
 	)
 	var statuses := StatusSystem.sanitize({
 		"rested": {"remaining_turns": 999.7, "temporary_hp": 99.2, "damage": 100},
+		"satiated": {"remaining_turns": 777.9, "temporary_hp": 88.4, "regeneration": 100},
 		"unknown": {"remaining_turns": 50},
 	})
 	_expect(
-		statuses == {"rested": {"remaining_turns": 500, "temporary_hp": 5}},
-		"Status saves must retain only sanitized mutable Rested fields",
+		statuses == {
+			"rested": {"remaining_turns": 500, "temporary_hp": 5},
+			"satiated": {"remaining_turns": 400, "temporary_hp": 3},
+		},
+		"Status saves must retain only clamped mutable fields for Rested and Satiated",
 	)
 	_expect(
 		StatusSystem.sanitize({"rested": {"remaining_turns": true, "temporary_hp": 5}}).is_empty()
+		and StatusSystem.sanitize({"satiated": {"remaining_turns": false, "temporary_hp": 3}}).is_empty()
 		and StatusSystem.sanitize([]).is_empty(),
 		"Malformed and boolean status durations must safely restore as empty",
 	)
@@ -54,13 +63,17 @@ func _test_registry_and_sanitation() -> void:
 	}
 	serialization_state.active_statuses = {
 		"rested": {"remaining_turns": 42.9, "temporary_hp": 99, "damage": 999},
+		"satiated": {"remaining_turns": 23.8, "temporary_hp": 99, "regeneration": 999},
 		"unknown": {"remaining_turns": 7},
 	}
+	serialization_state.current_form_id = "ghoul"
+	serialization_state.skill_levels["stomach"] = 1
 	var serialized := serialization_state.to_save_data()
 	_expect(
 		serialized["ability_cooldowns"] == {"dash": 20}
 		and serialized["active_statuses"] == {
 			"rested": {"remaining_turns": 42, "temporary_hp": 5},
+			"satiated": {"remaining_turns": 23, "temporary_hp": 3},
 		},
 		"Serialization must sanitize cooldown/status dictionaries as strictly as restore",
 	)
@@ -69,6 +82,7 @@ func _test_registry_and_sanitation() -> void:
 func _test_status_lifecycle_and_damage() -> void:
 	var state := RunState.new()
 	state.current_form_id = "ghoul"
+	state.skill_levels["stomach"] = 1
 	state.hp = state.get_max_hp()
 	_expect(
 		state.add_or_refresh_status("rested")
@@ -117,12 +131,79 @@ func _test_status_lifecycle_and_damage() -> void:
 		and not StatusSystem.remove(state.active_statuses, "rested"),
 		"Generic status removal must report a real removal exactly once",
 	)
+	state.hunger = 37
+	state.hunger_turn_progress = 9
+	_expect(
+		state.add_or_refresh_status("satiated")
+		and state.status_remaining("satiated") == 400
+		and state.hunger == 100 and state.hunger_turn_progress == 0
+		and state.get_temporary_hp() == 3,
+		"Satiated must pin satiety immediately and grant its exact 400/+3 pool",
+	)
+	_expect(
+		int(state.get_derived_stats()["regeneration"]) == int(base_damage["regeneration"]) + 1,
+		"Satiated must add exactly one point through the shared regeneration modifier path",
+	)
+	state.add_or_refresh_status("rested")
+	_expect(state.get_temporary_hp() == 8, "Rested and Satiated temporary HP must coexist additively")
+	state.apply_damage(6)
+	_expect(
+		int(state.active_statuses["rested"]["temporary_hp"]) == 0
+		and int(state.active_statuses["satiated"]["temporary_hp"]) == 2
+		and state.hp == state.get_max_hp(),
+		"Overlapping temporary HP must keep the registry's deterministic Rested-first consumption order",
+	)
+	state.add_or_refresh_status("satiated")
+	_expect(
+		state.get_temporary_hp() == 3
+		and int(state.active_statuses["rested"]["temporary_hp"]) == 0,
+		"Refreshing Satiated must reset only its own +3 pool without stacking or refreshing Rested",
+	)
 	state.add_or_refresh_status("rested")
 	state.ability_cooldowns = {"dash": 7}
 	state.die()
 	_expect(
 		state.active_statuses.is_empty() and state.ability_cooldowns.is_empty(),
 		"Death must clear statuses, temporary HP and player cooldowns",
+	)
+
+
+func _test_satiated_round_boundary() -> void:
+	var state := RunState.new()
+	state.current_form_id = "ghoul"
+	state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	state.skill_levels["stomach"] = 1
+	state.hunger = 14
+	state.hunger_turn_progress = 9
+	state.add_or_refresh_status("satiated")
+	for _round in range(399):
+		var survival := state.advance_survival_turn()
+		state.finish_completed_round()
+		_expect(
+			state.hunger == 100 and state.hunger_turn_progress == 0
+			and not bool(survival["hunger_changed"]),
+			"Satiated must pin satiety without accumulating deferred progress",
+		)
+	_expect(
+		state.status_remaining("satiated") == 1,
+		"Satiated must remain active after exactly 399 completed rounds",
+	)
+	state.skill_levels["flesh_regeneration"] = 1
+	state.regeneration_progress = 98
+	state.hp = state.get_max_hp() - 1
+	var final_survival := state.advance_survival_turn()
+	var final_events := state.finish_completed_round()
+	_expect(
+		int(final_survival["healed"]) == 1
+		and state.hunger == 100 and state.hunger_turn_progress == 0
+		and not state.has_status("satiated")
+		and final_events == [{"type": "expired", "status_id": "satiated"}],
+		"The 400th round must receive Satiated survival benefits and expire only at its end",
+	)
+	state.advance_survival_turn()
+	_expect(
+		state.hunger == 100 and state.hunger_turn_progress == 1,
+		"Normal satiety countdown must resume fresh on the next accepted turn after expiry",
 	)
 
 
@@ -160,7 +241,7 @@ func _test_camp_entry_contract() -> void:
 	skeleton.display_form_id = "ghoul"
 	skeleton.safe_return()
 	_expect(
-		not skeleton.has_status("rested")
+		not skeleton.has_status("rested") and not skeleton.has_status("satiated")
 		and not GameRules.has_intrinsic_feature("skeleton", "nervous_system")
 		and GameRules.has_intrinsic_feature("ghoul", "nervous_system")
 		and GameRules.has_intrinsic_feature("almost_human", "nervous_system"),
@@ -170,52 +251,269 @@ func _test_camp_entry_contract() -> void:
 	zombie.current_form_id = "zombie"
 	zombie.absorbed_souls = int(GameRules.FORMS["zombie"]["threshold"])
 	zombie.hunger = 17
+	zombie.hunger_turn_progress = 8
 	zombie.safe_return()
 	_expect(
-		zombie.hunger == 100 and not zombie.has_status("rested"),
-		"Actual Zombie camp entry must refill hunger for free without Rested",
+		zombie.hunger == 17 and zombie.hunger_turn_progress == 8
+		and not zombie.has_status("satiated") and not zombie.has_status("rested"),
+		"Actual Zombie camp entry must not activate Ghoul Satiety or Satiated",
+	)
+	var field_locked := RunState.new()
+	field_locked.current_form_id = "ghoul"
+	field_locked.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	field_locked.hunger = 80
+	field_locked.food = 1
+	_expect(
+		field_locked.camp_and_eat()["reason"] == "no_hunger"
+		and field_locked.hunger == 80 and field_locked.food == 1
+		and not field_locked.has_status("satiated"),
+		"A Ghoul without Stomach must not eat in the field or receive Satiated",
 	)
 	var ghoul := RunState.new()
 	ghoul.configure_character("Camp Tester", GameRules.default_attributes())
 	ghoul.current_form_id = "ghoul"
 	ghoul.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	ghoul.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
 	ghoul.hunger = 8
+	ghoul.hunger_turn_progress = 6
 	ghoul.safe_return()
 	_expect(
-		ghoul.hunger == 100 and ghoul.status_remaining("rested") == 500
-		and ghoul.get_temporary_hp() == 5,
-		"Actual Ghoul+ camp entry must grant exact Rested 500/+5 and full hunger",
+		ghoul.hunger == 8 and ghoul.hunger_turn_progress == 6
+		and not ghoul.has_status("satiated")
+		and ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 5,
+		"Evolving into Ghoul and returning must not unlock Satiety without Stomach",
 	)
-	ghoul.active_statuses["rested"] = {"remaining_turns": 3, "temporary_hp": 1}
+	ghoul.banked_souls = 20
+	_expect(
+		bool(ghoul.purchase_skill("stomach")["ok"])
+		and ghoul.hunger == 100 and ghoul.hunger_turn_progress == 0
+		and not ghoul.has_status("satiated") and ghoul.get_total_souls() == 0,
+		"Learning Stomach must initialize Satiety for 20 souls without granting Satiated",
+	)
 	ghoul.apply_camp_entry_effects()
 	_expect(
-		ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 5,
-		"Repeated camp entry must refresh Rested exactly without stacking",
+		ghoul.status_remaining("satiated") == 400
+		and ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 8,
+		"A later true Ghoul camp entry with Stomach must grant overlapping Satiated and Rested",
+	)
+	ghoul.active_statuses["rested"] = {"remaining_turns": 3, "temporary_hp": 1}
+	ghoul.active_statuses["satiated"] = {"remaining_turns": 2, "temporary_hp": 1}
+	ghoul.apply_camp_entry_effects()
+	_expect(
+		ghoul.status_remaining("rested") == 500
+		and ghoul.status_remaining("satiated") == 400 and ghoul.get_temporary_hp() == 8,
+		"Repeated camp entry must refresh both statuses exactly without stacking",
 	)
 	ghoul.active_statuses["rested"] = {"remaining_turns": 17, "temporary_hp": 2}
+	ghoul.active_statuses["satiated"] = {"remaining_turns": 23, "temporary_hp": 1}
 	ghoul.food = 1
 	ghoul.hunger = 80
 	ghoul.camp_and_eat()
 	_expect(
-		ghoul.status_remaining("rested") == 17 and ghoul.get_temporary_hp() == 2,
-		"Field camp_and_eat must never grant or refresh Rested",
+		ghoul.status_remaining("rested") == 17
+		and ghoul.status_remaining("satiated") == 23 and ghoul.get_temporary_hp() == 3
+		and ghoul.hunger == 100 and ghoul.food == 1,
+		"Field camp_and_eat must pin active satiety but never grant or refresh camp-entry statuses",
 	)
-	ghoul.hunger = 12
+	var saved_ghoul := ghoul.to_save_data()
+	saved_ghoul["hunger"] = 12
+	saved_ghoul["hunger_turn_progress"] = 7
 	var loaded := RunState.new()
 	_expect(
-		loaded.restore_save_data(ghoul.to_save_data())
-		and loaded.hunger == 12
+		loaded.restore_save_data(saved_ghoul)
+		and loaded.hunger == 100 and loaded.hunger_turn_progress == 0
 		and loaded.status_remaining("rested") == 17
-		and loaded.get_temporary_hp() == 2,
-		"Loading a base save must not refresh Rested (restore=%s hunger=%d turns=%d temp=%d)" % [
-			loaded.character_name, loaded.hunger, loaded.status_remaining("rested"), loaded.get_temporary_hp(),
+		and loaded.status_remaining("satiated") == 23 and loaded.get_temporary_hp() == 3,
+		"Loading must preserve, not refresh, statuses while enforcing active satiety (rest=%d sat=%d)" % [
+			loaded.status_remaining("rested"), loaded.status_remaining("satiated"),
 		],
 	)
+	var no_status := RunState.new()
+	no_status.configure_character("No Camp Entry", GameRules.default_attributes())
+	no_status.current_form_id = "ghoul"
+	no_status.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	var no_status_loaded := RunState.new()
+	_expect(
+		no_status.active_statuses.is_empty()
+		and no_status_loaded.restore_save_data(no_status.to_save_data())
+		and no_status_loaded.active_statuses.is_empty(),
+		"Character creation and loading a save without statuses must never grant Satiated",
+	)
+	var cosmetic_gate := RunState.new()
+	cosmetic_gate.current_form_id = "zombie"
+	cosmetic_gate.display_form_id = "ghoul"
+	cosmetic_gate.skill_levels["stomach"] = 1
+	_expect(
+		not cosmetic_gate.uses_hunger(),
+		"A cosmetic Ghoul display must not unlock Satiety for an actual Zombie",
+	)
+	cosmetic_gate.current_form_id = "ghoul"
+	cosmetic_gate.display_form_id = "skeleton"
+	_expect(
+		cosmetic_gate.uses_hunger(),
+		"An actual Ghoul with Stomach must keep Satiety under a cosmetic Skeleton display",
+	)
+	var malformed_skeleton := no_status.to_save_data()
+	malformed_skeleton["absorbed_souls"] = 0
+	malformed_skeleton["current_form_id"] = "skeleton"
+	malformed_skeleton["active_statuses"] = {
+		"satiated": {"remaining_turns": 400, "temporary_hp": 3},
+	}
+	var sanitized_skeleton := RunState.new()
+	_expect(
+		sanitized_skeleton.restore_save_data(malformed_skeleton)
+		and not sanitized_skeleton.has_status("satiated"),
+		"A malformed save must not restore Satiated onto a form without the satiety mechanic",
+	)
+
+
+func _test_base_status_presentation(tree: SceneTree) -> void:
+	Loc.set_locale("ru")
+	var main = await _new_main(tree)
+	main.state.configure_character("Base Status", GameRules.default_attributes())
+	_configure_form(main, "ghoul")
+	main.state.skill_levels["stomach"] = 1
+	var shared_strip_id: int = main.status_strip.get_instance_id()
+	main._show_base("", "none")
+	await tree.process_frame
+	var base_rect := Rect2(main.status_strip.position, main.status_strip.size)
+	var base_sidebar: Rect2 = BaseLayout.SIDEBAR_RECT
+	_expect(
+		main.status_strip.visible
+		and base_rect == main.BASE_STATUS_RECT
+		and base_sidebar.encloses(base_rect)
+		and not base_rect.intersects(BaseLayout.STATS_RECT)
+		and not base_rect.intersects(BaseLayout.PROGRESS_RECT)
+		and not base_rect.intersects(BaseLayout.HP_RECT)
+		and not base_rect.intersects(BaseLayout.MANA_RECT)
+		and base_rect.end.x <= 1280,
+		"Base status strip must occupy its exact non-overlapping 1280-wide sidebar rect",
+	)
+	_expect(
+		main.status_strip.get_child_count() == 0
+		and main.status_strip.status_snapshot.is_empty(),
+		"A base with zero statuses must show an empty shared strip",
+	)
+
+	main.state.add_or_refresh_status("rested", 321, 4)
+	main._refresh_interface()
+	await tree.process_frame
+	var rested_chip = main.status_strip.get_child(0)
+	_expect(
+		main.status_strip.get_child_count() == 1
+		and String(rested_chip.status_id) == "rested"
+		and String(rested_chip.tooltip_text).contains("Отдых")
+		and String(rested_chip.tooltip_text).contains("321")
+		and rested_chip.accessibility_name == rested_chip.tooltip_text
+		and rested_chip.focus_mode == Control.FOCUS_ALL
+		and rested_chip.mouse_filter == Control.MOUSE_FILTER_PASS
+		and main.status_strip.mouse_filter == Control.MOUSE_FILTER_PASS,
+		"One Rest status on base must expose exact turns, tooltip, accessibility and non-blocking input",
+	)
+
+	main.state.add_or_refresh_status("satiated", 17, 2)
+	main._refresh_interface()
+	await tree.process_frame
+	var actual_order: Array[String] = []
+	for child in main.status_strip.get_children():
+		actual_order.append(String(child.status_id))
+	var expected_order := StatusSystem.ordered_active_ids(main.state.active_statuses)
+	var satiated_chip = main.status_strip.get_child(1)
+	_expect(
+		actual_order == expected_order
+		and actual_order == ["rested", "satiated"]
+		and actual_order.size() == StatusSystem.STATUSES.size()
+		and String(satiated_chip.tooltip_text).contains(Loc.text("STATUS_SATIATED"))
+		and String(satiated_chip.tooltip_text).contains("17")
+		and main.status_strip.status_snapshot == StatusSystem.sanitize(
+			main.state.active_statuses
+		),
+		"Base must show both/all known statuses once in registry priority order from active_statuses",
+	)
+
+	var overflow_counts := StatusStripClass.presentation_counts(
+		StatusStripClass.MAX_VISIBLE_STATUSES + 3
+	)
+	var summary_chip = StatusStripClass.StatusChip.new()
+	main.add_child(summary_chip)
+	await tree.process_frame
+	summary_chip.configure_summary(3)
+	var generic_chip = StatusStripClass.StatusChip.new()
+	main.add_child(generic_chip)
+	await tree.process_frame
+	generic_chip.configure("future_known_status", {"remaining_turns": 73})
+	_expect(
+		overflow_counts == Vector2i(StatusStripClass.MAX_VISIBLE_STATUSES, 3)
+		and summary_chip.summary_count == 3
+		and String(summary_chip.tooltip_text).contains("3")
+		and summary_chip.accessibility_name == summary_chip.tooltip_text
+		and generic_chip.status_id == "future_known_status"
+		and String(generic_chip.tooltip_text).contains("future_known_status")
+		and String(generic_chip.tooltip_text).contains("73")
+		and generic_chip.accessibility_name == generic_chip.tooltip_text,
+		"StatusStrip must retain capped overflow summary and accessible generic-chip fallback",
+	)
+	summary_chip.queue_free()
+	generic_chip.queue_free()
+
+	main.state.active_statuses.clear()
+	main.state.safe_return()
+	main._show_base("Safe return with statuses", "none")
+	await tree.process_frame
+	_expect(
+		main.status_strip.get_child_count() == 2
+		and String(main.status_strip.get_child(0).tooltip_text).contains("500")
+		and String(main.status_strip.get_child(1).tooltip_text).contains("400"),
+		"A true safe return must immediately show Rest 500 and Satiety 400 on base",
+	)
+	Loc.set_locale("en")
+	main._apply_locale()
+	await tree.process_frame
+	_expect(
+		String(main.status_strip.get_child(0).tooltip_text).contains("Rested")
+		and String(main.status_strip.get_child(1).tooltip_text).contains("Satiated"),
+		"Base status tooltips must refresh from the same strip in English",
+	)
+	Loc.set_locale("ru")
+	main._apply_locale()
+	await tree.process_frame
+
+	var restored := RunState.new()
+	_expect(
+		restored.restore_save_data(main.state.to_save_data()),
+		"Base status loading fixture must restore its saved run state",
+	)
+	main.state = restored
+	main._show_base(Loc.text("MSG_GAME_LOADED"), "none")
+	await tree.process_frame
+	_expect(
+		main.status_strip.status_snapshot == StatusSystem.sanitize(
+			main.state.active_statuses
+		)
+		and main.status_strip.get_child_count() == 2,
+		"Loading a base save must refresh every preserved status without granting another copy",
+	)
+
+	main.screen = main.Screen.DUNGEON
+	main._apply_dungeon_layout(true)
+	main._show_base("Return with statuses", "none")
+	await tree.process_frame
+	_expect(
+		main.status_strip.get_instance_id() == shared_strip_id
+		and main.status_strip.status_snapshot == StatusSystem.sanitize(
+			main.state.active_statuses
+		)
+		and main.status_strip.get_child_count() == StatusSystem.STATUSES.size(),
+		"Dungeon and base must reposition one StatusStrip instance without duplicating runtime status state",
+	)
+	main.queue_free()
+	await tree.process_frame
 
 
 func _test_action_integration(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
 	_configure_form(main, "ghoul")
+	main.state.skill_levels["stomach"] = 1
 	main.state.skill_levels["dash"] = 1
 	main.state.skill_levels["double_attack"] = 1
 	main.state.assign_ability("active_1", "dash")
@@ -298,14 +596,27 @@ func _test_action_integration(tree: SceneTree) -> void:
 	)
 	main.state.loadout.erase("right_hand")
 	main.state.add_or_refresh_status("rested", 500, 5)
+	main.state.add_or_refresh_status("satiated", 400, 3)
 	main._refresh_interface()
 	await tree.process_frame
 	var status_chips: Array[Node] = main.status_strip.get_children()
+	var satiated_chip: Node = null
+	for chip in status_chips:
+		if String(chip.get("status_id")) == "satiated":
+			satiated_chip = chip
 	_expect(
-		main.status_strip.visible and status_chips.size() == 1
-		and String(status_chips[0].tooltip_text).contains("500")
-		and not String(status_chips[0].accessibility_name).is_empty(),
-		"The dungeon status strip must expose a code-drawn Rested 500 chip with tooltip/accessibility",
+		main.status_strip.visible and status_chips.size() == 2 and satiated_chip != null
+		and String(satiated_chip.tooltip_text).contains(Loc.text("STATUS_SATIATED"))
+		and String(satiated_chip.tooltip_text).contains("400")
+		and not String(satiated_chip.accessibility_name).is_empty()
+		and String(StatusSystem.rules("satiated")["icon"]) == "satiated_meal",
+		"The status strip must expose a code-drawn Satiated 400 chip with tooltip/accessibility",
+	)
+	main.state.active_statuses["satiated"] = {"remaining_turns": 17, "temporary_hp": 2}
+	main._show_base("Base view only", "none")
+	_expect(
+		main.state.status_remaining("satiated") == 17,
+		"Merely opening the base screen must not grant or refresh Satiated",
 	)
 	main.queue_free()
 	await tree.process_frame
@@ -329,6 +640,36 @@ func _test_action_integration(tree: SceneTree) -> void:
 		"Rested remaining1 must protect through enemy response, then expire after installing snapshotted Dash10",
 	)
 	boundary.queue_free()
+	await tree.process_frame
+
+	var satiated_boundary = await _new_main(tree)
+	_configure_form(satiated_boundary, "ghoul")
+	satiated_boundary.state.skill_levels["stomach"] = 1
+	satiated_boundary.floor_data = _floor_fixture()
+	satiated_boundary.player_pos = Vector2i(3, 3)
+	satiated_boundary.floor_data["enemies"] = [_enemy("satiated-response", Vector2i(4, 3), 50)]
+	satiated_boundary.floor_data["enemies"][0]["accuracy"] = 100
+	satiated_boundary.floor_data["enemies"][0]["damage"] = 4
+	_reveal_floor(satiated_boundary)
+	satiated_boundary.state.hunger = 12
+	satiated_boundary.state.hunger_turn_progress = 9
+	satiated_boundary.state.add_or_refresh_status("satiated", 1, 3)
+	var satiated_hp_before: int = satiated_boundary.state.hp
+	satiated_boundary._complete_player_turn()
+	_expect(
+		satiated_boundary.state.hp == satiated_hp_before - 1
+		and satiated_boundary.state.hunger == 100
+		and satiated_boundary.state.hunger_turn_progress == 0
+		and not satiated_boundary.state.has_status("satiated"),
+		"Satiated remaining1 must pin survival and protect through enemy response before expiry",
+	)
+	satiated_boundary.floor_data["enemies"].clear()
+	satiated_boundary._on_wait_pressed()
+	_expect(
+		satiated_boundary.state.hunger_turn_progress == 1,
+		"The first accepted turn after Satiated expiry must start a fresh satiety countdown",
+	)
+	satiated_boundary.queue_free()
 	await tree.process_frame
 
 	var lethal = await _new_main(tree)

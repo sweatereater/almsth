@@ -17,6 +17,8 @@ const AppearanceSuite := preload("res://tests/appearance_test.gd")
 const VisualOverhaulSuite := preload("res://tests/visual_overhaul_test.gd")
 const StatusCooldownSuite := preload("res://tests/status_cooldown_test.gd")
 const HearingContactSuite := preload("res://tests/hearing_contact_test.gd")
+const CharacterAttributeRowSuite := preload("res://tests/character_attribute_row_test.gd")
+const AutomaticMovementInputSuite := preload("res://tests/automatic_movement_input_test.gd")
 const WikiContractSuite := preload("res://tests/wiki_contract_test.gd")
 
 var failures: Array[String] = []
@@ -59,6 +61,10 @@ func _run() -> void:
 	failures.append_array(status_cooldown_failures)
 	var hearing_contact_failures: Array[String] = await HearingContactSuite.new().run(self)
 	failures.append_array(hearing_contact_failures)
+	var character_attribute_failures: Array[String] = await CharacterAttributeRowSuite.new().run(self)
+	failures.append_array(character_attribute_failures)
+	var automatic_input_failures: Array[String] = await AutomaticMovementInputSuite.new().run(self)
+	failures.append_array(automatic_input_failures)
 	var wiki_contract_failures: Array[String] = WikiContractSuite.new().run(self)
 	failures.append_array(wiki_contract_failures)
 	await _test_main_scene()
@@ -79,6 +85,41 @@ func _test_localization() -> void:
 		_expect(Loc.STRINGS["en"].has(key), "English dictionary must contain localization key %s" % key)
 	for key in Loc.STRINGS["en"]:
 		_expect(Loc.STRINGS["ru"].has(key), "Russian dictionary must contain localization key %s" % key)
+	for locale in ["ru", "en"]:
+		for key in Loc.STRINGS[locale]:
+			var player_text := str(Loc.STRINGS[locale][key]).to_lower()
+			_expect(
+				not player_text.contains("голод") and not player_text.contains("hunger"),
+				"Player-facing %s localization must use Satiety terminology (key: %s)" % [locale, key],
+			)
+			_expect(
+				not player_text.contains("очаг") and not player_text.contains("hearth"),
+				"Player-facing %s localization must use the Bone Shelter name (key: %s)" % [locale, key],
+			)
+	Loc.set_locale("ru")
+	_expect(
+		Loc.text("SIDEBAR_HUNGER", [100]) == "Сытость: 100%"
+		and Loc.text("CHARACTER_SURVIVAL", [0, 2]) == "Сытость: 0% · Еда: 2",
+		"Russian survival UI must present the 100-good/0-starvation resource as Satiety",
+	)
+	_expect(
+		Loc.text("TITLE_BASE") == "Костяное убежище"
+		and Loc.text("BASE_CENTER") == "КОСТЯНОЕ УБЕЖИЩЕ"
+		and Loc.text("CAMP_CAMPFIRE") == "Костёр",
+		"Russian base text must say Bone Shelter without renaming the separate Campfire",
+	)
+	Loc.set_locale("en")
+	_expect(
+		Loc.text("SIDEBAR_HUNGER", [100]) == "Satiety: 100%"
+		and Loc.text("CHARACTER_SURVIVAL", [0, 2]) == "Satiety: 0% · Food: 2",
+		"English survival UI must present the 100-good/0-starvation resource as Satiety",
+	)
+	_expect(
+		Loc.text("TITLE_BASE") == "Bone Shelter"
+		and Loc.text("BASE_CENTER") == "BONE SHELTER"
+		and Loc.text("CAMP_CAMPFIRE") == "Campfire",
+		"English base text must say Bone Shelter without renaming the separate Campfire",
+	)
 	Loc.set_locale("ru")
 
 
@@ -444,6 +485,11 @@ func _test_run_state() -> void:
 	_expect(progression.evolve_at_cradle()["ok"], "The Cradle must unlock zombie for progression tests")
 	_expect(progression.is_stage_unlocked("zombie"), "Reaching zombie must permanently unlock its skill tab")
 	_expect(
+		not progression.uses_hunger()
+		and progression.purchase_skill("stomach")["reason"] == "stage_locked",
+		"Zombie evolution alone must not unlock Satiety or the Ghoul Stomach skill",
+	)
+	_expect(
 		progression.get_derived_stats()["regeneration"] == 1,
 		"The zombie form must provide one base point of regeneration",
 	)
@@ -457,19 +503,39 @@ func _test_run_state() -> void:
 	_expect(progression.purchase_skill("flesh_regeneration")["ok"], "Zombie regeneration must be purchasable")
 	progression.attributes["vitality"] = 1000
 	progression.hp = progression.get_max_hp() - 2
+	progression.hunger = 0
+	progression.hunger_turn_progress = 9
 	var regeneration_turn := progression.advance_survival_turn()
-	_expect(regeneration_turn["healed"] == 1, "Regeneration 100 must restore one HP each turn")
+	_expect(
+		regeneration_turn["healed"] == 1
+		and regeneration_turn["starvation_damage"] == 0
+		and progression.hunger == 0 and progression.hunger_turn_progress == 9,
+		"Zombie Regeneration must work independently while locked Satiety has no effect",
+	)
+	progression.add_souls(14)
+	_expect(progression.evolve_at_cradle()["ok"], "The Cradle must unlock ghoul for Stomach tests")
+	_expect(
+		progression.current_form_id == "ghoul" and not progression.uses_hunger(),
+		"Ghoul evolution alone must still leave Satiety disabled",
+	)
+	var stomach_purchase := progression.purchase_skill("stomach")
+	_expect(
+		stomach_purchase == {"ok": true, "level": 1, "cost": 20}
+		and progression.hunger == 100 and progression.hunger_turn_progress == 0
+		and progression.uses_hunger() and not progression.has_status("satiated"),
+		"Stomach must cost 20 souls and initialize Satiety without granting Satiated",
+	)
 	progression.hunger = 100
 	progression.hunger_turn_progress = 0
 	for _index in range(10):
 		progression.advance_survival_turn()
-	_expect(progression.hunger == 99, "Hunger must decrease by one percent every ten turns")
+	_expect(progression.hunger == 99, "Satiety must decrease by one percent every ten turns")
 	progression.food = 1
 	progression.hunger = 80
 	var camp_result := progression.camp_and_eat()
 	_expect(
 		camp_result["ok"] and progression.hunger == 90 and progression.food == 0,
-		"One food at camp must restore ten percent hunger",
+		"One food at camp must restore ten percent satiety",
 	)
 	progression.hunger = 0
 	progression.hp = progression.get_max_hp()
@@ -478,7 +544,7 @@ func _test_run_state() -> void:
 	_expect(
 		starvation["starvation_damage"] == ceili(progression.get_max_hp() * 0.02)
 		and progression.hp == hp_before_starvation - int(starvation["starvation_damage"]),
-		"Zero hunger must disable regeneration and deal two percent maximum-HP damage",
+		"Zero satiety must disable regeneration and deal two percent maximum-HP damage",
 	)
 	progression.food = 3
 	progression.cradle_miss_streak = 3
@@ -491,6 +557,8 @@ func _test_run_state() -> void:
 		progression_restored.get_skill_level("strong_bones") == 1
 		and progression_restored.get_skill_level("fundamentals") == 1
 		and progression_restored.get_skill_level("flesh_regeneration") == 1
+		and progression_restored.get_skill_level("stomach") == 1
+		and progression_restored.uses_hunger()
 		and progression_restored.unspent_attribute_points == 4
 		and progression_restored.highest_unlocked_form_index == progression.highest_unlocked_form_index
 		and progression_restored.food == 3
@@ -613,6 +681,7 @@ func _test_main_scene() -> void:
 		main.queue_free()
 		return
 	main.persistence_enabled = false
+	main.auto_step_delay_override = 0.0
 	root.add_child(main)
 	await process_frame
 	_expect(main.screen == main.Screen.NAME_CREATION, "The game must open at character naming")
@@ -802,6 +871,39 @@ func _test_main_scene() -> void:
 	main._advance_story()
 	_expect(main.screen == main.Screen.BASE, "The third intro click must open the level 100 base")
 	_expect(
+		main.title_label.text == "Костяное убежище",
+		"The Russian base header must show only the current shelter name",
+	)
+	Loc.set_locale("en")
+	main._apply_locale()
+	_expect(
+		main.title_label.text == "Bone Shelter",
+		"The English base header must show only the current shelter name",
+	)
+	Loc.set_locale("ru")
+	main._apply_locale()
+	_expect(
+		main.sidebar_progress_label.text.is_empty(),
+		"The Skeleton base sidebar must contain no evolution requirement row",
+	)
+	main.state.current_form_id = "ghoul"
+	main.state.skill_levels["stomach"] = 1
+	main.state.hunger = 87
+	main.state.food = 2
+	main._refresh_interface()
+	_expect(
+		main.sidebar_progress_label.text == Loc.text("CHARACTER_SURVIVAL", [87, 2])
+		and not main.sidebar_progress_label.text.contains(
+			Loc.text("SIDEBAR_EVOLUTION", [""]).get_slice(":", 0)
+		),
+		"The base sidebar must preserve survival information without restoring evolution cost",
+	)
+	main.state.current_form_id = "skeleton"
+	main.state.skill_levels.erase("stomach")
+	main.state.hunger = 100
+	main.state.food = 0
+	main._refresh_interface()
+	_expect(
 		main.camp_upgrades_label.visible and not main.equipment_label.visible,
 		"Base sidebar must show camp materials and installed upgrades instead of run equipment",
 	)
@@ -886,8 +988,9 @@ func _test_main_scene() -> void:
 	)
 	_expect(
 		main.character_attribute_spend_buttons["agility"].position.y
-		- main.character_attribute_spend_buttons["strength"].position.y == 22,
-		"Attribute plus buttons must follow the text line spacing exactly",
+		- main.character_attribute_spend_buttons["strength"].position.y
+		== CharacterSheetLayout.ATTRIBUTE_ROW_STRIDE,
+		"Attribute plus buttons must follow the shared character-row contract exactly",
 	)
 	main._close_character()
 	main.state.add_resources({"wood": 20, "stone": 20, "cloth": 5})
@@ -1545,13 +1648,14 @@ func _test_main_scene() -> void:
 	main.state.hunger = 0
 	main.state.hp = main.state.get_max_hp()
 	main._cycle_wait_turn_count()
-	var turns_before_starving_wait: int = main.state.total_turns
-	var hp_before_starving_wait: int = main.state.hp
+	var turns_before_hidden_satiety_wait: int = main.state.total_turns
+	var hp_before_hidden_satiety_wait: int = main.state.hp
 	main._on_wait_pressed()
 	_expect(
-		main.state.total_turns == turns_before_starving_wait + 1
-		and main.state.hp < hp_before_starving_wait,
-		"Long waiting must stop after the first turn that reduces HP",
+		main.state.total_turns == turns_before_hidden_satiety_wait + 10
+		and main.state.hp == hp_before_hidden_satiety_wait
+		and not main.state.uses_hunger(),
+		"A Zombie without Stomach must complete waiting without hidden Satiety damage",
 	)
 	main.state.hunger = 100
 	main._cycle_wait_turn_count()

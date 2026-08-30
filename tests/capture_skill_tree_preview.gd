@@ -50,7 +50,7 @@ func _capture() -> void:
 	main.state.carried_souls = 240
 	main.state.banked_souls = 160
 	main._refresh_character_sheet()
-	await _capture_stage(main, "ghoul", "nervous_system", "ghoul-three-branches")
+	await _capture_stage(main, "ghoul", "ears", "ghoul-ears")
 	await _capture_stage(main, "almost_human", "almost_soon_2", "almost-human-placeholder")
 
 	var zoom_hashes := PackedInt64Array()

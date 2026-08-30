@@ -324,6 +324,13 @@ func _test_renderer_contracts() -> void:
 	var renderer_source := FileAccess.get_file_as_string("res://scripts/ui/game_renderer.gd")
 	_expect(not renderer_source.contains("_draw_health_bar"), "World renderer must contain no permanent entity HP-bar draw path")
 	_expect(renderer_source.contains("draw_texture_rect_region") and renderer_source.contains("CharacterSheetLayout.FIGURE_SOURCE_RECT"), "Character-sheet renderer must use the one shared clipped source region")
+	_expect(
+		not Loc.STRINGS["ru"].has("BASE_SUBTITLE")
+		and not Loc.STRINGS["en"].has("BASE_SUBTITLE")
+		and not renderer_source.contains("BASE_SUBTITLE")
+		and not renderer_source.contains("caption_rect"),
+		"Base rendering must contain neither the obsolete subtitle nor its decorative overlay band",
+	)
 
 
 func _test_hit_feedback_and_character_slots(tree: SceneTree) -> void:

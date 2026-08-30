@@ -26,6 +26,11 @@ func _capture() -> void:
 	main.screen = main.Screen.DUNGEON
 	main.state = RunState.new()
 	main.state.configure_character("Слышащий" if locale == "ru" else "The Listener", GameRules.default_attributes())
+	main.state.current_form_id = "ghoul"
+	main.state.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	main.state.skill_levels["ears"] = 1
+	main.state.hp = main.state.get_max_hp()
 	main._hide_game_interface()
 	main.name_prompt_label.visible = false
 	main.name_input.visible = false

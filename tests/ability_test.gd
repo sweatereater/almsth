@@ -327,8 +327,9 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 		main.floor_data["enemies"].is_empty()
 		and main.state.carried_souls == 1
 		and main.state.food == 1
+		and not main.message.contains(Loc.text("MSG_FOOD_GAINED", [1]))
 		and main.state.total_turns == turns_before + 1,
-		"Moving into an enemy must dispatch the attack slot, hit twice and reward one death once",
+		"A pre-Stomach Ghoul must collect meat silently while resolving one reward and turn",
 	)
 	main.state.ability_cooldowns.erase("double_attack")
 	main.floor_data["enemies"] = [_enemy("f_target", Vector2i(4, 3), 5, "hollow_guard")]

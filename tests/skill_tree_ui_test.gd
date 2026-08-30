@@ -26,7 +26,7 @@ func _test_static_contracts() -> void:
 			["magic_awakening", "magic_missile", "magic_missile_range", "magic_ricochet"],
 		],
 		"zombie": [["flesh_regeneration", "zombie_soon_1", "zombie_soon_2", "zombie_soon_3"]],
-		"ghoul": [["dash", "ghoul_maneuver_soon"], ["double_attack", "ghoul_combat_soon"], ["nervous_system"]],
+		"ghoul": [["dash", "ghoul_maneuver_soon"], ["double_attack", "ghoul_combat_soon"], ["stomach", "ears", "nervous_system"]],
 		"revenant": [["sharp_vision", "revenant_soon_1", "revenant_soon_2", "revenant_soon_3"]],
 		"almost_human": [["almost_double_strike"], ["circular_attack"], ["choose_appearance", "almost_soon_2"]],
 	}
@@ -36,12 +36,28 @@ func _test_static_contracts() -> void:
 		_expect(actual_branches.size() == expected[stage_id].size(), "%s branch count must match the approved topology" % stage_id)
 		for index in range(mini(actual_branches.size(), expected[stage_id].size())):
 			_expect(actual_branches[index]["nodes"] == expected[stage_id][index], "%s branch %d node order must match the approved topology" % [stage_id, index])
+	var stomach: Dictionary = Rules.SKILLS.get("stomach", {})
+	_expect(
+		stomach.get("stage") == "ghoul" and stomach.get("kind") == "passive"
+		and int(stomach.get("max_level", 0)) == 1
+		and int(stomach.get("base_cost", 0)) == 20 and int(stomach.get("cost_step", -1)) == 0
+		and (stomach.get("requires", {}) as Dictionary).is_empty(),
+		"Stomach must be an independent one-level Ghoul passive costing exactly 20 souls",
+	)
+	var ears: Dictionary = Rules.SKILLS.get("ears", {})
+	_expect(
+		ears.get("stage") == "ghoul" and ears.get("kind") == "passive"
+		and int(ears.get("max_level", 0)) == 1
+		and int(ears.get("base_cost", 0)) == 20 and int(ears.get("cost_step", -1)) == 0
+		and (ears.get("requires", {}) as Dictionary).is_empty(),
+		"Ears must be an independent one-level Ghoul passive costing exactly 20 souls",
+	)
 	_expect(
 		Layout.INVENTORY_TAB_RECT == Rect2(406, 16, 172, 44)
 		and Layout.SKILLS_TAB_RECT == Rect2(588, 16, 172, 44),
 		"Character top tabs must be visually ordered Inventory then Skills",
 	)
-	_expect(SaveSystem.SAVE_VERSION == 12, "The UI-only redesign must keep save version 12")
+	_expect(SaveSystem.SAVE_VERSION == 13, "Persistent Stomach and Ears ids require save version 13")
 	_expect(
 		ProjectSettings.get_setting("display/window/size/viewport_width") == 1280
 		and ProjectSettings.get_setting("display/window/size/viewport_height") == 720
@@ -55,6 +71,8 @@ func _test_static_contracts() -> void:
 			"SKILL_DETAIL_EFFECT", "SKILL_DETAIL_MANA", "SKILL_DETAIL_COOLDOWN",
 			"SKILL_DETAIL_REQUIREMENT", "SKILL_ACTION_LEARN", "SKILL_ACTION_UPGRADE",
 			"SKILL_STATUS_PLACEHOLDER",
+			"SKILL_STOMACH", "SKILL_STOMACH_DESC", "SKILL_STOMACH_DETAIL",
+			"SKILL_EARS", "SKILL_EARS_DESC", "SKILL_EARS_DETAIL",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Skill tree localization %s missing in %s" % [key, locale])
 
@@ -154,6 +172,17 @@ func _test_panel_states(tree: SceneTree) -> void:
 	)
 	state.highest_unlocked_form_index = Rules.FORM_ORDER.find("almost_human")
 	panel.set_context(state, "ghoul")
+	panel.select_node("stomach")
+	_expect(
+		panel.node_buttons["stomach"].position == Vector2(150, 374)
+		and panel.node_buttons["ears"].position == Vector2(350, 374)
+		and panel.node_buttons["nervous_system"].position == Vector2(550, 374)
+		and panel.node_buttons["stomach"].visual_state == "available"
+		and panel.node_buttons["ears"].visual_state == "available"
+		and panel.node_buttons["stomach"].purchasable
+		and panel.action_button.text.contains("20"),
+		"Stomach must lead the Ghoul Body branch as a visible purchasable passive",
+	)
 	panel.select_node("nervous_system")
 	_expect(
 		panel.node_buttons["nervous_system"].visual_state == "intrinsic_owned"
@@ -163,13 +192,28 @@ func _test_panel_states(tree: SceneTree) -> void:
 	)
 	var controls := panel.focusable_controls()
 	_expect(
-		controls.has(panel.node_buttons["nervous_system"])
+		controls.has(panel.node_buttons["stomach"])
+		and controls.has(panel.node_buttons["ears"])
+		and controls.has(panel.node_buttons["nervous_system"])
 		and controls.has(panel.loadout_buttons["attack"]),
 		"Visible nodes and loadout controls must remain keyboard/gamepad focusable",
 	)
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
 		panel.apply_locale()
+		panel.select_node("stomach")
+		_expect(
+			panel.detail_title_label.text == Loc.text("SKILL_STOMACH")
+			and panel.detail_description_label.text.contains(Loc.text("SKILL_STOMACH_DESC")),
+			"Stomach details must refresh fully in %s" % locale,
+		)
+		panel.select_node("ears")
+		_expect(
+			panel.detail_title_label.text == Loc.text("SKILL_EARS")
+			and panel.detail_description_label.text.contains(Loc.text("SKILL_EARS_DESC")),
+			"Ears details must refresh fully in %s" % locale,
+		)
+		panel.select_node("nervous_system")
 		_expect(
 			panel.detail_title_label.text == Loc.text("FEATURE_NERVOUS_SYSTEM")
 			and panel.detail_stats_label.text.contains(Loc.text("SKILL_DETAIL_MANA", [0])),
@@ -227,6 +271,37 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 		and main.state.get_slotted_ability("active_1") == "magic_missile",
 		"A newly purchased active skill must immediately enter the existing loadout choices",
 	)
+	main.state.current_form_id = "ghoul"
+	main.state.absorbed_souls = int(Rules.FORMS["ghoul"]["threshold"])
+	main.state.highest_unlocked_form_index = Rules.FORM_ORDER.find("ghoul")
+	main.state.hunger = 13
+	main.state.hunger_turn_progress = 7
+	main.state.active_statuses.erase("satiated")
+	main._refresh_character_sheet()
+	_expect(
+		not main.state.uses_hunger()
+		and not main.character_derived_label.text.contains(Loc.text("SIDEBAR_HUNGER", [13]).get_slice(":", 0)),
+		"A Ghoul without Stomach must hide Satiety from the character UI",
+	)
+	main._select_skill_stage("ghoul")
+	main._on_skill_pressed("stomach")
+	var souls_before_stomach: int = main.state.get_total_souls()
+	main.skill_tree_panel.action_button.pressed.emit()
+	_expect(
+		main.state.get_skill_level("stomach") == 1
+		and main.state.get_total_souls() == souls_before_stomach - 20
+		and main.state.hunger == 100 and main.state.hunger_turn_progress == 0
+		and not main.state.has_status("satiated") and main.state.uses_hunger()
+		and main.character_derived_label.text.contains(Loc.text("SIDEBAR_HUNGER", [100]).get_slice(":", 0)),
+		"Buying Stomach must reveal initialized Satiety without granting the camp status",
+	)
+	var stomach_restored := RunState.new()
+	_expect(
+		stomach_restored.restore_save_data(main.state.to_save_data())
+		and stomach_restored.get_skill_level("stomach") == 1
+		and stomach_restored.uses_hunger() and not stomach_restored.has_status("satiated"),
+		"Learned Stomach must round-trip additively in save version 13",
+	)
 	await _test_remapped_interact_dispatch(tree, main)
 	_expect(
 		not main.state.to_save_data().has("selected_skill")
@@ -235,6 +310,8 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 	)
 	main.queue_free()
 	await tree.process_frame
+
+
 
 
 func _test_remapped_interact_dispatch(tree: SceneTree, main) -> void:

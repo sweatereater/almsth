@@ -126,17 +126,18 @@ func _capture() -> void:
 	await _save(main, "selected-chest")
 	main._select_inspection_target(Vector2i(12, 7))
 
-	main.state.character_name = "Голодный странник" if locale == "ru" else "The Hungry Wanderer"
-	main.state.current_form_id = "zombie"
-	main.state.absorbed_souls = 10
-	main.state.highest_unlocked_form_index = 1
-	main.state.soul_level = 1
+	main.state.character_name = "Усталый странник" if locale == "ru" else "The Weary Wanderer"
+	main.state.current_form_id = "ghoul"
+	main.state.absorbed_souls = 24
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	main.state.soul_level = 2
+	main.state.skill_levels["stomach"] = 1
 	main.state.hunger = 3
 	main.state.food = 0
 	main.state.hp = main.state.get_max_hp()
 	main.state.mana = main.state.get_max_mana()
 	main.inspected_target.clear()
-	await _save(main, "hungry-zombie")
+	await _save(main, "low-satiety-ghoul")
 
 	main.inspected_target = {"kind": "cradle", "pos": main.floor_data["cradle"]}
 	await _save(main, "cradle")

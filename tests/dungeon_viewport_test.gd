@@ -5,6 +5,8 @@ const DungeonView := preload("res://scripts/ui/dungeon_viewport.gd")
 const Renderer := preload("res://scripts/ui/game_renderer.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
 const Presentation := preload("res://scripts/system/presentation_settings.gd")
+const MainScript := preload("res://scripts/main.gd")
+const BaseLayout := preload("res://scripts/ui/base_layout.gd")
 
 var failures: Array[String] = []
 
@@ -17,6 +19,15 @@ func run(tree: SceneTree) -> Array[String]:
 
 
 func _test_camera_math() -> void:
+	_expect(
+		is_equal_approx(MainScript.MOVE_REPEAT_INITIAL_DELAY, 0.28)
+		and is_equal_approx(MainScript.MOVE_REPEAT_INTERVAL, 0.11)
+		and is_equal_approx(MainScript.AUTO_STEP_DELAY, 0.275)
+		and is_equal_approx(
+			MainScript.AUTO_STEP_DELAY, MainScript.MOVE_REPEAT_INTERVAL * 2.5
+		),
+		"Automatic movement must use one exact 2.5x delay without changing manual repeat timing",
+	)
 	_expect(DungeonView.VIEW_RECT == Rect2(8, 8, 1056, 660), "Dungeon viewport rect must match the 16x10-cell contract")
 	_expect(DungeonView.CELL_SIZE == Renderer.CELL_SIZE, "Camera, input and rendering must share one cell-size source")
 	_expect(Renderer.CELL_SIZE == 66, "Dungeon cells must be exactly 66 virtual pixels")
@@ -35,6 +46,26 @@ func _test_camera_math() -> void:
 		and Presentation.clamped_cell_size_step(66, 1) == 88
 		and Presentation.clamped_cell_size_step(88, 1) == 88,
 		"Dungeon zoom hotkey steps must clamp at 44/88 instead of wrapping",
+	)
+	_expect(
+		Presentation.AUTO_MOVEMENT_SPEED_PERCENTS == [100, 150, 200, 225]
+		and Presentation.DEFAULT_AUTO_MOVEMENT_SPEED_PERCENT == 100
+		and Presentation.sanitize_auto_movement_speed_percent(100) == 100
+		and Presentation.sanitize_auto_movement_speed_percent(150) == 150
+		and Presentation.sanitize_auto_movement_speed_percent(200) == 200
+		and Presentation.sanitize_auto_movement_speed_percent(225) == 225
+		and Presentation.sanitize_auto_movement_speed_percent(175) == 100
+		and Presentation.sanitize_auto_movement_speed_percent(150.5) == 100
+		and Presentation.sanitize_auto_movement_speed_percent("225") == 100,
+		"Automatic movement speed must accept only the exact global 100/150/200/225 contract",
+	)
+	_expect(
+		Presentation.next_auto_movement_speed_percent(100) == 150
+		and Presentation.next_auto_movement_speed_percent(150) == 200
+		and Presentation.next_auto_movement_speed_percent(200) == 225
+		and Presentation.next_auto_movement_speed_percent(225) == 100
+		and is_equal_approx(Presentation.auto_movement_speed_multiplier(225), 2.25),
+		"Automatic movement speed must cycle Base/+50/+100/+125 and expose one multiplier",
 	)
 	var large := Vector2i(20, 14)
 	_expect(DungeonView.world_pixel_size(large) == Vector2(1320, 924), "20x14 world size must be 1320x924")
@@ -111,8 +142,31 @@ func _test_main_integration(tree: SceneTree) -> void:
 	var main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
 	main.persistence_enabled = false
 	main.audio_playback_enabled = false
+	main.auto_step_delay_override = 0.0
 	tree.root.add_child(main)
 	await tree.process_frame
+	main.auto_step_delay_override = -1.0
+	var expected_auto_delays := {
+		100: 0.275,
+		150: 0.275 / 1.5,
+		200: 0.1375,
+		225: 0.275 / 2.25,
+	}
+	for speed_percent in expected_auto_delays:
+		main.auto_movement_speed_percent = speed_percent
+		_expect(
+			is_equal_approx(
+				main._automatic_step_delay_seconds(), expected_auto_delays[speed_percent],
+			),
+			"Both automatic loops must use the shared effective delay at %d%%" % speed_percent,
+		)
+	main.auto_movement_speed_percent = 225
+	main.auto_step_delay_override = 0.03125
+	_expect(
+		is_equal_approx(main._automatic_step_delay_seconds(), 0.03125),
+		"An absolute automatic-step test override must never be divided by the global speed",
+	)
+	main.auto_step_delay_override = 0.0
 	main.state.configure_character("Viewport", GameRules.default_attributes())
 	main._hide_game_interface()
 	main.name_prompt_label.visible = false
@@ -309,34 +363,47 @@ func _test_main_integration(tree: SceneTree) -> void:
 	await _tap_touch(main, tree, Rect2(main.wait_button.position, main.wait_button.size).get_center())
 	_expect(main.state.total_turns == turns_before + 1 and main.inspected_target.get("pos") == Vector2i(13, 8), "Touch action tap must spend exactly one turn without reaching the map")
 
-	# Settings pause an in-flight auto-explore coroutine without destroying it.
-	main.floor_data = _floor_fixture(5, 5)
+	# Settings cancel an in-flight delayed step, and the stale coroutine cannot
+	# resume after the modal closes.
+	main.floor_data = _floor_fixture(20, 14)
 	main.player_pos = Vector2i(2, 2)
 	main.floor_data["explored_cells"] = {Vector2i(2, 2): true, Vector2i(3, 2): true}
 	main.floor_data["visible_cells"] = main.floor_data["explored_cells"].duplicate(true)
 	main.floor_data["observed_cells"] = main.floor_data["explored_cells"].duplicate(true)
 	main.floor_data["enemies"] = []
 	main._refresh_dungeon_viewport()
-	var auto_start: Vector2i = main.player_pos
+	main.auto_step_delay_override = 0.05
 	turns_before = main.state.total_turns
-	main._open_settings()
-	main.auto_explore_active = true
-	main._run_auto_explore()
-	await tree.process_frame
+	main._on_auto_explore_pressed()
+	var first_auto_position: Vector2i = main.player_pos
+	var turns_after_first_auto_step: int = main.state.total_turns
+	_expect(
+		turns_after_first_auto_step == turns_before + 1 and main.auto_explore_active,
+		"Auto-explore must take its first turn immediately before using the shared delay",
+	)
 	await tree.process_frame
 	_expect(
-		main.player_pos == auto_start and main.state.total_turns == turns_before
+		main.player_pos == first_auto_position
+		and main.state.total_turns == turns_after_first_auto_step
 		and main.auto_explore_active,
-		"Open Settings must pause auto-explore without movement or state loss",
+		"Auto-explore must wait for its configured delay before a second turn",
+	)
+	main._open_settings()
+	await tree.create_timer(0.08).timeout
+	_expect(
+		main.player_pos == first_auto_position
+		and main.state.total_turns == turns_after_first_auto_step
+		and not main.auto_explore_active and not main.auto_travel_active,
+		"Opening Settings during the delay must cancel auto-explore without a stale extra turn",
 	)
 	main._close_settings()
-	await tree.process_frame
-	await tree.process_frame
+	await tree.create_timer(0.08).timeout
 	_expect(
-		main.player_pos != auto_start and main.state.total_turns > turns_before,
-		"Closing Settings must resume the paused auto-explore coroutine",
+		main.player_pos == first_auto_position
+		and main.state.total_turns == turns_after_first_auto_step,
+		"Closing Settings must not revive the cancelled auto-explore coroutine",
 	)
-	main._clear_auto_explore_state()
+	main.auto_step_delay_override = 0.0
 
 	# Dungeon overlays consume input instead of forwarding it to the enlarged map.
 	var position_before: Vector2i = main.player_pos
@@ -372,13 +439,19 @@ func _test_main_integration(tree: SceneTree) -> void:
 	main._show_base("")
 	_expect(
 		not main.dungeon_viewport.visible
-		and not main.soul_icon.visible
-		and main.stats_label.position == Vector2(846, 78)
-		and main.stats_label.size == Vector2(400, 56)
+		and main.soul_icon.visible
+		and Rect2(main.soul_icon.position, main.soul_icon.size) == main.BASE_SOUL_ICON_RECT
+		and Rect2(main.souls_label.position, main.souls_label.size) == main.BASE_SOULS_RECT
+		and main.material_resources_strip.visible
+		and Rect2(
+			main.material_resources_strip.position, main.material_resources_strip.size
+		) == main.BASE_MATERIALS_RECT
+		and Rect2(main.stats_label.position, main.stats_label.size) == BaseLayout.STATS_RECT
 		and main.equipment_label.position == Vector2(846, 338)
 		and main.inspection_label.position == Vector2(860, 508)
-		and main.message_label.size == Vector2(790, 106),
-		"Leaving Dungeon must restore the unchanged wide base layout",
+		and Rect2(main.hint_label.position, main.hint_label.size) == BaseLayout.HINT_RECT
+		and Rect2(main.message_label.position, main.message_label.size) == BaseLayout.MESSAGE_RECT,
+		"Leaving Dungeon must restore the base layout and its compact resource strip",
 	)
 	main.queue_free()
 	await tree.process_frame

@@ -82,6 +82,7 @@ func configure_character(name_value: String, attribute_values: Dictionary) -> vo
 
 func to_save_data() -> Dictionary:
 	_ensure_permanent_jacket()
+	_enforce_satiated_satiety()
 	return {
 		"character_name": character_name,
 		"attributes": attributes.duplicate(true),
@@ -212,6 +213,7 @@ func restore_save_data(data: Dictionary) -> bool:
 	food = maxi(0, int(data.get("food", 0)))
 	hunger = clampi(int(data.get("hunger", 100)), 0, 100)
 	hunger_turn_progress = clampi(int(data.get("hunger_turn_progress", 0)), 0, 9)
+	_enforce_satiated_satiety()
 	regeneration_progress = maxi(0, int(data.get("regeneration_progress", 0)))
 	mana_regeneration_progress = maxf(0.0, float(data.get("mana_regeneration_progress", 0.0)))
 	total_turns = maxi(0, int(data.get("total_turns", 0)))
@@ -295,6 +297,7 @@ func get_derived_stats() -> Dictionary:
 	result["mana"] += get_skill_level("magic_awakening") * 5
 	result["damage"] += StatusSystem.modifier(active_statuses, "damage")
 	result["ranged_damage"] += StatusSystem.modifier(active_statuses, "ranged_damage")
+	result["regeneration"] += StatusSystem.modifier(active_statuses, "regeneration")
 	return result
 
 
@@ -350,6 +353,8 @@ func get_vision_radius() -> int:
 
 
 func get_hearing_radius() -> int:
+	if not has_hearing():
+		return 0
 	return get_vision_radius() + GameRules.PLAYER_HEARING_RADIUS_OFFSET
 
 
@@ -899,11 +904,24 @@ func has_status(status_id: String) -> bool:
 
 
 func add_or_refresh_status(status_id: String, duration := -1, temporary_hp := -1) -> bool:
-	return StatusSystem.add_or_refresh(active_statuses, status_id, duration, temporary_hp)
+	var added := StatusSystem.add_or_refresh(active_statuses, status_id, duration, temporary_hp)
+	if added and status_id == "satiated":
+		_enforce_satiated_satiety()
+	return added
 
 
 func status_remaining(status_id: String) -> int:
 	return int(active_statuses.get(status_id, {}).get("remaining_turns", 0))
+
+
+func _enforce_satiated_satiety() -> void:
+	if not has_status("satiated"):
+		return
+	if not uses_hunger():
+		StatusSystem.remove(active_statuses, "satiated")
+		return
+	hunger = 100
+	hunger_turn_progress = 0
 
 
 func cooldown_remaining(ability_id: String) -> int:
@@ -1011,6 +1029,10 @@ func purchase_skill(skill_id: String) -> Dictionary:
 	skill_levels[skill_id] = current_level + 1
 	if skill_id == "fundamentals":
 		unspent_attribute_points += 5
+	elif skill_id == "stomach":
+		hunger = 100
+		hunger_turn_progress = 0
+		StatusSystem.remove(active_statuses, "satiated")
 	var new_max_hp := get_max_hp()
 	hp = clampi(hp + maxi(0, new_max_hp - old_max_hp), 1, new_max_hp)
 	var new_max_mana := get_max_mana()
@@ -1046,14 +1068,28 @@ func spend_attribute_point(attribute_id: String) -> bool:
 
 
 func uses_hunger() -> bool:
-	return GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("zombie")
+	return (
+		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("ghoul")
+		and get_skill_level("stomach") > 0
+	)
+
+
+func has_hearing() -> bool:
+	return (
+		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("ghoul")
+		and get_skill_level("ears") > 0
+	)
 
 
 func has_regeneration_skill() -> bool:
-	return uses_hunger() and get_skill_level("flesh_regeneration") > 0
+	return (
+		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("zombie")
+		and get_skill_level("flesh_regeneration") > 0
+	)
 
 
 func camp_and_eat() -> Dictionary:
+	_enforce_satiated_satiety()
 	if not uses_hunger():
 		return {"ok": false, "reason": "no_hunger"}
 	if hunger >= 100:
@@ -1066,6 +1102,7 @@ func camp_and_eat() -> Dictionary:
 
 
 func advance_survival_turn() -> Dictionary:
+	_enforce_satiated_satiety()
 	total_turns += 1
 	var result := {
 		"healed": 0,
@@ -1076,26 +1113,29 @@ func advance_survival_turn() -> Dictionary:
 		"died": false,
 	}
 	result["mana_restored"] = _regenerate_mana()
-	if not uses_hunger():
-		return result
+	if uses_hunger():
+		if has_status("satiated"):
+			hunger = 100
+			hunger_turn_progress = 0
+			result["hunger"] = hunger
+		else:
+			hunger_turn_progress += 1
+			if hunger_turn_progress >= 10:
+				hunger_turn_progress = 0
+				var old_hunger := hunger
+				hunger = maxi(0, hunger - 1)
+				result["hunger_changed"] = hunger != old_hunger
+				result["hunger"] = hunger
 
-	hunger_turn_progress += 1
-	if hunger_turn_progress >= 10:
-		hunger_turn_progress = 0
-		var old_hunger := hunger
-		hunger = maxi(0, hunger - 1)
-		result["hunger_changed"] = hunger != old_hunger
-		result["hunger"] = hunger
-
-	if hunger <= 0:
-		regeneration_progress = 0
-		var starvation_damage := maxi(1, ceili(get_max_hp() * 0.02))
-		var damage_result := apply_damage(starvation_damage)
-		result["starvation_damage"] = starvation_damage
-		result["temporary_hp_absorbed"] = damage_result["temporary_hp_absorbed"]
-		result["hp_damage"] = damage_result["hp_damage"]
-		result["died"] = damage_result["died"]
-		return result
+		if hunger <= 0:
+			regeneration_progress = 0
+			var starvation_damage := maxi(1, ceili(get_max_hp() * 0.02))
+			var damage_result := apply_damage(starvation_damage)
+			result["starvation_damage"] = starvation_damage
+			result["temporary_hp_absorbed"] = damage_result["temporary_hp_absorbed"]
+			result["hp_damage"] = damage_result["hp_damage"]
+			result["died"] = damage_result["died"]
+			return result
 
 	if has_regeneration_skill():
 		regeneration_progress += int(get_derived_stats()["regeneration"])
@@ -1146,10 +1186,17 @@ func safe_return() -> int:
 
 
 func apply_camp_entry_effects() -> Dictionary:
-	var result := {"hunger_refilled": false, "rested_granted": false}
+	var result := {
+		"hunger_refilled": false,
+		"satiated_granted": false,
+		"rested_granted": false,
+	}
 	if uses_hunger():
 		result["hunger_refilled"] = hunger < 100
 		hunger = 100
+		hunger_turn_progress = 0
+		add_or_refresh_status("satiated", 400, 3)
+		result["satiated_granted"] = true
 	if GameRules.has_intrinsic_feature(current_form_id, "nervous_system"):
 		add_or_refresh_status("rested", 500, 5)
 		result["rested_granted"] = true
