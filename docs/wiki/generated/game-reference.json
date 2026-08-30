@@ -250,10 +250,10 @@
     "damage": "base.damage + floor(depth / 35)",
     "depth": "depth = 100 - floor_number",
     "dodge": "base.dodge + floor(depth / 30)",
-    "enemy_count": "min(9, 4 + floor(depth / 12))",
+    "enemy_count": "min(12, 5 + floor(depth / 12))",
     "max_hp": "base.max_hp + floor(depth / 20)",
-    "note": "Floor 90 is hand-authored and uses the Minotaur base values without these bonuses.",
-    "scope": "regular_generated_floors",
+    "note": "Each of 2–3 sealed rooms adds 2–3 enemies with the same stat bonuses. Floor 90 is hand-authored and uses the Minotaur base values without these bonuses.",
+    "scope": "regular_generated_floor_main_hall",
     "souls": "base.souls + floor(depth / 30)",
     "source": "scripts/world/floor_generator.gd:_spawn_enemies",
     "vision": "base.vision"

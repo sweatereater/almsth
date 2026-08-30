@@ -777,6 +777,7 @@ func _enemy(uid: String, position: Vector2i, hp: int, enemy_id: String) -> Dicti
 		"max_hp": maxi(hp, int(rules["max_hp"])), "damage": int(rules["damage"]),
 		"accuracy": int(rules["accuracy"]), "dodge": int(rules["dodge"]),
 		"vision": int(rules["vision"]), "souls": int(rules["souls"]),
+		"has_seen_player": true, # Sound checks begin with an alerted attacker.
 		"attack_type": String(rules.get("attack_type", "melee")),
 		"range": int(rules.get("range", 1)),
 		"abilities": rules.get("abilities", []).duplicate(),

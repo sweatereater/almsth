@@ -27,6 +27,7 @@ func sync_proximity(
 	player_pos: Vector2i,
 	hearing_radius: int,
 	visible_cells: Dictionary,
+	floor_data: Dictionary = {},
 ) -> Dictionary:
 	var living_hidden: Dictionary = {}
 	var all_living: Dictionary = {}
@@ -39,6 +40,8 @@ func sync_proximity(
 		var uid := String(enemy.get("uid", ""))
 		var pos_value: Variant = enemy.get("pos")
 		if uid.is_empty() or not pos_value is Vector2i or int(enemy.get("hp", 0)) <= 0:
+			continue
+		if GridNavigation.is_in_sealed_room(floor_data, pos_value):
 			continue
 		all_living[uid] = true
 		var pos: Vector2i = pos_value

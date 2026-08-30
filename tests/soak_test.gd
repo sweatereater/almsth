@@ -2,6 +2,7 @@ extends SceneTree
 
 const FLOOR_SAMPLES := 500
 const RANDOM_ACTIONS := 1200
+const RoomDoorSuite := preload("res://tests/room_door_test.gd")
 const CARDINAL_DIRECTIONS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 
 var failures: Array[String] = []
@@ -36,6 +37,7 @@ func _soak_floor_generation() -> void:
 		var floor_number := 99 - (sample % 99)
 		var chance := float(sample % 21) * 0.05
 		var floor_data := generator.generate(floor_number, 10_000 + sample, chance)
+		failures.append_array(RoomDoorSuite.validate_generated(floor_data, floor_number))
 		generated_floors += 1
 		var tiles: Dictionary = floor_data["tiles"]
 		var start: Vector2i = floor_data["start"]
@@ -51,7 +53,7 @@ func _soak_floor_generation() -> void:
 		_check(tiles.get(exit, "void") == "floor", "Exit spawned off the floor at sample %d" % sample)
 		_check(tiles.get(base_gate, "void") == "floor", "Base gate spawned off the floor at sample %d" % sample)
 		_check(start != exit and start != base_gate and exit != base_gate, "Mandatory cells overlap at sample %d" % sample)
-		_check(generator._all_floor_cells_connected(tiles), "Disconnected floor at sample %d" % sample)
+		_check(generator._all_floor_cells_connected(tiles, true), "Disconnected floor with open doors at sample %d" % sample)
 		var occupied := {start: "start", exit: "exit", base_gate: "base"}
 		for enemy in floor_data["enemies"]:
 			_check(tiles.get(enemy["pos"], "void") == "floor", "Enemy off-floor at sample %d" % sample)

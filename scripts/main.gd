@@ -2684,6 +2684,7 @@ func _find_floor_path(start: Vector2i, goal: Vector2i, known_only := false) -> A
 		floor_data.get("explored_cells", {}),
 		known_only,
 		blocked_cells,
+		true,
 	)
 
 
@@ -2974,9 +2975,9 @@ func _find_nearest_exploration_path() -> Array[Vector2i]:
 		var cell: Vector2i = cell_variant
 		if (
 			cell == player_pos
-			or tiles.get(cell, "void") != "floor"
+			or tiles.get(cell, "void") not in ["floor", "door_closed"]
 			or not bool(explored.get(cell, false))
-			or not _can_reveal_unexplored_geometry(cell)
+			or (tiles.get(cell) != "door_closed" and not _can_reveal_unexplored_geometry(cell))
 		):
 			continue
 		var path := GridNavigation.find_path(
@@ -2984,6 +2985,8 @@ func _find_nearest_exploration_path() -> Array[Vector2i]:
 			player_pos,
 			cell,
 			explored,
+			true,
+			{},
 			true,
 		)
 		if path.is_empty():
@@ -4105,6 +4108,7 @@ func _sync_hearing_proximity() -> bool:
 		player_pos,
 		state.get_hearing_radius(),
 		floor_data.get("visible_cells", {}),
+		floor_data,
 	)
 	if not bool(result.get("has_new", false)):
 		return false
@@ -4120,6 +4124,8 @@ func _record_hidden_enemy_attack(enemy: Dictionary) -> void:
 	var uid := String(enemy.get("uid", ""))
 	var origin: Variant = enemy.get("pos")
 	if not origin is Vector2i:
+		return
+	if GridNavigation.is_in_sealed_room(floor_data, origin):
 		return
 	if hearing_contacts.record_hidden_attack(uid, origin, state.total_turns):
 		hidden_attack_heard_this_enemy_phase = true
@@ -4219,11 +4225,17 @@ func _cell_has_inspection_subject(cell: Vector2i) -> bool:
 			or cell == floor_data.get("cradle", Vector2i(-1, -1))
 		):
 			return true
-	return floor_data["tiles"].get(cell, "void") != "floor"
+	return (
+		floor_data["tiles"].get(cell, "void") != "floor"
+		or not GridNavigation.room_at_door(floor_data, cell).is_empty()
+	)
 
 
 func _attempt_player_action(direction: Vector2i) -> bool:
 	var target := player_pos + direction
+	var opens_door: bool = floor_data["tiles"].get(target, "void") == "door_closed"
+	if opens_door:
+		floor_data["tiles"][target] = "floor"
 	if floor_data["tiles"].get(target, "void") != "floor":
 		if (
 			target == floor_data.get("boss_door", Vector2i(-1, -1))
@@ -4250,7 +4262,7 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 		_audio_action("step")
 		action_should_stop = _pick_up_item_at_player()
 		if not action_should_stop:
-			_log_action(_tile_hint())
+			_log_action(Loc.text("MSG_DOOR_OPENED") if opens_door else _tile_hint())
 	_update_player_visibility()
 
 	if screen == Screen.DUNGEON:
@@ -4865,6 +4877,8 @@ func _nearest_enemy_index_from(
 		var enemy: Dictionary = floor_data["enemies"][index]
 		if not excluded_uid.is_empty() and String(enemy.get("uid", "")) == excluded_uid:
 			continue
+		if GridNavigation.is_in_sealed_room(floor_data, enemy["pos"]):
+			continue
 		var distance := _manhattan(origin, enemy["pos"])
 		if require_clear_line and not _has_clear_spell_line(origin, enemy["pos"]):
 			continue
@@ -5115,6 +5129,10 @@ func _enemy_turn() -> void:
 		var sees_player := _enemy_can_see_player(enemy)
 		if sees_player:
 			enemy["last_seen_player"] = player_pos
+			if not bool(enemy.get("has_seen_player", false)):
+				enemy["has_seen_player"] = true
+				floor_data["enemies"][index] = enemy
+				continue
 		elif not enemy.has("last_seen_player"):
 			continue
 		elif enemy["pos"] == enemy["last_seen_player"]:
@@ -5457,6 +5475,8 @@ func _nearest_automatic_inspection_target() -> Dictionary:
 		{"kind": "exit", "pos": floor_data["exit"]},
 		{"kind": "start", "pos": floor_data["start"]},
 	]
+	for room in floor_data.get("rooms", []):
+		special_targets.append({"kind": "tile", "pos": room["door"]})
 	var cradle_position: Vector2i = floor_data.get("cradle", Vector2i(-1, -1))
 	if cradle_position.x >= 0:
 		special_targets.append({"kind": "cradle", "pos": cradle_position})
@@ -5493,6 +5513,8 @@ func _inspection_target_name(target: Dictionary) -> String:
 			return Loc.text("INSPECT_CRADLE")
 		"tile":
 			var tile_type := String(floor_data["tiles"].get(target["pos"], "void"))
+			if not GridNavigation.room_at_door(floor_data, target["pos"]).is_empty():
+				return Loc.text("INSPECT_DOOR" if tile_type == "door_closed" else "INSPECT_DOOR_OPEN")
 			if target["pos"] == floor_data.get("boss_door", Vector2i(-1, -1)):
 				return Loc.text(
 					"INSPECT_BOSS_DOOR_OPEN"

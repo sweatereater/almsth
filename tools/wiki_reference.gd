@@ -411,7 +411,7 @@ static func check_generated_files() -> Array[String]:
 static func _enemy_depth_scaling() -> Dictionary:
 	return {
 		"source": "scripts/world/floor_generator.gd:_spawn_enemies",
-		"scope": "regular_generated_floors",
+		"scope": "regular_generated_floor_main_hall",
 		"depth": "depth = 100 - floor_number",
 		"enemy_count": "min(%d, %d + floor(depth / %d))" % [
 			Floors.ENEMY_COUNT_MAX,
@@ -424,7 +424,7 @@ static func _enemy_depth_scaling() -> Dictionary:
 		"dodge": "base.dodge + floor(depth / %d)" % Floors.ENEMY_DODGE_DEPTH_INTERVAL,
 		"souls": "base.souls + floor(depth / %d)" % Floors.ENEMY_SOULS_DEPTH_INTERVAL,
 		"vision": "base.vision",
-		"note": "Floor %d is hand-authored and uses the Minotaur base values without these bonuses." % FixedFloor.FLOOR_NUMBER,
+		"note": "Each of 2–3 sealed rooms adds 2–3 enemies with the same stat bonuses. Floor %d is hand-authored and uses the Minotaur base values without these bonuses." % FixedFloor.FLOOR_NUMBER,
 	}
 
 

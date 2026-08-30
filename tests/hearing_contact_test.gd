@@ -550,6 +550,7 @@ func _game_enemy(uid: String, pos: Vector2i, damage: int, vision: int, attack_ra
 		"uid": uid, "id": "skeletal_archer", "pos": pos,
 		"hp": 4, "max_hp": 4, "damage": damage, "accuracy": -100, "dodge": 0,
 		"vision": vision, "souls": 1, "attack_type": "ranged", "range": attack_range,
+		"has_seen_player": true, # Hidden-attack tests begin with an alerted shooter.
 	}
 
 
@@ -558,6 +559,7 @@ func _melee_enemy(uid: String, pos: Vector2i, vision: int) -> Dictionary:
 		"uid": uid, "id": "grave_rat", "pos": pos,
 		"hp": 2, "max_hp": 2, "damage": 0, "accuracy": -100, "dodge": 0,
 		"vision": vision, "souls": 1,
+		"has_seen_player": true,
 	}
 
 

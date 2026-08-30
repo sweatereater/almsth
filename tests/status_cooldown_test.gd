@@ -744,6 +744,7 @@ func _enemy(uid: String, position: Vector2i, hp: int) -> Dictionary:
 		"uid": uid, "id": "grave_rat", "pos": position, "hp": hp, "max_hp": hp,
 		"damage": int(rules["damage"]), "accuracy": -100, "dodge": 100,
 		"vision": int(rules["vision"]), "souls": int(rules["souls"]),
+		"has_seen_player": true, # Cooldown/status combat fixtures are already alerted.
 	}
 
 

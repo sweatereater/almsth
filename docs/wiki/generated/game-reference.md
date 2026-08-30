@@ -81,7 +81,7 @@
 
 `depth = 100 - floor_number`
 
-- Число врагов: `min(9, 4 + floor(depth / 12))`.
+- Число врагов: `min(12, 5 + floor(depth / 12))`.
 - HP: `base.max_hp + floor(depth / 20)`.
 - Урон: `base.damage + floor(depth / 35)`.
 - Точность: `base.accuracy + floor(depth / 25)`.

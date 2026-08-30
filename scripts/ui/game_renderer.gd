@@ -378,6 +378,10 @@ static func draw_dungeon(
 				_draw_dungeon_texture(canvas, DUNGEON_FLOOR_TEXTURE, rect, cell, floor_tint)
 				if cell == boss_door:
 					_draw_boss_door(canvas, rect, bool(floor_data.get("boss_door_open", false)))
+				else:
+					var room := GridNavigation.room_at_door(floor_data, cell)
+					if not room.is_empty():
+						_draw_door(canvas, rect, tiles[cell] == "floor", room["outward"].x != 0)
 			canvas.draw_rect(rect, Color(0.10, 0.13, 0.17, 0.74), false, 2.0)
 			if not visible_now:
 				canvas.draw_rect(
@@ -665,38 +669,48 @@ static func _draw_entity_sprite(
 
 
 static func _draw_boss_door(canvas: CanvasItem, rect: Rect2, open: bool) -> void:
-	if open:
-		var threshold := rect.grow(-6)
+	_draw_door(canvas, rect, open, false, true)
+
+
+static func _draw_door(
+	canvas: CanvasItem, rect: Rect2, open: bool, horizontal: bool, boss := false,
+) -> void:
+	var size := rect.size.x
+	var frame := Color("9a7755") if boss else Color("786448")
+	# All geometry is proportional to one logical tile, including stroke width.
+	# An open door has a clear center and permanent jambs on the wall sides.
+	for x in [0.12, 0.88]:
 		canvas.draw_line(
-			Vector2(threshold.position.x, threshold.position.y + 6),
-			Vector2(threshold.end.x, threshold.position.y + 6),
-			Color("8b6947"),
-			6.0,
+			_door_point(rect, Vector2(x, 0.1), horizontal),
+			_door_point(rect, Vector2(x, 0.9), horizontal), frame, size * 0.12,
 		)
+	if open:
 		canvas.draw_line(
-			Vector2(threshold.position.x, threshold.end.y - 6),
-			Vector2(threshold.end.x, threshold.end.y - 6),
-			Color("554536"),
-			4.0,
+			_door_point(rect, Vector2(0.22, 0.72), horizontal),
+			_door_point(rect, Vector2(0.78, 0.72), horizontal),
+			Color("685b4b"), size * 0.035,
 		)
 		return
-	var slab := rect.grow(-6)
-	canvas.draw_rect(slab, Color("3c2926"))
-	canvas.draw_rect(slab, Color("9a654b"), false, 4.0)
-	for offset in [16.0, 32.0, 48.0]:
+	var slab := rect.grow(-size * 0.2)
+	canvas.draw_rect(slab, Color("473629") if not boss else Color("3c2926"))
+	canvas.draw_rect(slab, frame, false, size * 0.035)
+	for x in [0.35, 0.5, 0.65]:
 		canvas.draw_line(
-			Vector2(slab.position.x + offset, slab.position.y + 4),
-			Vector2(slab.position.x + offset, slab.end.y - 4),
-			Color("211a1b"),
-			4.0,
+			_door_point(rect, Vector2(x, 0.23), horizontal),
+			_door_point(rect, Vector2(x, 0.77), horizontal), Color("251f1c"), size * 0.025,
 		)
-	canvas.draw_line(
-		Vector2(slab.position.x + 4, slab.get_center().y),
-		Vector2(slab.end.x - 4, slab.get_center().y),
-		Color("b17a58"),
-		6.0,
-	)
-	canvas.draw_circle(slab.get_center(), 6.0, Color("d1a15f"))
+	if boss:
+		canvas.draw_line(
+			_door_point(rect, Vector2(0.23, 0.5), horizontal),
+			_door_point(rect, Vector2(0.77, 0.5), horizontal), Color("b17a58"), size * 0.08,
+		)
+		canvas.draw_circle(rect.get_center(), size * 0.075, Color("d1a15f"))
+	else:
+		canvas.draw_circle(_door_point(rect, Vector2(0.69, 0.55), horizontal), size * 0.04, frame)
+
+
+static func _door_point(rect: Rect2, point: Vector2, horizontal: bool) -> Vector2:
+	return rect.position + (Vector2(point.y, point.x) if horizontal else point) * rect.size
 
 
 static func _draw_magic_traces(canvas: CanvasItem, magic_traces: Array[Dictionary]) -> void:

@@ -12,9 +12,9 @@ const BOSS_ID := "minotaur"
 const BOSS_UID := "boss_minotaur_90"
 
 const LAYOUT := [
-	"       #######      ",
-	"       #.....#      ",
-	"       #..>..#      ",
+	"      #########     ",
+	"      #.......#     ",
+	"      #...>...#     ",
 	"  ########D#######  ",
 	"  #..............#  ",
 	"  #..............#  ",
@@ -92,7 +92,10 @@ static func create() -> Dictionary:
 			"souls": int(boss_rules["souls"]),
 			"abilities": boss_rules.get("abilities", []).duplicate(),
 		}],
-		"items": [],
+		"items": [
+			{"uid": "item_reward_0", "id": "bone_bow", "pos": Vector2i(8, 1), "wood": 1, "stone": 1},
+			{"uid": "item_reward_1", "id": "pilgrim_shield", "pos": Vector2i(12, 1), "wood": 1, "stone": 1},
+		],
 		"cradle": Vector2i(-1, -1),
 		"cradle_known": false,
 		"cradle_pity_resolved": false,

@@ -20,6 +20,7 @@ const HearingContactSuite := preload("res://tests/hearing_contact_test.gd")
 const CharacterAttributeRowSuite := preload("res://tests/character_attribute_row_test.gd")
 const AutomaticMovementInputSuite := preload("res://tests/automatic_movement_input_test.gd")
 const WikiContractSuite := preload("res://tests/wiki_contract_test.gd")
+const RoomDoorSuite := preload("res://tests/room_door_test.gd")
 
 var failures: Array[String] = []
 
@@ -33,6 +34,7 @@ func _run() -> void:
 	_test_platform_foundations()
 	_test_run_state()
 	_test_floor_generation()
+	failures.append_array(await RoomDoorSuite.new().run(self))
 	var regression_failures: Array[String] = await RegressionSuite.new().run(self)
 	failures.append_array(regression_failures)
 	var ability_failures: Array[String] = await AbilitySuite.new().run(self)
@@ -607,8 +609,8 @@ func _test_floor_generation() -> void:
 	var floor_generator := FloorGenerator.new()
 	var forced_cradle_floor := floor_generator.generate(99, 1001, 1.0)
 	_expect(
-		forced_cradle_floor["width"] == 20 and forced_cradle_floor["height"] == 14,
-		"The expanded prototype field must be 20 by 14 cells",
+		forced_cradle_floor["width"] == 40 and forced_cradle_floor["height"] == 40,
+		"Ordinary floors must be 40 by 40 cells",
 	)
 	var forced_cradle: Vector2i = forced_cradle_floor["cradle"]
 	_expect(
@@ -650,7 +652,7 @@ func _test_floor_generation() -> void:
 			"Generated floor %d must have a path back to base" % seed_value,
 		)
 		_expect(
-			floor_generator._all_floor_cells_connected(floor_data["tiles"]),
+			floor_generator._all_floor_cells_connected(floor_data["tiles"], true),
 			"Generated floor %d must not contain unreachable floor pockets" % seed_value,
 		)
 		_expect(
@@ -1071,7 +1073,7 @@ func _test_main_scene() -> void:
 	_expect(main.screen == main.Screen.DUNGEON, "Start expedition must open a dungeon floor")
 	_expect(not main.floor_data.is_empty(), "Starting an expedition must generate floor data")
 	_expect(
-		main.floor_data["width"] == 20 and main.floor_data["height"] == 14,
+		main.floor_data["width"] == 40 and main.floor_data["height"] == 40,
 		"Dungeon UI must use the expanded field dimensions",
 	)
 	_expect(
@@ -1586,6 +1588,7 @@ func _test_main_scene() -> void:
 		}]
 		main.inspected_target.clear()
 		var automatic_enemy: Dictionary = main._get_inspection_target()
+		main.floor_data["enemies"][0]["has_seen_player"] = true
 		_expect(automatic_enemy.get("kind", "") == "enemy", "Nearest enemy must be the automatic inspection target")
 		main._select_inspection_target(adjacent_floor)
 		var selected_enemy: Dictionary = main._get_inspection_target()

@@ -20,6 +20,7 @@ static func find_path(
 	known_cells: Dictionary = {},
 	known_only := false,
 	blocked_cells: Dictionary = {},
+	allow_closed_doors := false,
 ) -> Array[Vector2i]:
 	var frontier: Array[Vector2i] = [start]
 	var came_from: Dictionary = {start: start}
@@ -31,7 +32,8 @@ static func find_path(
 			var candidate := cell + direction
 			if came_from.has(candidate):
 				continue
-			if tiles.get(candidate, "void") != "floor":
+			var tile: String = tiles.get(candidate, "void")
+			if tile != "floor" and not (allow_closed_doors and tile == "door_closed"):
 				continue
 			if known_only and not bool(known_cells.get(candidate, false)):
 				continue
@@ -40,6 +42,23 @@ static func find_path(
 			came_from[candidate] = cell
 			frontier.append(candidate)
 	return _reconstruct_path(came_from, start, goal)
+
+
+static func room_at_door(floor_data: Dictionary, cell: Vector2i) -> Dictionary:
+	for room in floor_data.get("rooms", []):
+		if room["door"] == cell:
+			return room
+	return {}
+
+
+static func is_in_sealed_room(floor_data: Dictionary, cell: Vector2i) -> bool:
+	for room in floor_data.get("rooms", []):
+		if (
+			floor_data.get("tiles", {}).get(room["door"], "void") == "door_closed"
+			and room["cells"].has(cell)
+		):
+			return true
+	return false
 
 
 static func next_step(

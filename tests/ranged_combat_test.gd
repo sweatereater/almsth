@@ -556,6 +556,7 @@ func _enemy(uid: String, position: Vector2i, hp: int, enemy_id: String) -> Dicti
 		"accuracy": int(rules["accuracy"]),
 		"dodge": int(rules["dodge"]),
 		"vision": int(rules["vision"]),
+		"has_seen_player": true, # These fixtures exercise attacks and pursuit.
 		"souls": int(rules["souls"]),
 		"attack_type": String(rules.get("attack_type", "melee")),
 		"range": int(rules.get("range", 1)),

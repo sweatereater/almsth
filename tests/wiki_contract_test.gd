@@ -27,8 +27,8 @@ func run(_tree: SceneTree) -> Array[String]:
 
 func _test_floor_scaling_constants(data: Dictionary, failures: Array[String]) -> void:
 	if (
-		Floors.ENEMY_COUNT_BASE != 4
-		or Floors.ENEMY_COUNT_MAX != 9
+		Floors.ENEMY_COUNT_BASE != 5
+		or Floors.ENEMY_COUNT_MAX != 12
 		or Floors.ENEMY_COUNT_DEPTH_INTERVAL != 12
 		or Floors.ENEMY_HP_DEPTH_INTERVAL != 20
 		or Floors.ENEMY_DAMAGE_DEPTH_INTERVAL != 35
@@ -38,13 +38,13 @@ func _test_floor_scaling_constants(data: Dictionary, failures: Array[String]) ->
 	):
 		failures.append("Extracted enemy scaling constants must preserve the prototype balance")
 	if (
-		Floors.enemy_count_for_depth(0) != 4
-		or Floors.enemy_count_for_depth(11) != 4
-		or Floors.enemy_count_for_depth(12) != 5
-		or Floors.enemy_count_for_depth(60) != 9
-		or Floors.enemy_count_for_depth(99) != 9
+		Floors.enemy_count_for_depth(0) != 5
+		or Floors.enemy_count_for_depth(11) != 5
+		or Floors.enemy_count_for_depth(12) != 6
+		or Floors.enemy_count_for_depth(60) != 10
+		or Floors.enemy_count_for_depth(99) != 12
 	):
-		failures.append("Enemy count helper must preserve the previous depth curve")
+		failures.append("Enemy count helper must grow with depth within the approved 5–12 hall range")
 	if (
 		Floors.enemy_stat_bonus_for_depth(19, Floors.ENEMY_HP_DEPTH_INTERVAL) != 0
 		or Floors.enemy_stat_bonus_for_depth(20, Floors.ENEMY_HP_DEPTH_INTERVAL) != 1
