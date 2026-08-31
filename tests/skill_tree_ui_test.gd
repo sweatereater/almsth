@@ -57,7 +57,7 @@ func _test_static_contracts() -> void:
 		and Layout.SKILLS_TAB_RECT == Rect2(588, 16, 172, 44),
 		"Character top tabs must be visually ordered Inventory then Skills",
 	)
-	_expect(SaveSystem.SAVE_VERSION == 13, "Persistent Stomach and Ears ids require save version 13")
+	_expect(SaveSystem.STATE_ONLY_VERSION >= 13 and SaveSystem.SAVE_VERSION >= 14, "State-only saves must retain v13 skills while exact gameplay snapshots use v14 or newer")
 	_expect(
 		ProjectSettings.get_setting("display/window/size/viewport_width") == 1280
 		and ProjectSettings.get_setting("display/window/size/viewport_height") == 720

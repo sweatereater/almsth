@@ -39,7 +39,6 @@ func _test_settings_persistence() -> void:
 	var bindings := {"attack": [{"type": "key", "keycode": int(KEY_Z)}]}
 	_expect(SaveSystem.save_settings({
 		"fullscreen": true,
-		"inspection_radius": 9,
 		"dungeon_cell_size": 44,
 		"auto_movement_speed_percent": 225,
 		"locale": "en",
@@ -65,7 +64,7 @@ func _test_settings_persistence() -> void:
 	loaded = SaveSystem.load_settings(SETTINGS_PATH)
 	_expect(
 		loaded.get("fullscreen", false)
-		and int(loaded.get("inspection_radius", 0)) == 9
+		and not loaded.has("inspection_radius")
 		and String(loaded.get("locale", "")) == "en"
 		and int(loaded.get("dungeon_cell_size", 0)) == 44
 		and int(loaded.get("auto_movement_speed_percent", 0)) == 225
@@ -82,7 +81,7 @@ func _test_settings_persistence() -> void:
 	loaded = SaveSystem.load_settings(SETTINGS_PATH)
 	_expect(
 		not loaded["fullscreen"]
-		and int(loaded["inspection_radius"]) == 6
+		and not loaded.has("inspection_radius")
 		and int(loaded["dungeon_cell_size"]) == 66
 		and int(loaded["auto_movement_speed_percent"]) == 100
 		and String(loaded["locale"]) == "ru"
@@ -123,19 +122,22 @@ func _test_settings_persistence() -> void:
 	var partial_before := ConfigFile.new()
 	partial_before.load(SETTINGS_PATH)
 	partial_before.set_value("custom", "future_key", 713)
+	partial_before.set_value("gameplay", "inspection_radius", 7)
 	partial_before.save(SETTINGS_PATH)
 	_expect(
-		SaveSystem.save_settings({"inspection_radius": 7}, SETTINGS_PATH) == OK,
+		SaveSystem.save_settings({"auto_movement_speed_percent": 225}, SETTINGS_PATH) == OK,
 		"A partial gameplay settings update must remain writable",
 	)
 	var partial_after := ConfigFile.new()
 	partial_after.load(SETTINGS_PATH)
 	_expect(
-		int(SaveSystem.load_settings(SETTINGS_PATH).get(
+		not SaveSystem.load_settings(SETTINGS_PATH).has("inspection_radius")
+		and int(SaveSystem.load_settings(SETTINGS_PATH).get(
 			"auto_movement_speed_percent", 0,
 		)) == 225
-		and int(partial_after.get_value("custom", "future_key", 0)) == 713,
-		"Partial settings writes must preserve automatic speed and unknown sections",
+		and int(partial_after.get_value("custom", "future_key", 0)) == 713
+		and int(partial_after.get_value("gameplay", "inspection_radius", 0)) == 7,
+		"Legacy inspection radius must be ignored without deleting unknown or old config fields",
 	)
 	var malformed_zoom := ConfigFile.new()
 	malformed_zoom.set_value("gameplay", "dungeon_cell_size", 99)
@@ -478,13 +480,13 @@ func _test_settings_input(tree: SceneTree) -> void:
 	main._open_settings()
 	await tree.process_frame
 	_expect(
-		main.get_viewport().gui_get_focus_owner() == main.settings_minus_button,
-		"Opening Settings must begin at the radius controls",
+		main.get_viewport().gui_get_focus_owner() == main.settings_zoom_button,
+		"Opening Settings must begin at the first remaining settings control",
 	)
 	_expect(
 		main.settings_auto_movement_speed_button.size == Vector2(400, 42)
-		and main.settings_auto_movement_speed_button.position == Vector2(440, 208)
-		and main.settings_sound_button.position.y == 256
+		and main.settings_auto_movement_speed_button.position == Vector2(440, 160)
+		and main.settings_sound_button.position.y == 208
 		and main.settings_sound_button.size.y >= 42
 		and main.settings_background_slider.size.y >= 42
 		and main.settings_actions_slider.size.y >= 42
@@ -523,8 +525,7 @@ func _test_settings_input(tree: SceneTree) -> void:
 			"Consecutive Settings rows must not overlap after inserting automatic speed",
 		)
 	_expect(
-		main.settings_minus_button.focus_neighbor_bottom == main.settings_zoom_button.get_path()
-		and main.settings_zoom_button.focus_neighbor_bottom
+		main.settings_zoom_button.focus_neighbor_bottom
 		== main.settings_auto_movement_speed_button.get_path()
 		and main.settings_auto_movement_speed_button.focus_neighbor_bottom
 		== main.settings_sound_button.get_path()
@@ -539,13 +540,13 @@ func _test_settings_input(tree: SceneTree) -> void:
 	)
 	_expect(
 		main.settings_auto_movement_speed_button.text == Loc.text("SETTINGS_AUTO_SPEED", [
-			Loc.text("SETTINGS_AUTO_SPEED_BASE"),
+			Loc.text("SETTINGS_AUTO_SPEED_NORMAL"),
 		])
 		and not main.settings_auto_movement_speed_button.tooltip_text.is_empty()
 		and main.settings_auto_movement_speed_button.accessibility_name.contains(
 			main.settings_auto_movement_speed_button.tooltip_text
 		),
-		"Automatic movement speed must expose its Base value, tooltip and accessibility text",
+		"Automatic movement speed must expose its Normal value, tooltip and accessibility text",
 	)
 	main.settings_auto_movement_speed_button.grab_focus()
 	var speed_accept := InputEventAction.new()
@@ -553,7 +554,7 @@ func _test_settings_input(tree: SceneTree) -> void:
 	speed_accept.pressed = true
 	main.get_viewport().push_input(speed_accept, true)
 	await tree.process_frame
-	_expect(main.auto_movement_speed_percent == 150, "Keyboard Enter must cycle automatic speed to +50")
+	_expect(main.auto_movement_speed_percent == 150, "Keyboard Enter must cycle automatic speed to Faster")
 	speed_accept = speed_accept.duplicate()
 	speed_accept.pressed = false
 	main.get_viewport().push_input(speed_accept, true)
@@ -563,7 +564,7 @@ func _test_settings_input(tree: SceneTree) -> void:
 	speed_gamepad_accept.pressed = true
 	main.get_viewport().push_input(speed_gamepad_accept, true)
 	await tree.process_frame
-	_expect(main.auto_movement_speed_percent == 200, "Gamepad A must cycle automatic speed to +100")
+	_expect(main.auto_movement_speed_percent == 200, "Gamepad A must cycle automatic speed to Very fast")
 	speed_gamepad_accept = speed_gamepad_accept.duplicate()
 	speed_gamepad_accept.pressed = false
 	main.get_viewport().push_input(speed_gamepad_accept, true)
@@ -578,7 +579,7 @@ func _test_settings_input(tree: SceneTree) -> void:
 	speed_click.pressed = false
 	main.get_viewport().push_input(speed_click, true)
 	await tree.process_frame
-	_expect(main.auto_movement_speed_percent == 225, "Mouse must cycle automatic speed to +125")
+	_expect(main.auto_movement_speed_percent == 225, "Mouse must cycle automatic speed to Maximum")
 	var speed_touch := InputEventScreenTouch.new()
 	speed_touch.index = 7
 	speed_touch.pressed = true
@@ -588,7 +589,7 @@ func _test_settings_input(tree: SceneTree) -> void:
 	speed_touch.pressed = false
 	main.get_viewport().push_input(speed_touch, true)
 	await tree.process_frame
-	_expect(main.auto_movement_speed_percent == 100, "Touch must wrap automatic speed to Base")
+	_expect(main.auto_movement_speed_percent == 100, "Touch must wrap automatic speed to Normal")
 	main.settings_sound_button.grab_focus()
 	var accept := InputEventAction.new()
 	accept.action = "ui_accept"
@@ -701,15 +702,15 @@ func _test_settings_input(tree: SceneTree) -> void:
 				main.settings_auto_movement_speed_button.text == Loc.text(
 					"SETTINGS_AUTO_SPEED", [Loc.text(option_key)],
 				)
-				and ["Base", "База", "+50", "+100", "+125"].has(Loc.text(option_key))
+				and ["Normal", "Faster", "Very fast", "Maximum", "Нормально", "Быстрее", "Очень быстро", "Максимально"].has(Loc.text(option_key))
 				and main.settings_auto_movement_speed_button.size == Vector2(400, 42),
 				"Automatic speed option %d must fit the RU/EN settings row" % speed_percent,
 			)
 		for key in [
 			"SETTINGS_SOUND_ON", "SETTINGS_SOUND_OFF", "SETTINGS_BACKGROUND_VOLUME",
-			"SETTINGS_ACTIONS_VOLUME", "SETTINGS_AUTO_SPEED", "SETTINGS_AUTO_SPEED_BASE",
-			"SETTINGS_AUTO_SPEED_PLUS_50", "SETTINGS_AUTO_SPEED_PLUS_100",
-			"SETTINGS_AUTO_SPEED_PLUS_125", "SETTINGS_AUTO_SPEED_DESC",
+			"SETTINGS_ACTIONS_VOLUME", "SETTINGS_AUTO_SPEED", "SETTINGS_AUTO_SPEED_NORMAL",
+			"SETTINGS_AUTO_SPEED_FASTER", "SETTINGS_AUTO_SPEED_VERY_FAST",
+			"SETTINGS_AUTO_SPEED_MAXIMUM", "SETTINGS_AUTO_SPEED_DESC",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Audio Settings localization %s missing in %s" % [key, locale])
 	main.queue_free()

@@ -71,7 +71,7 @@ static func create() -> Dictionary:
 
 	var boss_rules: Dictionary = GameRules.ENEMIES[BOSS_ID]
 	var boss_max_hp := int(boss_rules["max_hp"])
-	return {
+	var result := {
 		"width": WIDTH,
 		"height": HEIGHT,
 		"tiles": tiles,
@@ -111,3 +111,6 @@ static func create() -> Dictionary:
 		"boss_door": door,
 		"boss_door_open": false,
 	}
+
+	FloorDecoration.populate(result, FLOOR_NUMBER)
+	return result

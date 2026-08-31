@@ -12,7 +12,7 @@ const STATUSES := {
 		"icon": "rested_ember",
 		"priority": 100,
 		"default_duration": 500,
-		"max_duration": 500,
+		"max_duration": 800,
 		"temporary_hp_grant": 5,
 		"per_turn_effect": {},
 		"modifiers": {
@@ -30,7 +30,7 @@ const STATUSES := {
 		"icon": "satiated_meal",
 		"priority": 90,
 		"default_duration": 400,
-		"max_duration": 400,
+		"max_duration": 700,
 		"temporary_hp_grant": 3,
 		"per_turn_effect": {},
 		"modifiers": {

@@ -164,7 +164,7 @@ func _test_slot_compatibility() -> void:
 	}))
 	var loaded_v8 := SaveSystem.load_slot("soul-v8", ROOT)
 	var restored_v8 := RunState.new()
-	_expect(bool(loaded_v8.get("ok", false)) and restored_v8.restore_save_data(loaded_v8.get("state", {})) and restored_v8.soul_level == 2, "Version 8 slot must infer Soul Level without losing compatibility")
+	_expect(not bool(loaded_v8.get("ok", false)) and restored_v8.soul_level == GameRules.SOUL_LEVEL_START, "Old v8 test slot is excluded without granting progression")
 
 
 func _test_interface(tree: SceneTree) -> void:

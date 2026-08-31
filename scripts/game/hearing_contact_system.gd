@@ -1,12 +1,25 @@
 class_name HearingContactSystem
 extends RefCounted
 
-## Ephemeral, identity-free presentation model for sounds outside true vision.
-## Main owns one instance for the current dungeon context. Nothing here is saved.
+## Identity-free presentation model for sounds outside true vision. Attack memory
+## and its absolute turn expiry survive saves; proximity is rebuilt silently.
 
 var event_revision := 0
 var _proximity_positions: Dictionary = {}
 var _attack_memories: Dictionary = {}
+
+
+func to_snapshot_data() -> Dictionary:
+	return {"attack_memories": _attack_memories.duplicate(true), "event_revision": event_revision}
+
+
+func restore_snapshot_data(data: Dictionary, enemies: Array, player_pos: Vector2i,
+		hearing_radius: int, visible_cells: Dictionary, floor_data: Dictionary) -> void:
+	clear()
+	_attack_memories = data.get("attack_memories", {}).duplicate(true)
+	# Rebuild presentation without logging a new contact or advancing its serial.
+	sync_proximity(enemies, player_pos, hearing_radius, visible_cells, floor_data)
+	event_revision = int(data.get("event_revision", 0))
 
 
 func clear() -> void:

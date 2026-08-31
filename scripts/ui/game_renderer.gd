@@ -56,12 +56,18 @@ const PLAYER_FORM_GLYPHS := {
 	"almost_human": "GLYPH_FORM_ALMOST_HUMAN",
 }
 const ENEMY_SPRITES := {
+	"blind_scavenger": preload("res://assets/dungeon/enemy-blind-scavenger.png"),
+	"arachnid": preload("res://assets/dungeon/enemy-arachnid.png"),
+	"bone_crossbowman": preload("res://assets/dungeon/enemy-bone-crossbowman.png"),
+	"slag_smith": preload("res://assets/dungeon/enemy-slag-smith.png"),
 	"grave_rat": preload("res://assets/dungeon/enemy-grave-rat.png"),
 	"hollow_guard": preload("res://assets/dungeon/enemy-hollow-guard.png"),
 	"soul_leech": preload("res://assets/dungeon/enemy-soul-leech.png"),
 	"skeletal_archer": preload("res://assets/dungeon/enemy-skeletal-archer.svg"),
 	"minotaur": preload("res://assets/dungeon/enemy-minotaur.png"),
 }
+
+static var stage1_textures: Dictionary = {}
 
 const BOARD_ORIGIN := Vector2(28, 82)
 const DUNGEON_VIEW_RECT := Rect2(8, 8, 1056, 660)
@@ -376,6 +382,7 @@ static func draw_dungeon(
 			else:
 				var floor_tint := Color("b0b8c2") if (x + y) % 2 == 0 else Color("a3acb7")
 				_draw_dungeon_texture(canvas, DUNGEON_FLOOR_TEXTURE, rect, cell, floor_tint)
+				_draw_floor_decoration(canvas, floor_data, cell, rect)
 				if cell == boss_door:
 					_draw_boss_door(canvas, rect, bool(floor_data.get("boss_door_open", false)))
 				else:
@@ -444,7 +451,9 @@ static func draw_dungeon(
 				canvas,
 				item["pos"],
 				_is_cell_visible(floor_data, item["pos"]),
+				String(item.get("appearance", "chest")),
 			)
+	_draw_enemy_preparations(canvas, floor_data)
 	_draw_magic_traces(canvas, magic_traces)
 	_draw_projectile_traces(canvas, projectile_traces)
 	for hearing_cell in hearing_contact_cells:
@@ -466,7 +475,7 @@ static func draw_dungeon(
 			Vector2(runtime_cell_size * 0.28, runtime_cell_size * 0.09),
 			Color(0.02, 0.025, 0.035, 0.58),
 		)
-		var enemy_texture: Texture2D = ENEMY_SPRITES.get(String(enemy["id"]))
+		var enemy_texture: Texture2D = enemy_texture(String(enemy["id"]))
 		var flash_remaining := float(enemy_hit_flashes.get(String(enemy.get("uid", "")), 0.0))
 		if enemy_texture != null:
 			_draw_entity_sprite(
@@ -480,7 +489,7 @@ static func draw_dungeon(
 		var afterimage_cell: Vector2i = afterimage.get("pos", Vector2i(-1, -1))
 		if afterimage_cell.x < 0 or not _is_cell_visible(floor_data, afterimage_cell):
 			continue
-		var afterimage_texture: Texture2D = ENEMY_SPRITES.get(String(afterimage.get("enemy_id", "")))
+		var afterimage_texture: Texture2D = enemy_texture(String(afterimage.get("enemy_id", "")))
 		if afterimage_texture == null:
 			continue
 		var afterimage_duration := maxf(0.001, float(afterimage.get("duration", 0.22)))
@@ -522,10 +531,90 @@ static func player_visual_form_id(state: RunState) -> String:
 	return state.get_display_form_id()
 
 
+static func _stage1_texture(path: String) -> Texture2D:
+	if not stage1_textures.has(path) and ResourceLoader.exists(path):
+		stage1_textures[path] = load(path)
+	return stage1_textures.get(path)
+
+
+static func enemy_texture(enemy_id: String) -> Texture2D:
+	return ENEMY_SPRITES.get(enemy_id)
+
+
+static func _draw_floor_decoration(canvas: CanvasItem, floor: Dictionary, cell: Vector2i, rect: Rect2) -> void:
+	if not _is_cell_observed(floor, cell):
+		return
+	var decoration: Dictionary = floor.get("decorations", {}).get(cell, {})
+	if decoration.is_empty():
+		return
+	var path := "res://assets/dungeon/decor-%s-%d.png" % [decoration.kind, int(decoration.variant) + 1]
+	var texture := _stage1_texture(path)
+	if texture != null:
+		canvas.draw_texture_rect(texture, rect if decoration.kind == "mosaic" else rect.grow(-runtime_cell_size * 0.08), false, Color(0.75, 0.77, 0.80, 0.72))
+
+
+static func enemy_telegraph_cells(floor: Dictionary, enemy: Dictionary) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	if not enemy.has("preparation") or not _is_cell_visible(floor, enemy.pos):
+		return result
+	var target: Vector2i = enemy.preparation.target
+	var cells: Array[Vector2i] = []
+	if String(enemy.id) == "bone_crossbowman":
+		cells = GridNavigation.supercover_trace(enemy.pos, target)
+	else:
+		cells.append(target)
+	for cell in cells:
+		if _is_cell_visible(floor, cell):
+			result.append(cell)
+	return result
+
+
+static func _draw_enemy_preparations(canvas: CanvasItem, floor: Dictionary) -> void:
+	for enemy in floor.enemies:
+		var cells := enemy_telegraph_cells(floor, enemy)
+		if cells.is_empty():
+			continue
+		if String(enemy.id) == "slag_smith":
+			var rect := cell_rect(cells[0]).grow(-3)
+			canvas.draw_rect(rect, Color(0.95, 0.36, 0.18, 0.14))
+			_draw_dashed_rect(canvas, rect, Color(1.0, 0.55, 0.25, 0.94), 2.0)
+		else:
+			var from := cell_rect(enemy.pos).get_center()
+			var to := cell_rect(enemy.preparation.target).get_center()
+			for cell in cells:
+				var clipped := _clip_segment_to_rect(from, to, cell_rect(cell))
+				if clipped.size() == 2:
+					_draw_dashed_segment(canvas, clipped[0], clipped[1], Color(0.97, 0.64, 0.28, 0.95), 2.0)
+
+
+static func _clip_segment_to_rect(from: Vector2, to: Vector2, rect: Rect2) -> PackedVector2Array:
+	var delta := to - from
+	var low := 0.0
+	var high := 1.0
+	for axis in range(2):
+		if absf(delta[axis]) < 0.0001:
+			if from[axis] < rect.position[axis] or from[axis] > rect.end[axis]:
+				return PackedVector2Array()
+		else:
+			var a := (rect.position[axis] - from[axis]) / delta[axis]
+			var b := (rect.end[axis] - from[axis]) / delta[axis]
+			low = maxf(low, minf(a, b))
+			high = minf(high, maxf(a, b))
+			if low > high:
+				return PackedVector2Array()
+	return PackedVector2Array([from + delta * low, from + delta * high])
+
+
 static func draw_base(canvas: CanvasItem, state: RunState = null) -> void:
 	var area := BaseLayout.IMAGE_RECT
 	canvas.draw_texture_rect(CAMP_ART, area, false)
 	canvas.draw_rect(area, Color(0.02, 0.025, 0.035, 0.10))
+	if state != null:
+		for station in ["kettle", "bunk", "mural"]:
+			if bool(state.camp_upgrades.get(station, false)):
+				var texture := _stage1_texture("res://assets/art/camp-%s.png" % station)
+				if texture != null:
+					canvas.draw_texture_rect(texture, BaseLayout.station_overlay_rect(station), false)
 	if state != null and bool(state.camp_upgrades.get("crusher", false)):
 		canvas.draw_texture_rect(
 			CAMP_CRUSHER_ART,
@@ -619,7 +708,7 @@ static func wall_texture_tint(cell: Vector2i) -> Color:
 	return WALL_TINT_VARIANTS[tint_index]
 
 
-static func _draw_chest_sprite(canvas: CanvasItem, cell: Vector2i, visible_now: bool) -> void:
+static func _draw_chest_sprite(canvas: CanvasItem, cell: Vector2i, visible_now: bool, appearance := "chest") -> void:
 	var logical_rect := cell_rect(cell)
 	if visible_now:
 		# The sprite is deliberately brighter than the dungeon palette so a chest
@@ -636,7 +725,9 @@ static func _draw_chest_sprite(canvas: CanvasItem, cell: Vector2i, visible_now: 
 		if visible_now
 		else Color(0.34, 0.37, 0.42, 0.82)
 	)
-	_draw_entity_sprite(canvas, DUNGEON_CHEST_SPRITE, cell, Vector2(0.88, 0.88), modulate)
+	var texture := _stage1_texture("res://assets/dungeon/chest-crypt.png") if appearance == "crypt" else DUNGEON_CHEST_SPRITE
+	if texture != null:
+		_draw_entity_sprite(canvas, texture, cell, Vector2(0.85, 0.85) if appearance == "crypt" else Vector2(0.88, 0.88), modulate)
 
 
 static func _draw_entity_sprite(

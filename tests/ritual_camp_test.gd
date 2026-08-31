@@ -372,8 +372,8 @@ func _test_base_resource_strip(main) -> void:
 			not main.camp_upgrades_label.text.begins_with(
 				Loc.text("CAMP_RESOURCES", [9876, 5432, 1000])
 			)
-			and main.camp_upgrades_label.text == Loc.text("CAMP_MATERIAL_HINT"),
-			"Base camp text must keep only the separate material hint",
+			and main.camp_upgrades_label.text.is_empty(),
+			"Base sidebar reserves the old text area for the new construction controls",
 		)
 		var soul_text_width: float = main.souls_label.get_theme_font("font").get_string_size(
 			main.souls_label.text,
@@ -573,7 +573,7 @@ func _test_base_upgrade_list_absence(main) -> void:
 				main.state.camp_upgrades[upgrade_id] = bool(upgrade_state.get(upgrade_id, false))
 			main._apply_locale()
 			_expect(
-				main.camp_upgrades_label.text == Loc.text("CAMP_MATERIAL_HINT")
+				main.camp_upgrades_label.text.is_empty()
 				and not main.camp_upgrades_label.text.contains("Установленные улучшения")
 				and not main.camp_upgrades_label.text.contains("Installed upgrades"),
 				"Base must omit the textual installed list with none, some or all upgrades",

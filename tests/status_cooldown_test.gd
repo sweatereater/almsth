@@ -46,8 +46,8 @@ func _test_registry_and_sanitation() -> void:
 	})
 	_expect(
 		statuses == {
-			"rested": {"remaining_turns": 500, "temporary_hp": 5},
-			"satiated": {"remaining_turns": 400, "temporary_hp": 3},
+			"rested": {"remaining_turns": 800, "temporary_hp": 5},
+			"satiated": {"remaining_turns": 700, "temporary_hp": 3},
 		},
 		"Status saves must retain only clamped mutable fields for Rested and Satiated",
 	)
@@ -280,9 +280,10 @@ func _test_camp_entry_contract() -> void:
 	_expect(
 		ghoul.hunger == 8 and ghoul.hunger_turn_progress == 6
 		and not ghoul.has_status("satiated")
-		and ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 5,
-		"Evolving into Ghoul and returning must not unlock Satiety without Stomach",
+		and not ghoul.has_status("rested") and ghoul.camp_preparation.rested,
+		"Returning earns Rested for departure without unlocking Satiety before Stomach",
 	)
+	ghoul.begin_expedition()
 	ghoul.banked_souls = 20
 	_expect(
 		bool(ghoul.purchase_skill("stomach")["ok"])
@@ -291,18 +292,22 @@ func _test_camp_entry_contract() -> void:
 		"Learning Stomach must initialize Satiety for 20 souls without granting Satiated",
 	)
 	ghoul.apply_camp_entry_effects()
+	_expect(not ghoul.has_status("satiated"), "Entry does not grant Satiated before departure")
+	ghoul.begin_expedition()
 	_expect(
 		ghoul.status_remaining("satiated") == 400
 		and ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 8,
-		"A later true Ghoul camp entry with Stomach must grant overlapping Satiated and Rested",
+		"The departure after a true Ghoul return grants overlapping Satiated and Rested",
 	)
 	ghoul.active_statuses["rested"] = {"remaining_turns": 3, "temporary_hp": 1}
 	ghoul.active_statuses["satiated"] = {"remaining_turns": 2, "temporary_hp": 1}
 	ghoul.apply_camp_entry_effects()
+	_expect(ghoul.status_remaining("rested") == 3 and ghoul.status_remaining("satiated") == 2, "Entry preserves running timers")
+	ghoul.begin_expedition()
 	_expect(
 		ghoul.status_remaining("rested") == 500
 		and ghoul.status_remaining("satiated") == 400 and ghoul.get_temporary_hp() == 8,
-		"Repeated camp entry must refresh both statuses exactly without stacking",
+		"A new earned departure refreshes both statuses without stacking",
 	)
 	ghoul.active_statuses["rested"] = {"remaining_turns": 17, "temporary_hp": 2}
 	ghoul.active_statuses["satiated"] = {"remaining_turns": 23, "temporary_hp": 1}
@@ -460,11 +465,15 @@ func _test_base_status_presentation(tree: SceneTree) -> void:
 	main.state.safe_return()
 	main._show_base("Safe return with statuses", "none")
 	await tree.process_frame
+	_expect(main.status_strip.get_child_count() == 0 and main.state.camp_preparation.pending, "Return UI defers timed effects until departure")
+	main.state.begin_expedition()
+	main._refresh_interface()
+	await tree.process_frame
 	_expect(
 		main.status_strip.get_child_count() == 2
 		and String(main.status_strip.get_child(0).tooltip_text).contains("500")
 		and String(main.status_strip.get_child(1).tooltip_text).contains("400"),
-		"A true safe return must immediately show Rest 500 and Satiety 400 on base",
+		"Prepared departure starts Rest500/Satiety400; the shared UI presents current effects",
 	)
 	Loc.set_locale("en")
 	main._apply_locale()

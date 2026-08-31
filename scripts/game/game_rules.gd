@@ -28,7 +28,31 @@ const WEAPON_UPGRADE_COST := {"wood": 2, "stone": 10, "cloth": 1}
 const ITEM_BINDING_SOUL_COST := 25
 const PERMANENT_JACKET_ITEM_ID := "unexpectedly_comfortable_jacket"
 const PERMANENT_JACKET_SLOT_ID := "jacket"
+const EXPEDITION_BACKPACK_BONUS := 200
+const CAMP_KETTLE_DURATION_BONUS := 100
+const CAMP_BUNK_DURATION_BONUS := 100
+const CAMP_KETTLE_FOOD_COST := 1
+const CRYPT_MIN_FLOOR := 80
+const CRYPT_MAX_FLOOR := 99
+const CRYPT_CHANCE := 0.35
+const WEAVING_CRYPTS_MIN_FLOOR := 80
+const WEAVING_CRYPTS_MAX_FLOOR := 89
+const WEAVING_CRYPTS_THEMATIC_CHANCE := 0.6
 const CAMP_UPGRADES := {
+	"kettle": {
+		"name": "CAMP_KETTLE",
+		"cost": {"wood": 6, "stone": 8, "cloth": 2},
+	},
+	"bunk": {
+		"name": "CAMP_BUNK",
+		"cost": {"wood": 8, "cloth": 6},
+	},
+	"mural": {
+		"name": "CAMP_MURAL",
+		"cost": {"wood": 12, "stone": 20, "cloth": 5},
+		"banked_souls": 60,
+		"minotaur_tail": 1,
+	},
 	"crusher": {
 		"name": "CAMP_CRUSHER",
 		"cost": {"wood": 5, "stone": 5, "cloth": 0},
@@ -185,6 +209,158 @@ const SLOT_NAMES := {
 }
 
 const EQUIPMENT := {
+	"rusty_sabre": {
+		"name": "ITEM_RUSTY_SABRE",
+		"category": "weapon",
+		"tags": ["weapon"],
+		"slots": ["right_hand"],
+		"icon": "res://assets/items/item-rusty-sabre.png",
+		"damage": 1,
+		"accuracy": 2,
+		"min_depth": 5,
+		"salvage": {"stone": 1, "wood": 1},
+	},
+	"short_crossbow": {
+		"name": "ITEM_SHORT_CROSSBOW",
+		"category": "weapon",
+		"tags": ["weapon"],
+		"slots": ["right_hand"],
+		"icon": "res://assets/items/item-short-crossbow.png",
+		"weapon_type": "ranged",
+		"ranged_damage": 3,
+		"range": 4,
+		"accuracy": -1,
+		"min_depth": 12,
+		"salvage": {"wood": 2, "cloth": 1},
+	},
+	"bone_buckler": {
+		"name": "ITEM_BONE_BUCKLER",
+		"category": "offhand",
+		"tags": ["offhand"],
+		"slots": ["left_hand"],
+		"icon": "res://assets/items/item-bone-buckler.png",
+		"max_hp": 2,
+		"dodge": 1,
+		"min_depth": 8,
+		"salvage": {"stone": 1, "wood": 1},
+	},
+	"gravediggers_lamp": {
+		"name": "ITEM_GRAVEDIGGERS_LAMP",
+		"category": "offhand",
+		"tags": ["offhand"],
+		"slots": ["left_hand"],
+		"icon": "res://assets/items/item-gravediggers-lamp.png",
+		"vision": 1,
+		"min_depth": 6,
+		"salvage": {"wood": 1, "stone": 1},
+	},
+	"watchmans_cap": {
+		"name": "ITEM_WATCHMANS_CAP",
+		"category": "head",
+		"tags": ["head"],
+		"slots": ["head"],
+		"icon": "res://assets/items/item-watchmans-cap.png",
+		"max_hp": 2,
+		"min_depth": 4,
+		"salvage": {"cloth": 1},
+	},
+	"archivists_mask": {
+		"name": "ITEM_ARCHIVISTS_MASK",
+		"category": "head",
+		"tags": ["head"],
+		"slots": ["head"],
+		"icon": "res://assets/items/item-archivists-mask.png",
+		"mana": 5,
+		"spell_power": 1,
+		"accuracy": -1,
+		"min_depth": 18,
+		"salvage": {"cloth": 1, "stone": 1},
+	},
+	"wanderers_gambeson": {
+		"name": "ITEM_WANDERERS_GAMBESON",
+		"category": "body",
+		"tags": ["body"],
+		"slots": ["body"],
+		"icon": "res://assets/items/item-wanderers-gambeson.png",
+		"max_hp": 2,
+		"dodge": 1,
+		"min_depth": 10,
+		"salvage": {"cloth": 2},
+	},
+	"lamellar_vest": {
+		"name": "ITEM_LAMELLAR_VEST",
+		"category": "body",
+		"tags": ["body"],
+		"slots": ["body"],
+		"icon": "res://assets/items/item-lamellar-vest.png",
+		"max_hp": 7,
+		"dodge": -2,
+		"min_depth": 15,
+		"salvage": {"cloth": 2, "stone": 2},
+	},
+	"scouts_trousers": {
+		"name": "ITEM_SCOUTS_TROUSERS",
+		"category": "legs",
+		"tags": ["legs"],
+		"slots": ["legs"],
+		"icon": "res://assets/items/item-scouts-trousers.png",
+		"dodge": 1,
+		"max_hp": 2,
+		"min_depth": 14,
+		"salvage": {"cloth": 1},
+	},
+	"heavy_leg_wraps": {
+		"name": "ITEM_HEAVY_LEG_WRAPS",
+		"category": "legs",
+		"tags": ["legs"],
+		"slots": ["legs"],
+		"icon": "res://assets/items/item-heavy-leg-wraps.png",
+		"max_hp": 3,
+		"min_depth": 9,
+		"salvage": {"cloth": 2},
+	},
+	"pilgrims_boots": {
+		"name": "ITEM_PILGRIMS_BOOTS",
+		"category": "feet",
+		"tags": ["feet"],
+		"slots": ["feet"],
+		"icon": "res://assets/items/item-pilgrims-boots.png",
+		"max_hp": 2,
+		"min_depth": 4,
+		"salvage": {"cloth": 1, "wood": 1},
+	},
+	"aiming_ring": {
+		"name": "ITEM_AIMING_RING",
+		"category": "ring",
+		"tags": ["ring"],
+		"slots": ["ring_1", "ring_2"],
+		"icon": "res://assets/items/item-aiming-ring.png",
+		"accuracy": 2,
+		"dodge": -1,
+		"min_depth": 15,
+		"salvage": {"stone": 1},
+	},
+	"thickblood_ring": {
+		"name": "ITEM_THICKBLOOD_RING",
+		"category": "ring",
+		"tags": ["ring"],
+		"slots": ["ring_1", "ring_2"],
+		"icon": "res://assets/items/item-thickblood-ring.png",
+		"max_hp": 3,
+		"mana": -5,
+		"min_depth": 15,
+		"salvage": {"stone": 1, "cloth": 1},
+	},
+	"expedition_backpack": {
+		"name": "ITEM_EXPEDITION_BACKPACK",
+		"category": "back",
+		"tags": ["back"],
+		"slots": ["back"],
+		"icon": "res://assets/items/item-expedition-backpack.png",
+		"preparation": EXPEDITION_BACKPACK_BONUS,
+		"min_depth": 15,
+		"salvage": {"cloth": 3, "wood": 1},
+	},
 	"unexpectedly_comfortable_jacket": {
 		"name": "ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET",
 		"description": "ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET_DESC",
@@ -293,9 +469,71 @@ const EQUIPMENT := {
 }
 
 const ENEMIES := {
+	"blind_scavenger": {
+		"name": "ENEMY_BLIND_SCAVENGER",
+		"glyph": "GLYPH_BLIND_SCAVENGER",
+		"max_hp": 12,
+		"damage": 1,
+		"accuracy": 2,
+		"dodge": 1,
+		"vision": 2,
+		"souls": 1,
+		"min_depth": 4,
+		"meat": true,
+		"color": "9a8875",
+	},
+	"arachnid": {
+		"name": "ENEMY_ARACHNID",
+		"glyph": "GLYPH_ARACHNID",
+		"max_hp": 7,
+		"damage": 2,
+		"accuracy": 4,
+		"dodge": 3,
+		"vision": 5,
+		"souls": 3,
+		"min_depth": 11,
+		"meat": false,
+		"abilities": ["double_attack"],
+		"color": "8c807c",
+	},
+	"bone_crossbowman": {
+		"name": "ENEMY_BONE_CROSSBOWMAN",
+		"glyph": "GLYPH_BONE_CROSSBOWMAN",
+		"max_hp": 5,
+		"damage": 2,
+		"accuracy": 4,
+		"dodge": 0,
+		"vision": 6,
+		"range": 5,
+		"souls": 3,
+		"min_depth": 20,
+		"meat": false,
+		"attack_type": "ranged",
+		"preparation_turns": 2,
+		"attack_cooldown": 3,
+		"recovery_turns": 1,
+		"color": "b6a58b",
+	},
+	"slag_smith": {
+		"name": "ENEMY_SLAG_SMITH",
+		"glyph": "GLYPH_SLAG_SMITH",
+		"max_hp": 10,
+		"damage": 2,
+		"accuracy": 4,
+		"dodge": 0,
+		"vision": 5,
+		"souls": 5,
+		"min_depth": 15,
+		"meat": false,
+		"preparation_turns": 1,
+		"heavy_damage": 5,
+		"attack_cooldown": 6,
+		"color": "9e6550",
+	},
 	"grave_rat": {
 		"name": "ENEMY_GRAVE_RAT",
 		"glyph": "GLYPH_GRAVE_RAT",
+		"min_depth": 0,
 		"max_hp": 2,
 		"damage": 1,
 		"souls": 1,
@@ -308,6 +546,7 @@ const ENEMIES := {
 	"hollow_guard": {
 		"name": "ENEMY_HOLLOW_GUARD",
 		"glyph": "GLYPH_HOLLOW_GUARD",
+		"min_depth": 6,
 		"max_hp": 4,
 		"damage": 1,
 		"souls": 2,
@@ -320,6 +559,7 @@ const ENEMIES := {
 	"soul_leech": {
 		"name": "ENEMY_SOUL_LEECH",
 		"glyph": "GLYPH_SOUL_LEECH",
+		"min_depth": 15,
 		"max_hp": 5,
 		"damage": 2,
 		"souls": 3,
@@ -347,6 +587,7 @@ const ENEMIES := {
 	"minotaur": {
 		"name": "ENEMY_MINOTAUR",
 		"glyph": "GLYPH_MINOTAUR",
+		"boss": true,
 		"max_hp": 36,
 		"damage": 2,
 		"souls": 12,
@@ -794,8 +1035,13 @@ static func available_equipment_ids(floor_number: int) -> Array:
 
 static func enemy_pool(floor_number: int) -> Array:
 	var depth := 100 - floor_number
-	if depth >= 15:
-		return ["grave_rat", "hollow_guard", "soul_leech", "skeletal_archer"]
-	if depth >= 6:
-		return ["grave_rat", "hollow_guard", "skeletal_archer"]
-	return ["grave_rat"]
+	var result: Array = []
+	for enemy_id in ENEMIES:
+		var enemy: Dictionary = ENEMIES[enemy_id]
+		if not bool(enemy.get("boss", false)) and depth >= int(enemy.get("min_depth", 0)):
+			result.append(enemy_id)
+	return result
+
+
+static func biome_id(floor_number: int) -> String:
+	return "weaving_crypts" if floor_number >= WEAVING_CRYPTS_MIN_FLOOR and floor_number <= WEAVING_CRYPTS_MAX_FLOOR else ""

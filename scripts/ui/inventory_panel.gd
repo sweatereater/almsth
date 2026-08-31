@@ -13,6 +13,7 @@ signal upgrade_requested
 signal bind_requested
 signal close_requested
 signal presentation_changed
+signal mark_changed
 
 enum Mode { CHARACTER, CRUSHER, WHETSTONE, RITUAL }
 
@@ -51,6 +52,11 @@ var equip_button: Button
 var dismantle_button: Button
 var dismantle_all_button: Button
 var upgrade_button: Button
+var keep_button: Button
+var salvage_mark_button: Button
+var marked_only_button: Button
+var marked_only := false
+var keep_confirmation_key := ""
 
 
 static func available_filter_order() -> Array[String]:
@@ -100,6 +106,7 @@ func set_filter(value: String) -> void:
 
 
 func select_visible_index(index: int) -> void:
+	keep_confirmation_key = ""
 	var absolute_index := page * PAGE_SIZE + index
 	if absolute_index < 0 or absolute_index >= entries.size():
 		return
@@ -110,12 +117,14 @@ func select_visible_index(index: int) -> void:
 	if selected_source == "equipped":
 		destination_slot = selected_slot
 	dismantle_all_confirmation_pending = false
+	keep_confirmation_key = ""
 	feedback = ""
 	refresh()
 	presentation_changed.emit()
 
 
 func select_item(item_key: String, source := "inventory", equipped_slot := "") -> void:
+	keep_confirmation_key = ""
 	selected_key = item_key
 	selected_source = source
 	selected_slot = equipped_slot
@@ -166,9 +175,10 @@ func clear_navigation_state() -> void:
 
 
 func cancel_confirmation() -> void:
-	if not dismantle_all_confirmation_pending:
+	if not dismantle_all_confirmation_pending and keep_confirmation_key.is_empty():
 		return
 	dismantle_all_confirmation_pending = false
+	keep_confirmation_key = ""
 	feedback = ""
 	refresh()
 	presentation_changed.emit()
@@ -270,7 +280,7 @@ func handle_input(event: InputEvent) -> bool:
 		or event.is_action_pressed("ui_cancel")
 		or physical_gamepad_cancel
 	):
-		if dismantle_all_confirmation_pending:
+		if dismantle_all_confirmation_pending or not keep_confirmation_key.is_empty():
 			cancel_confirmation()
 		else:
 			close_requested.emit()
@@ -384,13 +394,13 @@ static func primary_stats(item_key: String) -> PackedStringArray:
 				"%s %d" % [Loc.text("PARAM_ACCURACY"), int(rules.get("accuracy", 0)) + level],
 			])
 		"body", "offhand", "feet", "legs", "head", "back":
-			return _nonzero_primary(rules, ["max_hp", "dodge", "regeneration"])
+			return _nonzero_primary(rules, ["max_hp", "dodge", "regeneration", "mana", "spell_power", "accuracy", "vision", "preparation"])
 		"hands":
 			return _nonzero_primary(rules, ["max_hp", "accuracy"])
 		"talisman":
 			return _nonzero_primary(rules, ["mana", "spell_power", "soul_bonus"])
 		"ring":
-			return _nonzero_primary(rules, ["max_hp", "mana", "spell_power", "accuracy"])
+			return _nonzero_primary(rules, ["max_hp", "mana", "spell_power", "accuracy", "dodge"])
 	return PackedStringArray()
 
 
@@ -426,6 +436,10 @@ static func full_details(item_key: String, count: int, source: String, equipped_
 			lines.append(locked_line)
 	for stat_line in _all_nonzero_stats(item_key):
 		lines.append(stat_line)
+	if Rules.base_item_id(item_key) == "expedition_backpack":
+		lines.append(Loc.text("INVENTORY_BACKPACK_REMOVAL"))
+	elif Rules.base_item_id(item_key) == "gravediggers_lamp":
+		lines.append(Loc.text("INVENTORY_LAMP_HEARING"))
 	if int(rules.get("soul_level_bonus", 0)) != 0:
 		var soul_level_line := Loc.text("INVENTORY_SOUL_LEVEL_BONUS", [int(rules["soul_level_bonus"])])
 		if not lines.has(soul_level_line):
@@ -453,7 +467,7 @@ static func _all_nonzero_stats(item_key: String) -> PackedStringArray:
 	var rules := Rules.item_rules(item_key)
 	var result := PackedStringArray()
 	var weapon_level := Rules.item_upgrade_level(item_key) if Rules.is_weapon(item_key) else 0
-	for field in ["damage", "ranged_damage", "accuracy", "max_hp", "dodge", "mana", "spell_power", "soul_bonus", "regeneration"]:
+	for field in ["damage", "ranged_damage", "accuracy", "max_hp", "dodge", "mana", "spell_power", "soul_bonus", "regeneration", "vision", "preparation"]:
 		var value := int(rules.get(field, 0))
 		if field == "accuracy":
 			value += weapon_level
@@ -479,6 +493,8 @@ static func _stat_name(field: String) -> String:
 		"spell_power": return Loc.text("PARAM_SPELL_POWER")
 		"soul_bonus": return Loc.text("INVENTORY_SOUL_BONUS")
 		"regeneration": return Loc.text("PARAM_REGENERATION")
+		"vision": return Loc.text("PARAM_VISION")
+		"preparation": return Loc.text("PARAM_PREPARATION")
 	return field
 
 
@@ -554,7 +570,30 @@ func _build_interface() -> void:
 		else:
 			upgrade_requested.emit()
 	)
+	keep_button = _action_button(Vector2.ZERO, Vector2(130, 28), 10)
+	keep_button.toggle_mode = true
+	keep_button.pressed.connect(_toggle_mark.bind("keep"))
+	salvage_mark_button = _action_button(Vector2.ZERO, Vector2(150, 28), 10)
+	salvage_mark_button.toggle_mode = true
+	salvage_mark_button.pressed.connect(_toggle_mark.bind("salvage"))
+	marked_only_button = _action_button(Vector2.ZERO, Vector2(174, 28), 10)
+	marked_only_button.toggle_mode = true
+	marked_only_button.pressed.connect(func():
+		marked_only = not marked_only
+		cancel_confirmation()
+		refresh()
+		presentation_changed.emit()
+	)
 	_apply_mode_layout()
+
+
+func _toggle_mark(mark: String) -> void:
+	var previous := run_state.item_mark(selected_key, selected_source, selected_slot)
+	if run_state.set_item_mark(selected_key, "" if previous == mark else mark, selected_source, selected_slot):
+		keep_confirmation_key = ""
+		cancel_confirmation()
+		refresh()
+		mark_changed.emit()
 
 
 func _apply_mode_layout() -> void:
@@ -599,7 +638,7 @@ func _apply_mode_layout() -> void:
 		filter_button.add_theme_font_size_override("font_size", 8)
 	mode_title_label.position = Vector2(625, 2)
 	mode_title_label.size = Vector2(433, 38)
-	mode_title_label.visible = true
+	mode_title_label.visible = false
 	for index in range(PAGE_SIZE):
 		var row := row_buttons[index]
 		row.position = Vector2(0, 46 + index * 52)
@@ -700,12 +739,15 @@ func _refresh_rows() -> void:
 		var source_text := ""
 		if mode == Mode.WHETSTONE or mode == Mode.RITUAL:
 			source_text = " · %s" % Loc.text("INVENTORY_SOURCE_%s" % source.to_upper())
+		var mark := run_state.item_mark(item_key, source, String(entry.get("slot", "")))
+		if not mark.is_empty():
+			source_text += " · " + Loc.text("INVENTORY_MARK_" + mark.to_upper())
 		if Rules.is_item_bound(item_key):
 			source_text += " · %s" % Loc.text("INVENTORY_BOUND_SHORT")
 		button.visible = true
 		row_icons[index].visible = true
 		var icon_path := String(Rules.item_rules(item_key).get("icon", ""))
-		row_icons[index].texture = load(icon_path) as Texture2D if not icon_path.is_empty() else null
+		row_icons[index].texture = load(icon_path) as Texture2D if ResourceLoader.exists(icon_path) else null
 		button.text = "%s  ×%d%s\n%s" % [
 			display_name(item_key), int(entry["count"]), source_text,
 			" · ".join(primary_stats(item_key)),
@@ -765,6 +807,24 @@ func _refresh_details() -> void:
 
 func _refresh_actions() -> void:
 	var has_item := not selected_key.is_empty() and not Rules.item_rules(selected_key).is_empty()
+	var mark := run_state.item_mark(selected_key, selected_source, selected_slot)
+	keep_button.text = Loc.text("INVENTORY_MARK_KEEP")
+	salvage_mark_button.text = Loc.text("INVENTORY_MARK_SALVAGE")
+	marked_only_button.text = Loc.text("INVENTORY_MARKED_ONLY")
+	keep_button.button_pressed = mark == "keep"
+	salvage_mark_button.button_pressed = mark == "salvage"
+	marked_only_button.button_pressed = marked_only
+	keep_button.disabled = not has_item or not Rules.is_item_movable(selected_key)
+	salvage_mark_button.disabled = keep_button.disabled
+	marked_only_button.visible = mode == Mode.CRUSHER or (mode == Mode.CHARACTER and at_base)
+	keep_button.position = Vector2(0, 518) if mode == Mode.CHARACTER else Vector2(635, 6)
+	salvage_mark_button.position = Vector2(139, 518) if mode == Mode.CHARACTER else Vector2(771, 6)
+	marked_only_button.position = Vector2(300, 518) if mode == Mode.CHARACTER else Vector2(927, 6)
+	keep_button.size = Vector2(130, 28) if mode == Mode.CHARACTER else Vector2(100, 28)
+	salvage_mark_button.position.x = 139 if mode == Mode.CHARACTER else 741
+	salvage_mark_button.size = Vector2(150, 28) if mode == Mode.CHARACTER else Vector2(115, 28)
+	marked_only_button.position.x = 300 if mode == Mode.CHARACTER else 869
+	marked_only_button.size = Vector2(174, 28) if mode == Mode.CHARACTER else Vector2(189, 28)
 	var inventory_item := has_item and selected_source == "inventory"
 	var equipped_item := has_item and selected_source == "equipped"
 	var rules := Rules.item_rules(selected_key)
@@ -809,7 +869,7 @@ func _refresh_actions() -> void:
 	equip_button.disabled = not has_item or selected_source == "locked" or permanent
 	equip_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else ""
 	equip_button.accessibility_name = equip_button.tooltip_text if permanent else equip_button.text
-	dismantle_button.text = Loc.text("INVENTORY_DISMANTLE")
+	dismantle_button.text = Loc.text("INVENTORY_KEEP_CONFIRM_BUTTON" if keep_confirmation_key == selected_key and not selected_key.is_empty() else "INVENTORY_DISMANTLE")
 	dismantle_button.disabled = not inventory_item or not crusher_ready or Rules.is_item_bound(selected_key) or permanent
 	dismantle_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else ""
 	dismantle_button.accessibility_name = dismantle_button.tooltip_text if permanent else dismantle_button.text
@@ -818,7 +878,7 @@ func _refresh_actions() -> void:
 		if dismantle_all_confirmation_pending
 		else "INVENTORY_DISMANTLE_ALL"
 	)
-	dismantle_all_button.disabled = not crusher_ready or run_state.count_unbound_inventory_items() <= 0
+	dismantle_all_button.disabled = not crusher_ready or run_state.count_unbound_inventory_items(marked_only) <= 0
 	if mode == Mode.RITUAL:
 		var already_bound := has_item and Rules.is_item_bound(selected_key)
 		upgrade_button.disabled = permanent or not ritual_ready or not run_state.can_bind_item(
@@ -908,7 +968,7 @@ func _focusable_controls() -> Array[Control]:
 	for row in row_buttons:
 		if row.visible and not row.disabled:
 			result.append(row)
-	for control in [previous_button, next_button, equip_button, dismantle_button, dismantle_all_button, upgrade_button, close_button]:
+	for control in [previous_button, next_button, equip_button, dismantle_button, dismantle_all_button, upgrade_button, keep_button, salvage_mark_button, marked_only_button, close_button]:
 		if control.visible and not control.disabled:
 			result.append(control)
 	return result

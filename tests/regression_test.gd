@@ -159,7 +159,6 @@ func _test_input_binding_serialization_conflicts_and_reset() -> void:
 	_expect(
 		SaveSystem.save_settings({
 			"fullscreen": false,
-			"inspection_radius": 6,
 			"locale": "ru",
 			"bindings": customized,
 		}, CONTROLS_SETTINGS_PATH) == OK,
@@ -414,6 +413,7 @@ func _test_full_state_persistence() -> void:
 		"whetstone": true,
 		"ritual_table": true,
 		"campfire": true,
+		"kettle": false, "bunk": false, "mural": false,
 	}
 	original.skill_levels = {
 		"strong_bones": 4,
@@ -448,8 +448,8 @@ func _test_full_state_persistence() -> void:
 	var serialized = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	_expect(
 		serialized is Dictionary
-		and int(serialized.get("version", 0)) == SaveSystem.SAVE_VERSION,
-		"A save file must contain the current schema version",
+		and int(serialized.get("version", 0)) == SaveSystem.STATE_ONLY_VERSION,
+		"The state-only setup API must write the current schema with an explicit kind",
 	)
 
 	var restored := RunState.new()
@@ -505,23 +505,18 @@ func _test_malformed_and_versioned_saves() -> void:
 			"version": legacy_version,
 			"state": {"character_name": "Legacy %d" % legacy_version},
 		}) == OK, "Legacy version %d fixture must be writable" % legacy_version)
-		var legacy_version_state := RunState.new()
 		_expect(
-			legacy_version_state.restore_save_data(SaveSystem.load_game(MALFORMED_SAVE_PATH))
-			and legacy_version_state.ability_cooldowns.is_empty()
-			and legacy_version_state.active_statuses.is_empty()
-			and legacy_version_state.loadout.get("jacket", "") == GameRules.permanent_jacket_key()
-			and legacy_version_state.soul_level == 1
-			and legacy_version_state.get_effective_soul_level() == 2,
-			"Supported v%d must migrate missing cooldown/status fields to empty" % legacy_version,
+			SaveSystem.load_game(MALFORMED_SAVE_PATH).is_empty(),
+			"Old test schema v%d must be excluded without migration" % legacy_version,
 		)
 
 	_expect(_write_json(MALFORMED_SAVE_PATH, {
 		"version": SaveSystem.MIN_SUPPORTED_SAVE_VERSION,
-		"state": {
+		"kind": "state_only",
+		"state": RunState.new().to_save_data().merged({
 			"character_name": "Legacy",
 			"attributes": {"strength": 3},
-		},
+		}, true),
 	}) == OK, "Old supported-save fixture must be writable")
 	var legacy := RunState.new()
 	_expect(
@@ -530,7 +525,7 @@ func _test_malformed_and_versioned_saves() -> void:
 		and legacy.attributes["strength"] == 3
 		and legacy.attributes["agility"] == GameRules.STARTING_ATTRIBUTE_VALUE
 		and legacy.current_form_id == "skeleton",
-		"The oldest supported save must restore with defaults for missing fields",
+		"Explicit current state-only helper may use setup defaults",
 	)
 	_expect(
 		SaveSystem.delete_game(MALFORMED_SAVE_PATH) == OK
@@ -558,9 +553,10 @@ func _test_v12_to_v13_additive_ids() -> void:
 		_write_json(SAVE_PATH, {"version": 12, "state": legacy_data}) == OK,
 		"A true v12 fixture without the additive v13 ids must be writable",
 	)
+	_expect(SaveSystem.load_game(SAVE_PATH).is_empty(), "Old v12 test files are deliberately excluded by v15")
 	var migrated := RunState.new()
 	_expect(
-		migrated.restore_save_data(SaveSystem.load_game(SAVE_PATH))
+		migrated.restore_save_data(legacy_data)
 		and migrated.get_skill_level("stomach") == 0
 		and migrated.get_skill_level("ears") == 0
 		and not migrated.uses_hunger()
@@ -568,22 +564,23 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and not migrated.has_status("satiated")
 		and migrated.has_status("rested")
 		and migrated.status_remaining("rested") == 123,
-		"A v12 save without Stomach, Ears or Satiated must load with safe defaults",
+		"The direct setup helper still accepts partial data with safe defaults",
 	)
 	_expect(
 		SaveSystem.save_game(migrated, SAVE_PATH) == OK,
-		"A migrated v12 state must publish as the current schema",
+		"An explicitly constructed setup state publishes as the current schema",
 	)
 	var migrated_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var migrated_roundtrip := RunState.new()
 	_expect(
 		migrated_envelope is Dictionary
-		and int(migrated_envelope.get("version", 0)) == 13
+		and int(migrated_envelope.get("version", 0)) == SaveSystem.SAVE_VERSION
+		and migrated_envelope.get("kind") == "state_only"
 		and migrated_roundtrip.restore_save_data(SaveSystem.load_game(SAVE_PATH))
 		and migrated_roundtrip.get_skill_level("stomach") == 0
 		and migrated_roundtrip.get_skill_level("ears") == 0
 		and not migrated_roundtrip.has_status("satiated"),
-		"A migrated v12 save must round-trip under v13 without inventing new progression",
+		"A v15 state-only helper must round-trip without inventing new progression",
 	)
 
 	var current := RunState.new()
@@ -596,13 +593,13 @@ func _test_v12_to_v13_additive_ids() -> void:
 	current.add_or_refresh_status("satiated", 222, 3)
 	_expect(
 		SaveSystem.save_game(current, SAVE_PATH) == OK,
-		"A current v13 state with additive ids must be writable",
+		"A compatible v13 state-only save with additive ids must be writable",
 	)
 	var current_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var current_roundtrip := RunState.new()
 	_expect(
 		current_envelope is Dictionary
-		and int(current_envelope.get("version", 0)) == SaveSystem.SAVE_VERSION
+		and int(current_envelope.get("version", 0)) == SaveSystem.STATE_ONLY_VERSION
 		and current_roundtrip.restore_save_data(SaveSystem.load_game(SAVE_PATH))
 		and current_roundtrip.get_skill_level("stomach") == 1
 		and current_roundtrip.get_skill_level("ears") == 1
@@ -611,7 +608,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and current_roundtrip.has_status("satiated")
 		and current_roundtrip.status_remaining("satiated") == 222
 		and int(current_roundtrip.active_statuses["satiated"].get("temporary_hp", 0)) == 3,
-		"A current v13 save must preserve learned Stomach/Ears and Satiated exactly",
+		"A compatible v13 state-only save must preserve learned Stomach/Ears and Satiated exactly",
 	)
 	_expect(
 		SaveSystem.delete_game(SAVE_PATH) == OK
@@ -1093,6 +1090,94 @@ func _test_automatic_exploration_and_visible_waiting(tree: SceneTree) -> void:
 		and not main.auto_travel_active
 		and main.message == Loc.text("MSG_EXPLORE_CANCELLED"),
 		"Pressing automatic exploration again must cancel it without leaving input locked",
+	)
+
+	# Automatic routes stop before their first turn for either a visible enemy or
+	# an already-present hearing contact, rather than only a newly created event.
+	main.floor_data = _exploration_floor()
+	main.player_pos = Vector2i(1, 1)
+	main.floor_data["enemies"] = [{
+		"uid": "heard-at-launch", "id": "grave_rat", "pos": Vector2i(6, 1),
+		"hp": 2, "max_hp": 2, "damage": 0, "accuracy": -100, "dodge": 0,
+		"vision": 0, "souls": 1,
+	}]
+	main._update_player_visibility(false)
+	var turns_before_contact_launch: int = main.state.total_turns
+	_expect(
+		not main._has_visible_enemy() and main._has_presented_hearing_contact(),
+		"The automatic-route contact fixture must be heard without being visible",
+	)
+	main._on_auto_explore_pressed()
+	_expect(
+		not main.auto_travel_active and main.state.total_turns == turns_before_contact_launch,
+		"Auto-explore must not start or spend a turn while an existing hearing contact is present",
+	)
+	main.floor_data["exit_known"] = true
+	for cell_variant in main.floor_data["tiles"]:
+		if main.floor_data["tiles"][cell_variant] == "floor":
+			main.floor_data["explored_cells"][cell_variant] = true
+	main._on_ascend_pressed()
+	_expect(
+		not main.auto_travel_active and main.state.total_turns == turns_before_contact_launch,
+		"Known-stairs travel must not start or spend a turn while an existing hearing contact is present",
+	)
+
+	# Without Ears, hearing alone cannot stop a route, but an enemy on the next
+	# tile still cannot be attacked or consume a turn automatically.
+	main.state.skill_levels["ears"] = 0
+	main._clear_hearing_context()
+	main.floor_data = _exploration_floor()
+	main.player_pos = Vector2i(1, 1)
+	main.floor_data["explored_cells"] = {Vector2i(1, 1): true, Vector2i(2, 1): true}
+	main.hearing_contacts.record_hidden_attack("ignored-without-ears", Vector2i(6, 1), main.state.total_turns)
+	var turns_before_earless_launch: int = main.state.total_turns
+	main.auto_step_delay_override = 0.05
+	main._on_auto_explore_pressed()
+	_expect(
+		main.auto_travel_active and main.state.total_turns == turns_before_earless_launch + 1,
+		"Without Ears, a remembered hearing contact must not prevent automatic movement",
+	)
+	main._cancel_automatic_actions()
+	main.floor_data = _exploration_floor()
+	main.player_pos = Vector2i(1, 1)
+	main.floor_data["explored_cells"] = {Vector2i(1, 1): true, Vector2i(2, 1): true}
+	main.floor_data["enemies"] = [{
+		"uid": "next-step-blocker", "id": "grave_rat", "pos": Vector2i(2, 1),
+		"hp": 2, "max_hp": 2, "damage": 0, "accuracy": -100, "dodge": 0,
+		"vision": 0, "souls": 1,
+	}]
+	var turns_before_next_step_block: int = main.state.total_turns
+	main.auto_step_delay_override = 0.0
+	main._on_auto_explore_pressed()
+	_expect(
+		not main.auto_travel_active
+		and main.state.total_turns == turns_before_next_step_block
+		and int(main.floor_data["enemies"][0]["hp"]) == 2,
+		"Auto-explore must stop before attacking or taking a turn into an unseen next-step enemy without Ears",
+	)
+
+	# A route already under way must recheck its next cell after the shared delay.
+	main.floor_data = _exploration_floor()
+	main.player_pos = Vector2i(1, 1)
+	main.floor_data["exit_known"] = true
+	for cell_variant in main.floor_data["tiles"]:
+		if main.floor_data["tiles"][cell_variant] == "floor":
+			main.floor_data["explored_cells"][cell_variant] = true
+	main.auto_step_delay_override = 0.0
+	var turns_before_route_block: int = main.state.total_turns
+	main._on_ascend_pressed()
+	main.floor_data["enemies"] = [{
+		"uid": "route-step-blocker", "id": "grave_rat", "pos": Vector2i(3, 1),
+		"hp": 2, "max_hp": 2, "damage": 0, "accuracy": -100, "dodge": 0,
+		"vision": 0, "souls": 1,
+	}]
+	await tree.process_frame
+	_expect(
+		main.player_pos == Vector2i(2, 1)
+		and not main.auto_travel_active
+		and main.state.total_turns == turns_before_route_block + 1
+		and int(main.floor_data["enemies"][0]["hp"]) == 2,
+		"Known-stairs travel must stop before attacking or taking its next turn into an enemy",
 	)
 
 	# The route to known stairs uses the same delayed-turn contract. Cancelling

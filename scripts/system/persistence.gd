@@ -2,9 +2,11 @@ class_name Persistence
 extends RefCounted
 
 const Presentation := preload("res://scripts/system/presentation_settings.gd")
+const Snapshot := preload("res://scripts/system/run_snapshot.gd")
 
-const SAVE_VERSION := 13
-const MIN_SUPPORTED_SAVE_VERSION := 1
+const SAVE_VERSION := 15
+const STATE_ONLY_VERSION := SAVE_VERSION
+const MIN_SUPPORTED_SAVE_VERSION := SAVE_VERSION
 const SAVE_PATH := "user://savegame.json"
 const SAVES_DIR := "user://saves"
 const SETTINGS_PATH := "user://settings.cfg"
@@ -16,10 +18,15 @@ const DEFAULT_AUDIO_SETTINGS := {
 	"actions_volume": 75,
 }
 
+## Tie-break same-second gameplay publications without scanning every slot on
+## every turn. Reading existing slots also advances this process-local clock.
+static var _publication_clock := 0
+
 
 static func save_game(state: RunState, path := SAVE_PATH) -> Error:
 	return _atomic_write_json({
-		"version": SAVE_VERSION,
+		"version": STATE_ONLY_VERSION,
+		"kind": "state_only",
 		"state": state.to_save_data(),
 	}, path)
 
@@ -42,6 +49,7 @@ static func save_slot(
 	id_factory := Callable(),
 	extra_metadata: Dictionary = {},
 	fault_injector := Callable(),
+	snapshot: Dictionary = {},
 ) -> Dictionary:
 	var resolved_timestamp := timestamp if timestamp >= 0 else int(Time.get_unix_time_from_system())
 	var resolved_id := _safe_slot_id(slot_id)
@@ -60,12 +68,18 @@ static func save_slot(
 	}
 	for key in extra_metadata:
 		metadata[key] = extra_metadata[key]
+	if not snapshot.is_empty():
+		_publication_clock = maxi(_publication_clock + 1, int(Time.get_unix_time_from_system() * 1000000.0))
+		metadata["publication_order"] = str(_publication_clock)
 	var envelope := {
 		"envelope_version": SLOT_ENVELOPE_VERSION,
 		"version": SAVE_VERSION,
+		"kind": "state_only" if snapshot.is_empty() else "full_run",
 		"metadata": metadata,
-		"state": state.to_save_data(),
+		"state": state.to_save_data() if snapshot.is_empty() else Snapshot.encode(state.to_snapshot_data()),
 	}
+	if not snapshot.is_empty():
+		envelope["snapshot"] = snapshot.duplicate(true)
 	var path := _slot_path(saves_dir, resolved_id)
 	var error := _atomic_write_json(envelope, path, fault_injector)
 	if error != OK:
@@ -85,12 +99,15 @@ static func load_slot(slot_id: String, saves_dir := SAVES_DIR) -> Dictionary:
 		recovered_from_backup = true
 	if not _is_slot_envelope_valid(envelope, resolved_id):
 		return {"ok": false, "error": ERR_FILE_CORRUPT}
+	_publication_clock = maxi(_publication_clock, int(envelope["metadata"].get("publication_order", "0")))
 	return {
 		"ok": true,
 		"error": OK,
 		"slot_id": resolved_id,
 		"metadata": (envelope["metadata"] as Dictionary).duplicate(true),
 		"state": (envelope["state"] as Dictionary).duplicate(true),
+		"snapshot": Snapshot.restore(envelope.get("snapshot"), envelope["state"]) if envelope.get("kind") == "full_run" else {},
+		"version": int(envelope["version"]),
 		"recovered_from_backup": recovered_from_backup,
 	}
 
@@ -125,7 +142,14 @@ static func list_slots(saves_dir := SAVES_DIR) -> Array[Dictionary]:
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var a_time := int(a.get("updated_at", 0))
 		var b_time := int(b.get("updated_at", 0))
-		return a_time > b_time if a_time != b_time else String(a.get("slot_id", "")) < String(b.get("slot_id", ""))
+		if a_time != b_time:
+			return a_time > b_time
+		var a_order := int(a.get("publication_order", "0"))
+		var b_order := int(b.get("publication_order", "0"))
+		if a_order != b_order:
+			return a_order > b_order
+		# Old state-only files have no publication order; retain their stable tie.
+		return String(a.get("slot_id", "")) < String(b.get("slot_id", ""))
 	)
 	return result
 
@@ -246,7 +270,9 @@ static func _is_legacy_envelope_valid(parsed: Dictionary) -> bool:
 	var version := int(parsed.get("version", 0))
 	if version < MIN_SUPPORTED_SAVE_VERSION or version > SAVE_VERSION:
 		return false
-	return parsed.get("state", null) is Dictionary
+	if not parsed.get("state", null) is Dictionary:
+		return false
+	return _valid_save_kind(parsed)
 
 
 static func _is_slot_envelope_valid(envelope: Dictionary, expected_slot_id := "") -> bool:
@@ -257,12 +283,29 @@ static func _is_slot_envelope_valid(envelope: Dictionary, expected_slot_id := ""
 		return false
 	if not envelope.get("metadata", null) is Dictionary or not envelope.get("state", null) is Dictionary:
 		return false
+	if not _valid_save_kind(envelope):
+		return false
 	var metadata: Dictionary = envelope["metadata"]
+	if metadata.has("publication_order"):
+		var order: Variant = metadata["publication_order"]
+		if not order is String or not order.is_valid_int() or str(int(order)) != order or int(order) <= 0:
+			return false
 	return (
 		not String(metadata.get("slot_id", "")).is_empty()
 		and (expected_slot_id.is_empty() or String(metadata.get("slot_id", "")) == expected_slot_id)
 		and not String(metadata.get("character_name", "")).strip_edges().is_empty()
 	)
+
+
+## v15 explicitly separates setup-only helpers from complete live runs. Missing or
+## corrupt full snapshots never silently resume at base. Old test files/backs stay
+## on disk untouched and are excluded, including by one-time legacy import.
+static func _valid_save_kind(envelope: Dictionary) -> bool:
+	if envelope.get("kind") == "full_run":
+		return not Snapshot.restore(envelope.get("snapshot"), envelope["state"]).is_empty()
+	if envelope.get("kind") == "state_only":
+		return not envelope.has("snapshot") and not String(envelope["state"].get("character_name", "")).strip_edges().is_empty() and RunState.is_stage1_save_data_valid(envelope["state"])
+	return false
 
 
 static func _atomic_write_json(data: Dictionary, path: String, fault_injector := Callable()) -> Error:
@@ -275,7 +318,9 @@ static func _atomic_write_json(data: Dictionary, path: String, fault_injector :=
 	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
 	if file == null:
 		return FileAccess.get_open_error()
-	file.store_string(JSON.stringify(data, "  "))
+	# Snapshot floats have their own lossless encoding. Retain decimal precision
+	# for legacy state-only files and other ordinary JSON numeric fields as well.
+	file.store_string(JSON.stringify(data, "  ", true, true))
 	file.flush()
 	var write_error := file.get_error()
 	file = null
@@ -342,7 +387,14 @@ static func _read_json_dictionary(path: String) -> Dictionary:
 	var json := JSON.new()
 	if json.parse(file.get_as_text()) != OK or not json.data is Dictionary:
 		return {}
-	return (json.data as Dictionary).duplicate(true)
+	var data: Dictionary = (json.data as Dictionary).duplicate(true)
+	if data.get("version") == SAVE_VERSION and data.get("state") is Dictionary:
+		var errors: Array = []
+		var decoded: Variant = Snapshot.decode(data["state"], errors)
+		if not errors.is_empty() or not decoded is Dictionary:
+			return {}
+		data["state"] = RunState.snapshot_data_from_json(decoded)
+	return data
 
 
 static func _slot_path(saves_dir: String, slot_id: String) -> String:
@@ -393,8 +445,6 @@ static func save_settings(data: Dictionary, path := SETTINGS_PATH) -> Error:
 		config.load(path)
 	if data.has("fullscreen"):
 		config.set_value("display", "fullscreen", bool(data["fullscreen"]))
-	if data.has("inspection_radius"):
-		config.set_value("gameplay", "inspection_radius", int(data["inspection_radius"]))
 	if data.has("dungeon_cell_size"):
 		config.set_value(
 			"gameplay", "dungeon_cell_size",
@@ -435,7 +485,6 @@ static func load_settings(path := SETTINGS_PATH) -> Dictionary:
 		return {}
 	return {
 		"fullscreen": bool(config.get_value("display", "fullscreen", false)),
-		"inspection_radius": int(config.get_value("gameplay", "inspection_radius", 6)),
 		"dungeon_cell_size": Presentation.sanitize_cell_size(
 			config.get_value(
 				"gameplay", "dungeon_cell_size", Presentation.DEFAULT_CELL_SIZE,

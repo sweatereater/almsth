@@ -56,9 +56,6 @@ const WAIT_TURN_OPTIONS := [1, 10, 100]
 const MAGIC_TRACE_DURATION := Renderer.MAGIC_TRACE_DURATION
 const PROJECTILE_TRACE_DURATION := Renderer.PROJECTILE_TRACE_DURATION
 const PLAYER_VISION_RADIUS := GameRules.PLAYER_VISION_BASE_RADIUS
-const DEFAULT_INSPECTION_RADIUS := 6
-const MIN_INSPECTION_RADIUS := 1
-const MAX_INSPECTION_RADIUS := 12
 const DEFAULT_BACKGROUND_VOLUME := AudioManagerClass.DEFAULT_BACKGROUND_VOLUME
 const DEFAULT_ACTIONS_VOLUME := AudioManagerClass.DEFAULT_ACTIONS_VOLUME
 const HIT_FLASH_DURATION := 0.18
@@ -97,7 +94,6 @@ var auto_explore_active := false
 var automatic_action_generation := 0
 var auto_step_delay_override := -1.0
 var wait_turn_count := 1
-var inspection_radius := DEFAULT_INSPECTION_RADIUS
 var inspected_target: Dictionary = {}
 var magic_traces: Array[Dictionary] = []
 var projectile_traces: Array[Dictionary] = []
@@ -131,6 +127,7 @@ var active_save_detached_can_resave := false
 var save_policy_overwrite := true
 var save_slots_directory := SaveSystem.SAVES_DIR
 var legacy_save_path := SaveSystem.SAVE_PATH
+var settings_path := SaveSystem.SETTINGS_PATH
 var save_time_provider := Callable()
 var save_id_factory := Callable()
 var save_fault_injector := Callable()
@@ -150,6 +147,10 @@ var sidebar_progress_label: Label
 var status_strip: Control
 var equipment_label: Label
 var camp_upgrades_label: Label
+var stage1_camp_controls: Control
+var stage1_build_buttons: Dictionary = {}
+var stage1_object_buttons: Dictionary = {}
+var kettle_preparation_button: Button
 var material_resources_strip: Control
 var inspection_label: Label
 var message_label: RichTextLabel
@@ -244,11 +245,7 @@ var dismantle_all_confirmation_pending := false
 var inventory_panel: InventoryPanel
 var inventory_service_mode := ""
 var settings_title_label: Label
-var settings_radius_label: Label
-var settings_description_label: Label
 var settings_input_label: Label
-var settings_minus_button: Button
-var settings_plus_button: Button
 var settings_zoom_button: Button
 var settings_auto_movement_speed_button: Button
 var settings_sound_button: Button
@@ -296,6 +293,7 @@ var appearance_choice_panel: Control
 
 
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	Loc.initialize_from_system()
 	InputProfile.ensure_defaults()
 	_load_user_settings()
@@ -444,6 +442,35 @@ func _build_interface() -> void:
 	build_ritual_table_button.add_theme_font_size_override("font_size", 15)
 	build_ritual_table_button.pressed.connect(_on_build_camp_upgrade.bind("ritual_table"))
 
+	stage1_camp_controls = Control.new()
+	stage1_camp_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(stage1_camp_controls)
+	for upgrade_id in ["kettle", "bunk", "mural"]:
+		var button := Ui.make_button(stage1_camp_controls, Vector2(876, 310 + stage1_build_buttons.size() * 38), "", Vector2(362, 34))
+		Ui.enable_keyboard_focus(button)
+		button.pressed.connect(_on_build_camp_upgrade.bind(upgrade_id))
+		stage1_build_buttons[upgrade_id] = button
+	kettle_preparation_button = Ui.make_button(stage1_camp_controls, Vector2(876, 424), "", Vector2(362, 36))
+	kettle_preparation_button.toggle_mode = true
+	Ui.enable_keyboard_focus(kettle_preparation_button)
+	kettle_preparation_button.pressed.connect(func():
+		state.select_kettle_preparation(not state.camp_preparation.kettle_selected)
+		_save_game_at_base()
+		_refresh_interface()
+	)
+	for station in ["kettle", "bunk", "mural"]:
+		var hitbox := BaseLayout.station_hitbox_rect(station)
+		var object_button := Ui.make_button(stage1_camp_controls, hitbox.position, "", hitbox.size)
+		object_button.name = "Stage1Object_" + station
+		object_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+		object_button.add_theme_stylebox_override("hover", Ui.make_button_style(Color(0.05, 0.08, 0.1, 0.15), COLOR_SOUL, 1))
+		object_button.add_theme_stylebox_override("pressed", Ui.make_button_style(Color(0.05, 0.08, 0.1, 0.22), COLOR_SOUL, 1))
+		Ui.enable_keyboard_focus(object_button)
+		object_button.pressed.connect(_on_stage1_camp_object.bind(station))
+		stage1_object_buttons[station] = object_button
+	build_ritual_table_button.visibility_changed.connect(func():
+		stage1_camp_controls.visible = build_ritual_table_button.visible
+	)
 	crusher_object_button = _make_camp_object_button(
 		BaseLayout.station_hitbox_rect("crusher").position,
 		BaseLayout.station_hitbox_rect("crusher").size,
@@ -978,6 +1005,10 @@ func _build_character_interface() -> void:
 	inventory_panel.bind_requested.connect(_on_inventory_bind_pressed)
 	inventory_panel.close_requested.connect(_on_inventory_panel_close_requested)
 	inventory_panel.presentation_changed.connect(_sync_inventory_panel_state)
+	inventory_panel.mark_changed.connect(func():
+		_save_game_at_base()
+		_sync_inventory_panel_state()
+	)
 	inventory_controls.append(inventory_panel)
 	character_controls.append(inventory_panel)
 	character_inventory_controls.append(inventory_panel)
@@ -1057,78 +1088,59 @@ func _build_settings_interface() -> void:
 	settings_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	settings_controls.append(settings_title_label)
 
-	settings_radius_label = _make_label(Vector2(390, 96), Vector2(500, 30), 19)
-	settings_radius_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	settings_controls.append(settings_radius_label)
-
-	settings_description_label = _make_label(Vector2(390, 122), Vector2(500, 36), 12)
-	settings_description_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	settings_description_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	settings_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	settings_controls.append(settings_description_label)
-
-	settings_minus_button = _make_button(Vector2(390, 160), "−", Vector2(70, 42))
-	settings_minus_button.pressed.connect(_change_inspection_radius.bind(-1))
-	Ui.enable_keyboard_focus(settings_minus_button)
-	settings_controls.append(settings_minus_button)
-
-	settings_plus_button = _make_button(Vector2(820, 160), "+", Vector2(70, 42))
-	settings_plus_button.pressed.connect(_change_inspection_radius.bind(1))
-	Ui.enable_keyboard_focus(settings_plus_button)
-	settings_controls.append(settings_plus_button)
-	settings_zoom_button = _make_button(Vector2(470, 160), "", Vector2(340, 42))
+	settings_zoom_button = _make_button(Vector2(440, 112), "", Vector2(400, 42))
 	settings_zoom_button.pressed.connect(_cycle_dungeon_zoom)
 	Ui.enable_keyboard_focus(settings_zoom_button)
 	settings_controls.append(settings_zoom_button)
 
 	settings_auto_movement_speed_button = _make_button(
-		Vector2(440, 208), "", Vector2(400, 42),
+		Vector2(440, 160), "", Vector2(400, 42),
 	)
 	settings_auto_movement_speed_button.pressed.connect(_cycle_auto_movement_speed)
 	Ui.enable_keyboard_focus(settings_auto_movement_speed_button)
 	settings_controls.append(settings_auto_movement_speed_button)
 
-	settings_sound_button = _make_button(Vector2(440, 256), "", Vector2(400, 42))
+	settings_sound_button = _make_button(Vector2(440, 208), "", Vector2(400, 42))
 	settings_sound_button.pressed.connect(_toggle_sound)
 	Ui.enable_keyboard_focus(settings_sound_button)
 	settings_controls.append(settings_sound_button)
 
-	settings_background_label = _make_label(Vector2(390, 304), Vector2(220, 42), 15)
+	settings_background_label = _make_label(Vector2(390, 256), Vector2(220, 42), 15)
 	settings_background_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	settings_controls.append(settings_background_label)
-	settings_background_slider = _make_audio_slider(Vector2(615, 304))
+	settings_background_slider = _make_audio_slider(Vector2(615, 256))
 	settings_background_slider.value_changed.connect(_on_background_volume_changed)
 	settings_controls.append(settings_background_slider)
 
-	settings_actions_label = _make_label(Vector2(390, 352), Vector2(220, 42), 15)
+	settings_actions_label = _make_label(Vector2(390, 304), Vector2(220, 42), 15)
 	settings_actions_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	settings_controls.append(settings_actions_label)
-	settings_actions_slider = _make_audio_slider(Vector2(615, 352))
+	settings_actions_slider = _make_audio_slider(Vector2(615, 304))
 	settings_actions_slider.value_changed.connect(_on_actions_volume_changed)
 	settings_controls.append(settings_actions_slider)
 
-	settings_display_button = _make_button(Vector2(440, 400), "", Vector2(400, 42))
+	settings_display_button = _make_button(Vector2(440, 352), "", Vector2(400, 42))
 	settings_display_button.pressed.connect(_toggle_fullscreen)
 	Ui.enable_keyboard_focus(settings_display_button)
 	settings_controls.append(settings_display_button)
 
-	language_button = _make_button(Vector2(440, 448), "", Vector2(400, 42))
+	language_button = _make_button(Vector2(440, 400), "", Vector2(400, 42))
 	language_button.pressed.connect(_on_language_pressed)
 	Ui.enable_keyboard_focus(language_button)
 	settings_controls.append(language_button)
 
-	settings_input_label = _make_label(Vector2(370, 492), Vector2(540, 44), 11)
+	settings_input_label = _make_label(Vector2(370, 444), Vector2(540, 44), 11)
 	settings_input_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	settings_input_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	settings_input_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	settings_controls.append(settings_input_label)
 
-	settings_controls_button = _make_button(Vector2(440, 540), "", Vector2(400, 42))
+	settings_controls_button = _make_button(Vector2(440, 492), "", Vector2(400, 42))
 	settings_controls_button.pressed.connect(_open_controls_remap)
 	Ui.enable_keyboard_focus(settings_controls_button)
 	settings_controls.append(settings_controls_button)
 
-	settings_new_game_button = _make_button(Vector2(440, 586), "", Vector2(400, 42))
+	settings_new_game_button = _make_button(Vector2(440, 538), "", Vector2(400, 42))
 	settings_new_game_button.pressed.connect(_on_new_game_pressed)
 	Ui.enable_keyboard_focus(settings_new_game_button)
 	settings_controls.append(settings_new_game_button)
@@ -1162,14 +1174,6 @@ func _make_audio_slider(position_value: Vector2) -> HSlider:
 
 
 func _configure_settings_focus_navigation() -> void:
-	settings_minus_button.focus_neighbor_left = settings_plus_button.get_path()
-	settings_minus_button.focus_neighbor_right = settings_plus_button.get_path()
-	settings_minus_button.focus_neighbor_top = settings_close_button.get_path()
-	settings_minus_button.focus_neighbor_bottom = settings_zoom_button.get_path()
-	settings_plus_button.focus_neighbor_left = settings_minus_button.get_path()
-	settings_plus_button.focus_neighbor_right = settings_minus_button.get_path()
-	settings_plus_button.focus_neighbor_top = settings_close_button.get_path()
-	settings_plus_button.focus_neighbor_bottom = settings_zoom_button.get_path()
 	var vertical_controls: Array[Control] = [
 		settings_zoom_button,
 		settings_auto_movement_speed_button,
@@ -1184,16 +1188,12 @@ func _configure_settings_focus_navigation() -> void:
 	]
 	for index in range(vertical_controls.size()):
 		var control := vertical_controls[index]
-		control.focus_neighbor_top = (
-			settings_minus_button.get_path()
-			if index == 0
-			else vertical_controls[index - 1].get_path()
-		)
-		control.focus_neighbor_bottom = (
-			settings_minus_button.get_path()
-			if index == vertical_controls.size() - 1
-			else vertical_controls[index + 1].get_path()
-		)
+		control.focus_neighbor_top = vertical_controls[
+			posmod(index - 1, vertical_controls.size())
+		].get_path()
+		control.focus_neighbor_bottom = vertical_controls[
+			(index + 1) % vertical_controls.size()
+		].get_path()
 
 
 func _build_controls_remap_interface() -> void:
@@ -1458,7 +1458,12 @@ func _on_save_slot_load_requested(slot_id: String) -> void:
 		save_menu_panel.show_menu(screen != Screen.STARTUP)
 		return
 	var restored := RunState.new()
-	if not restored.restore_save_data(loaded.get("state", {})):
+	var snapshot: Dictionary = loaded.get("snapshot", {})
+	var restored_ok := (
+		restored.restore_snapshot_data(loaded.get("state", {})) if not snapshot.is_empty()
+		else restored.restore_save_data(loaded.get("state", {}))
+	)
+	if not restored_ok:
 		last_save_error = Loc.text("MSG_LOAD_FAILED")
 		save_menu_panel.set_error(last_save_error)
 		save_menu_panel.show_menu(screen != Screen.STARTUP)
@@ -1473,7 +1478,49 @@ func _on_save_slot_load_requested(slot_id: String) -> void:
 	last_save_error = ""
 	main_menu_open = false
 	save_menu_panel.close()
+	_reset_resume_transients()
 	_show_base(Loc.text("MSG_GAME_LOADED"), "none")
+	if not snapshot.is_empty():
+		rng.seed = snapshot["rng_seed"]
+		rng.state = snapshot["rng_state"]
+		floor_data = snapshot["floor_data"]
+		player_pos = snapshot["player_pos"]
+		if snapshot["context"] == "dungeon":
+			_show_dungeon_interface()
+			hearing_contacts.restore_snapshot_data(snapshot["hearing"], floor_data["enemies"],
+				player_pos, state.get_hearing_radius(), floor_data["visible_cells"], floor_data)
+			_refresh_interface()
+		elif snapshot["context"] == "victory":
+			_show_victory(false)
+	else:
+		floor_data.clear()
+		player_pos = Vector2i.ZERO
+	queue_redraw()
+
+
+func _reset_resume_transients() -> void:
+	_cancel_automatic_actions()
+	_stop_held_movement()
+	_cancel_ability_targeting(false)
+	magic_traces.clear()
+	projectile_traces.clear()
+	_clear_hit_effects()
+	_clear_hearing_context()
+	inspected_target.clear()
+	incoming_ranged_attack_this_turn = false
+	settings_open = false
+	settings_return_to_main_menu = false
+	controls_remap_open = false
+	controls_remap_panel.set_open(false)
+	_set_controls_visible(settings_controls, false)
+	appearance_choice_panel.close()
+	new_game_confirmation_pending = false
+	exit_confirmation_pending = false
+	story_kind = ""
+	story_index = 0
+	story_completion_message = ""
+	action_history.clear()
+	_reset_dismantle_all_confirmation()
 
 
 func _on_save_slot_delete_requested(slot_id: String) -> void:
@@ -1586,7 +1633,6 @@ func _apply_locale() -> void:
 	_fit_button_text(settings_new_game_button, 16, 11)
 	_fit_button_text(settings_exit_button, 16, 11)
 	settings_title_label.text = Loc.text("SETTINGS_TITLE")
-	settings_description_label.text = Loc.text("SETTINGS_AUTO_DESC")
 	settings_input_label.text = Loc.text("SETTINGS_INPUT_SUMMARY")
 	controls_remap_panel.apply_locale()
 	save_menu_panel.refresh_locale()
@@ -1648,7 +1694,7 @@ func _open_settings() -> void:
 	# the group helper would resurrect the legacy Exit action hidden by the
 	# unified main-menu composition.
 	_refresh_settings_interface()
-	settings_minus_button.grab_focus()
+	settings_zoom_button.grab_focus()
 	_audio_action("ui_confirm")
 
 
@@ -1696,18 +1742,6 @@ func _close_controls_remap() -> void:
 
 func _on_controls_bindings_changed() -> void:
 	_save_user_settings()
-
-
-func _change_inspection_radius(amount: int) -> void:
-	inspection_radius = clampi(
-		inspection_radius + amount,
-		MIN_INSPECTION_RADIUS,
-		MAX_INSPECTION_RADIUS,
-	)
-	_refresh_settings_interface()
-	_refresh_inspection_panel()
-	_save_user_settings()
-	queue_redraw()
 
 
 func _cycle_dungeon_zoom() -> void:
@@ -1820,11 +1854,8 @@ func _set_audio_slider_from_pointer(slider: HSlider, global_position: Vector2) -
 
 
 func _refresh_settings_interface() -> void:
-	if settings_radius_label == null:
+	if settings_zoom_button == null:
 		return
-	settings_radius_label.text = Loc.text("SETTINGS_RADIUS", [inspection_radius])
-	settings_minus_button.disabled = inspection_radius <= MIN_INSPECTION_RADIUS
-	settings_plus_button.disabled = inspection_radius >= MAX_INSPECTION_RADIUS
 	settings_zoom_button.text = Loc.text("SETTINGS_ZOOM", [
 		Loc.text(PresentationSettings.locale_key(dungeon_cell_size)),
 		dungeon_cell_size,
@@ -1883,15 +1914,21 @@ func _on_exit_pressed() -> void:
 
 
 func _request_exit() -> void:
-	var detached_menu_exit := (
-		main_menu_open and active_save_detached_by_delete and not active_save_detached_can_resave
-	)
-	if screen == Screen.BASE and not state.character_name.is_empty() and not detached_menu_exit:
-		_save_game_at_base()
+	if persistence_enabled and not _save_context().is_empty() and not active_save_detached_by_delete:
+		if not _save_game_at_base("exit"):
+			if not main_menu_open:
+				_open_main_menu()
+			save_menu_panel.set_error(last_save_error)
+			return
 	if exit_request_hook.is_valid():
 		exit_request_hook.call()
 	else:
 		get_tree().quit()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_request_exit()
 
 
 func _open_expedition_choice() -> void:
@@ -1940,10 +1977,20 @@ func _on_beginning_ascent_pressed() -> void:
 
 
 func _begin_expedition_at(floor_number: int) -> void:
+	if not state.begin_expedition(floor_number):
+		_log_action(Loc.text("CAMP_KETTLE_NEEDS_FOOD"))
+		return
 	expedition_choice_open = false
 	_set_controls_visible(expedition_choice_controls, false)
-	state.begin_expedition(floor_number)
+	_show_dungeon_interface()
+	_load_floor(state.current_floor)
+
+
+func _show_dungeon_interface() -> void:
 	screen = Screen.DUNGEON
+	previous_screen = Screen.DUNGEON
+	if audio_manager != null:
+		audio_manager.set_background("dungeon")
 	_apply_dungeon_layout(true)
 	start_button.visible = false
 	upgrade_button.visible = false
@@ -1969,7 +2016,6 @@ func _begin_expedition_at(floor_number: int) -> void:
 	character_button.visible = false
 	inspection_label.visible = true
 	hint_label.visible = true
-	_load_floor(state.current_floor)
 
 
 func _open_cradle_confirmation() -> void:
@@ -2110,15 +2156,10 @@ func _audio_action(event_id: String) -> void:
 func _load_user_settings() -> void:
 	if not persistence_enabled:
 		return
-	var loaded := SaveSystem.load_settings()
+	var loaded := SaveSystem.load_settings(settings_path)
 	if loaded.is_empty():
 		return
 	Loc.set_locale(String(loaded.get("locale", Loc.current_locale)))
-	inspection_radius = clampi(
-		int(loaded.get("inspection_radius", DEFAULT_INSPECTION_RADIUS)),
-		MIN_INSPECTION_RADIUS,
-		MAX_INSPECTION_RADIUS,
-	)
 	dungeon_cell_size = PresentationSettings.sanitize_cell_size(
 		loaded.get("dungeon_cell_size", PresentationSettings.DEFAULT_CELL_SIZE),
 	)
@@ -2150,7 +2191,6 @@ func _save_user_settings() -> void:
 		return
 	SaveSystem.save_settings({
 		"fullscreen": fullscreen_enabled,
-		"inspection_radius": inspection_radius,
 		"dungeon_cell_size": dungeon_cell_size,
 		"auto_movement_speed_percent": auto_movement_speed_percent,
 		"locale": Loc.current_locale,
@@ -2160,11 +2200,18 @@ func _save_user_settings() -> void:
 			"background_volume": background_volume,
 			"actions_volume": actions_volume,
 		},
-	})
+	}, settings_path)
 
 
 func _save_game_at_base(reason := "update") -> bool:
+	# Compatibility name for existing callers. Context is explicit; entering a UI
+	# screen while restoring never runs safe_return(), die(), or floor generation.
 	if not persistence_enabled or state.character_name.is_empty():
+		return false
+	if active_save_detached_by_delete and (not active_save_detached_can_resave or reason == "exit"):
+		return true
+	var context := _save_context()
+	if context.is_empty():
 		return false
 	var meaningful_snapshot := reason in ["create", "death", "safe_return"]
 	var requested_slot_id := active_save_slot_id
@@ -2179,18 +2226,30 @@ func _save_game_at_base(reason := "update") -> bool:
 		save_id_factory,
 		{},
 		save_fault_injector,
+		SaveSystem.Snapshot.capture(context, floor_data, player_pos, rng, hearing_contacts.to_snapshot_data()),
 	)
 	if not bool(result.get("ok", false)):
 		last_save_error = Loc.text("MSG_SAVE_FAILED", [int(result.get("error", ERR_CANT_CREATE))])
-		if screen == Screen.BASE:
-			_log_action(last_save_error)
-			_refresh_interface()
+		_log_action(last_save_error)
+		_refresh_interface()
 		return false
 	active_save_slot_id = String(result.get("slot_id", active_save_slot_id))
 	active_save_detached_by_delete = false
 	active_save_detached_can_resave = false
 	last_save_error = ""
 	return true
+
+
+func _save_context() -> String:
+	if state.character_name.is_empty():
+		return ""
+	var context_screen := previous_screen if screen == Screen.CHARACTER else screen
+	match context_screen:
+		Screen.BASE: return "base"
+		Screen.DUNGEON: return "dungeon"
+		Screen.VICTORY: return "victory"
+		Screen.STORY: return "base" if story_kind == "death" else ""
+	return ""
 
 
 func _log_action(text: String) -> void:
@@ -2402,7 +2461,7 @@ func _advance_story() -> void:
 		return
 	_set_controls_visible(story_controls, false)
 	menu_button.visible = true
-	_show_base(story_completion_message, "create" if story_kind == "intro" else "death")
+	_show_base(story_completion_message, "create" if story_kind == "intro" else "none")
 
 
 func _show_base(text: String, save_reason := "update") -> void:
@@ -2496,6 +2555,7 @@ func _load_floor(floor_number: int) -> void:
 	else:
 		_log_action(Loc.text("MSG_ENTER_FLOOR", [floor_number]))
 	_update_player_visibility()
+	_save_game_at_base()
 	_refresh_interface()
 	queue_redraw()
 
@@ -2513,6 +2573,7 @@ func _use_cradle() -> void:
 			Loc.text(String(state.get_form()["name"])),
 			int(result["cost"]),
 		]))
+		_save_game_at_base()
 	else:
 		match String(result["reason"]):
 			"maximum":
@@ -2545,6 +2606,7 @@ func _on_camp_pressed() -> void:
 	var result := state.camp_and_eat()
 	if result["ok"]:
 		_log_action(Loc.text("MSG_CAMP_EAT", [result["hunger"]]))
+		_save_game_at_base()
 	else:
 		match String(result["reason"]):
 			"no_hunger":
@@ -2627,6 +2689,10 @@ func _on_ascend_pressed() -> void:
 		else:
 			_complete_floor_ascent()
 		return
+	if _automatic_route_has_enemy_contact():
+		_log_action(Loc.text("MSG_ASCEND_INTERRUPTED"))
+		_refresh_interface()
+		return
 	var path := _find_floor_path(player_pos, exit_position, true)
 	if path.is_empty():
 		_log_action(Loc.text("MSG_ASCEND_NO_PATH"))
@@ -2644,6 +2710,11 @@ func _on_ascend_pressed() -> void:
 		if not _automatic_action_is_current(action_generation, false):
 			return
 		var expected_position: Vector2i = path[path_index]
+		if _automatic_route_has_enemy_contact(expected_position):
+			_cancel_automatic_actions()
+			_log_action(Loc.text("MSG_ASCEND_INTERRUPTED"))
+			_refresh_interface()
+			return
 		var direction := expected_position - player_pos
 		_attempt_player_action(direction)
 		if action_generation != automatic_action_generation:
@@ -2714,6 +2785,17 @@ func _on_build_camp_upgrade(upgrade_id: String) -> void:
 			if result.get("reason", "") == "built"
 			else "MSG_CAMP_UPGRADE_NEEDS"
 		))
+	_refresh_interface()
+	queue_redraw()
+
+
+func _on_stage1_camp_object(station: String) -> void:
+	if screen != Screen.BASE or not inventory_service_mode.is_empty() or not bool(state.camp_upgrades.get(station, false)):
+		return
+	if station == "kettle":
+		state.select_kettle_preparation(not state.camp_preparation.kettle_selected)
+		_save_game_at_base()
+	_log_action(Loc.text("CAMP_" + station.to_upper() + "_DESC"))
 	_refresh_interface()
 	queue_redraw()
 
@@ -2810,6 +2892,9 @@ func _configure_base_focus() -> void:
 		Ui.enable_keyboard_focus(button)
 		if button.visible and not button.disabled:
 			focusable.append(button)
+	for button in stage1_build_buttons.values() + stage1_object_buttons.values() + [kettle_preparation_button]:
+		if button.is_visible_in_tree() and not button.disabled:
+			focusable.append(button)
 	for object_button in [crusher_object_button, whetstone_object_button, ritual_table_object_button]:
 		if object_button.visible:
 			focusable.append(object_button)
@@ -2901,6 +2986,18 @@ func _has_visible_enemy() -> bool:
 	return false
 
 
+func _has_presented_hearing_contact() -> bool:
+	return state.has_hearing() and not hearing_contacts.presentation_positions().is_empty()
+
+
+func _automatic_route_has_enemy_contact(next_position := Vector2i(-1, -1)) -> bool:
+	return (
+		_has_visible_enemy()
+		or _has_presented_hearing_contact()
+		or (next_position.x >= 0 and _enemy_index_at(next_position) >= 0)
+	)
+
+
 func _on_auto_explore_pressed() -> void:
 	if screen != Screen.DUNGEON:
 		return
@@ -2914,7 +3011,7 @@ func _on_auto_explore_pressed() -> void:
 			queue_redraw()
 		return
 	_stop_held_movement()
-	if _has_visible_enemy():
+	if _automatic_route_has_enemy_contact():
 		_log_action(Loc.text("MSG_EXPLORE_ENEMY"))
 		_refresh_interface()
 		return
@@ -2930,7 +3027,7 @@ func _run_auto_explore(action_generation := -1) -> void:
 	var step_limit := maxi(1, floor_data.get("tiles", {}).size() * 2)
 	var completed_steps := 0
 	while _automatic_action_is_current(action_generation, true) and completed_steps < step_limit:
-		if _has_visible_enemy():
+		if _automatic_route_has_enemy_contact():
 			_finish_auto_explore("MSG_EXPLORE_ENEMY", action_generation)
 			return
 		var path := _find_nearest_exploration_path()
@@ -2943,10 +3040,13 @@ func _run_auto_explore(action_generation := -1) -> void:
 			)
 			if not delay_completed:
 				return
-			if _has_visible_enemy():
+			if _automatic_route_has_enemy_contact():
 				_finish_auto_explore("MSG_EXPLORE_ENEMY", action_generation)
 				return
 		var expected_position: Vector2i = path[1]
+		if _automatic_route_has_enemy_contact(expected_position):
+			_finish_auto_explore("MSG_EXPLORE_ENEMY", action_generation)
+			return
 		_attempt_player_action(expected_position - player_pos)
 		if action_generation != automatic_action_generation:
 			return
@@ -2959,7 +3059,7 @@ func _run_auto_explore(action_generation := -1) -> void:
 			_finish_auto_explore("MSG_EXPLORE_INTERRUPTED", action_generation)
 			return
 		completed_steps += 1
-		if _has_visible_enemy():
+		if _automatic_route_has_enemy_contact():
 			_finish_auto_explore("MSG_EXPLORE_ENEMY", action_generation)
 			return
 	if _automatic_action_is_current(action_generation, true):
@@ -3318,9 +3418,11 @@ func _change_inventory_page(direction: int) -> void:
 func _on_inventory_equip_pressed() -> void:
 	_reset_dismantle_all_confirmation()
 	_sync_inventory_panel_state()
+	var changed := false
 	if not selected_equipment_slot.is_empty():
 		var result := state.unequip(selected_equipment_slot)
 		if bool(result.get("ok", false)):
+			changed = true
 			inventory_feedback = Loc.text("MSG_ITEM_UNEQUIPPED", [
 				_item_display_name(String(result["item_key"])),
 			])
@@ -3333,19 +3435,23 @@ func _on_inventory_equip_pressed() -> void:
 			destination_slot = inventory_panel.selected_destination_slot()
 		var result := state.equip_from_inventory(selected_inventory_key, destination_slot)
 		if bool(result.get("ok", false)):
+			changed = true
 			inventory_feedback = Loc.text("MSG_ITEM_EQUIPPED", [result["item_name"]])
 			if int(state.inventory.get(selected_inventory_key, 0)) <= 0:
 				selected_inventory_key = ""
 			inventory_panel.select_item(selected_inventory_key, "inventory")
 		else:
 			inventory_feedback = Loc.text("MSG_FORM_CANNOT_EQUIP_SELECTED")
-	if previous_screen == Screen.BASE:
+	if changed:
+		if previous_screen == Screen.DUNGEON and not floor_data.is_empty():
+			_update_player_visibility(false)
 		_save_game_at_base()
 	_refresh_character_sheet()
 	queue_redraw()
 
 
 func _on_inventory_dismantle_pressed() -> void:
+	var pending_keep := inventory_panel.keep_confirmation_key
 	_reset_dismantle_all_confirmation()
 	_sync_inventory_panel_state()
 	if (
@@ -3355,7 +3461,14 @@ func _on_inventory_dismantle_pressed() -> void:
 	):
 		return
 	var selected_name := _item_display_name(selected_inventory_key)
-	var result := state.dismantle_item(selected_inventory_key)
+	var confirmed_keep := pending_keep == selected_inventory_key
+	var result := state.dismantle_item(selected_inventory_key, confirmed_keep)
+	if result.get("reason") == "keep_confirmation":
+		inventory_panel.keep_confirmation_key = selected_inventory_key
+		inventory_feedback = Loc.text("INVENTORY_KEEP_CONFIRM")
+		_refresh_inventory_interface()
+		return
+	inventory_panel.keep_confirmation_key = ""
 	if bool(result.get("ok", false)):
 		_audio_action("station_success")
 		var gained: Dictionary = result["gained"]
@@ -3410,7 +3523,6 @@ func _on_inventory_upgrade_pressed() -> void:
 			"equipped" if not selected_equipment_slot.is_empty() else "inventory",
 			selected_equipment_slot,
 		)
-		_save_game_at_base()
 	else:
 		match String(result.get("reason", "")):
 			"resources":
@@ -3421,6 +3533,8 @@ func _on_inventory_upgrade_pressed() -> void:
 				])
 			_:
 				inventory_feedback = Loc.text("MSG_WHETSTONE_REQUIRED")
+	# Even rejected attempts consumed the two existing random draws above.
+	_save_game_at_base()
 	_refresh_character_sheet()
 	queue_redraw()
 
@@ -3469,7 +3583,7 @@ func _on_inventory_dismantle_all_pressed() -> void:
 		inventory_panel.set_confirmation_pending(true)
 		_refresh_inventory_interface()
 		return
-	var result := state.dismantle_all_items()
+	var result := state.dismantle_all_items(inventory_panel.marked_only)
 	dismantle_all_confirmation_pending = false
 	inventory_panel.set_confirmation_pending(false)
 	if bool(result.get("ok", false)):
@@ -3602,8 +3716,7 @@ func _cycle_ability_loadout(slot_id: String) -> void:
 			Loc.text(_ability_slot_name_key(slot_id)),
 			_ability_display_name(String(options[next_index])),
 		])
-		if previous_screen == Screen.BASE:
-			_save_game_at_base()
+		_save_game_at_base()
 	_refresh_skills_interface()
 	_refresh_interface()
 	queue_redraw()
@@ -3658,8 +3771,7 @@ func _on_skill_purchase_pressed(skill_id: String) -> void:
 		if skill_id == "ears" and previous_screen == Screen.DUNGEON:
 			_clear_hearing_context()
 			_sync_hearing_proximity()
-		if previous_screen == Screen.BASE:
-			_save_game_at_base()
+		_save_game_at_base()
 	else:
 		match String(result["reason"]):
 			"souls":
@@ -3684,8 +3796,7 @@ func _on_skill_purchase_pressed(skill_id: String) -> void:
 func _on_spend_attribute_point(attribute_id: String) -> void:
 	if state.spend_attribute_point(attribute_id):
 		skill_feedback = ""
-		if previous_screen == Screen.BASE:
-			_save_game_at_base()
+		_save_game_at_base()
 	_refresh_character_sheet()
 	queue_redraw()
 
@@ -3696,13 +3807,12 @@ func _on_cheat_add_stats_pressed() -> void:
 	# The test grant is exact and intentionally bypasses equipment soul bonuses.
 	state.carried_souls += 100
 	state.lifetime_souls_earned += 100
-	if previous_screen == Screen.BASE:
-		_save_game_at_base()
+	_save_game_at_base()
 	_refresh_character_sheet()
 	queue_redraw()
 
 
-func _show_victory() -> void:
+func _show_victory(save_progress := true) -> void:
 	_stop_held_movement()
 	_cancel_automatic_actions()
 	_clear_hearing_context()
@@ -3739,7 +3849,9 @@ func _show_victory() -> void:
 	sidebar_progress_label.visible = true
 	equipment_label.visible = true
 	soul_icon.visible = false
-	store_gateway.unlock_achievement("surface_reached")
+	if save_progress:
+		store_gateway.unlock_achievement("surface_reached")
+		_save_game_at_base()
 	_log_action(Loc.text("MSG_VICTORY"))
 	_refresh_interface()
 	queue_redraw()
@@ -4315,6 +4427,7 @@ func _complete_player_turn(pending_ability_id := "", pending_duration := -1) -> 
 		# Prune only after the enemy response. A contact refreshed during that
 		# response has a new expiry and therefore survives this boundary.
 		hearing_contacts.prune_after_round(state.total_turns)
+		_save_game_at_base()
 
 
 func _activate_ability_slot(slot_id: String, options: Dictionary = {}) -> bool:
@@ -4388,6 +4501,7 @@ func _confirm_appearance_choice(form_id: String) -> void:
 		_log_action(Loc.text("MSG_APPEARANCE_CHANGED", [
 			Loc.text(String(GameRules.FORMS[state.get_display_form_id()]["name"])),
 		]))
+		_save_game_at_base()
 	appearance_choice_panel.close()
 	_refresh_interface()
 	queue_redraw()
@@ -5091,6 +5205,8 @@ func _damage_enemy_by_uid(enemy_uid: String, damage: int) -> Dictionary:
 	var gained := state.add_souls(int(enemy["souls"]))
 	floor_data["enemies"].remove_at(enemy_index)
 	var reward_suffix := ""
+	if state.record_enemy_defeat(String(enemy["id"])):
+		reward_suffix += Loc.text("MSG_MINOTAUR_TAIL")
 	if bool(rules.get("meat", false)):
 		var food_gained := state.add_food(1)
 		if state.uses_hunger():
@@ -5129,6 +5245,20 @@ func _enemy_turn() -> void:
 		var sees_player := _enemy_can_see_player(enemy)
 		if sees_player:
 			enemy["last_seen_player"] = player_pos
+		var cooling := int(enemy.get("special_cooldown", 0)) > 0
+		if cooling:
+			enemy.special_cooldown = int(enemy.special_cooldown) - 1
+		var double_cooling := int(enemy.get("ability_cooldowns", {}).get("double_attack", 0)) > 0
+		if double_cooling:
+			enemy.ability_cooldowns.double_attack -= 1
+			if enemy.ability_cooldowns.double_attack <= 0:
+				enemy.ability_cooldowns.erase("double_attack")
+		floor_data.enemies[index] = enemy
+		if _try_enemy_prepared_action(index, sees_player, cooling):
+			if screen != Screen.DUNGEON:
+				return
+			continue
+		if sees_player:
 			if not bool(enemy.get("has_seen_player", false)):
 				enemy["has_seen_player"] = true
 				floor_data["enemies"][index] = enemy
@@ -5148,36 +5278,18 @@ func _enemy_turn() -> void:
 				return
 			continue
 
-		if sees_player and _manhattan(enemy["pos"], player_pos) == 1:
-			var enemy_rules: Dictionary = GameRules.ENEMIES[enemy["id"]]
-			var attack := CombatSystem.resolve_attack(
-				rng.randi_range(1, 20), int(enemy["accuracy"]), state.get_dodge(),
-			)
-			var attack_roll := int(attack["attack_total"])
-			var defense_target := int(attack["defense_target"])
-			var enemy_name := Loc.text(String(enemy_rules["name"]))
-			var attacker_hidden := not _is_cell_visible(enemy["pos"])
-			if attacker_hidden:
-				_record_hidden_enemy_attack(enemy)
-			if not bool(attack["hit"]):
-				if attacker_hidden:
-					_append_to_latest_action(Loc.text("MSG_HIDDEN_ENEMY_MISS"))
-				else:
-					_append_to_latest_action(Loc.text("MSG_ENEMY_MISS", [
-						enemy_name, attack_roll, defense_target,
-					]))
-				continue
-			_start_player_hit_flash()
-			_cancel_automatic_actions()
-			if state.take_damage(int(enemy["damage"])):
-				_flush_hidden_attack_hearing_log()
-				_handle_death()
-				return
-			_audio_action("player_hurt")
-			_append_to_latest_action(Loc.text(
-				"MSG_HIDDEN_ENEMY_HIT" if attacker_hidden else "MSG_ENEMY_HIT",
-				[enemy["damage"]] if attacker_hidden else [enemy_name, enemy["damage"]],
-			))
+		if sees_player and _manhattan(enemy["pos"], player_pos) == 1 and String(enemy.id) != "bone_crossbowman":
+			var enemy_rules: Dictionary = GameRules.ENEMIES[enemy.id]
+			var strikes := 1
+			if enemy_rules.get("abilities", []).has("double_attack") and not double_cooling:
+				strikes = 2
+				if not enemy.has("ability_cooldowns"):
+					enemy["ability_cooldowns"] = {}
+				enemy.ability_cooldowns.double_attack = 15
+			for strike in range(strikes):
+				_enemy_melee_strike(enemy, int(enemy.damage))
+				if screen != Screen.DUNGEON:
+					return
 			continue
 
 		var pursuit_target: Vector2i = player_pos if sees_player else enemy["last_seen_player"]
@@ -5189,12 +5301,73 @@ func _enemy_turn() -> void:
 	_flush_hidden_attack_hearing_log()
 
 
-func _try_enemy_ranged_attack(enemy_index: int, forced_d20 := -1) -> bool:
+func _enemy_melee_strike(enemy: Dictionary, damage: int, forced_d20 := -1) -> void:
+	var d20 := rng.randi_range(1, 20) if forced_d20 < 1 else clampi(forced_d20, 1, 20)
+	var attack := CombatSystem.resolve_attack(d20, int(enemy.accuracy), state.get_dodge())
+	var hidden := not _is_cell_visible(enemy.pos)
+	var enemy_name := Loc.text(String(GameRules.ENEMIES[enemy.id].name))
+	if hidden:
+		_record_hidden_enemy_attack(enemy)
+	if not attack.hit:
+		_append_to_latest_action(Loc.text("MSG_HIDDEN_ENEMY_MISS" if hidden else "MSG_ENEMY_MISS", [] if hidden else [enemy_name, attack.attack_total, attack.defense_target]))
+		return
+	_start_player_hit_flash()
+	_cancel_automatic_actions()
+	if state.take_damage(damage):
+		_flush_hidden_attack_hearing_log()
+		_handle_death()
+		return
+	_audio_action("player_hurt")
+	_append_to_latest_action(Loc.text("MSG_HIDDEN_ENEMY_HIT" if hidden else "MSG_ENEMY_HIT", [damage] if hidden else [enemy_name, damage]))
+
+
+func _try_enemy_prepared_action(index: int, sees_player: bool, cooling: bool) -> bool:
+	var enemy: Dictionary = floor_data.enemies[index]
+	var rules: Dictionary = GameRules.ENEMIES[enemy.id]
+	if not rules.has("preparation_turns"):
+		return false
+	if int(enemy.get("recovery_remaining", 0)) > 0:
+		enemy.recovery_remaining -= 1
+		return true
+	var crossbow := String(enemy.id) == "bone_crossbowman"
+	if enemy.has("preparation"):
+		var preparation: Dictionary = enemy.preparation
+		if crossbow:
+			if not sees_player or not CombatSystem.is_ranged_target_valid(floor_data.tiles, enemy.pos, player_pos, int(rules.range)):
+				enemy.erase("preparation")
+				return true
+			preparation.target = player_pos
+		preparation.remaining -= 1
+		if int(preparation.remaining) > 0:
+			return true
+		var target: Vector2i = preparation.target
+		enemy.erase("preparation")
+		enemy.special_cooldown = int(rules.attack_cooldown)
+		if crossbow:
+			enemy.recovery_remaining = int(rules.recovery_turns)
+			_try_enemy_ranged_attack(index, -1, true)
+		elif target == player_pos and _manhattan(enemy.pos, target) == 1:
+			_enemy_melee_strike(enemy, int(rules.heavy_damage))
+		return true
+	if cooling or not sees_player or not bool(enemy.get("has_seen_player", false)):
+		return false
+	var valid_target := CombatSystem.is_ranged_target_valid(floor_data.tiles, enemy.pos, player_pos, int(rules.get("range", 1))) if crossbow else _manhattan(enemy.pos, player_pos) == 1
+	if not valid_target:
+		return false
+	enemy["preparation"] = {"remaining": int(rules.preparation_turns), "target": player_pos}
+	if _is_cell_visible(enemy.pos):
+		_append_to_latest_action(Loc.text("MSG_ENEMY_PREPARING", [Loc.text(String(rules.name)), int(rules.preparation_turns)]))
+	return true
+
+
+func _try_enemy_ranged_attack(enemy_index: int, forced_d20 := -1, prepared_release := false) -> bool:
 	if enemy_index < 0 or enemy_index >= floor_data.get("enemies", []).size():
 		return false
 	var enemy: Dictionary = floor_data["enemies"][enemy_index]
 	var rules: Dictionary = GameRules.ENEMIES.get(String(enemy.get("id", "")), {})
 	if String(enemy.get("attack_type", rules.get("attack_type", "melee"))) != "ranged":
+		return false
+	if rules.has("preparation_turns") and not prepared_release:
 		return false
 	var attack_range := int(enemy.get("range", rules.get("range", 0)))
 	if not CombatSystem.is_ranged_target_valid(
@@ -5332,6 +5505,7 @@ func _handle_death() -> void:
 		losses["souls"],
 		losses["items"],
 	]))
+	_save_game_at_base("death")
 
 
 func _enemy_index_at(cell: Vector2i) -> int:
@@ -5449,12 +5623,12 @@ func _nearest_automatic_inspection_target() -> Dictionary:
 	if floor_data.is_empty():
 		return {}
 	var nearest := {}
-	var nearest_distance := inspection_radius + 1
+	var nearest_distance := INF
 	for enemy in floor_data["enemies"]:
 		if not _is_cell_visible(enemy["pos"]):
 			continue
 		var enemy_distance := _manhattan(player_pos, enemy["pos"])
-		if enemy_distance <= inspection_radius and enemy_distance < nearest_distance:
+		if enemy_distance < nearest_distance:
 			nearest = {"kind": "enemy", "entity": enemy}
 			nearest_distance = enemy_distance
 	if not nearest.is_empty():
@@ -5464,7 +5638,7 @@ func _nearest_automatic_inspection_target() -> Dictionary:
 		if not _is_cell_observed(item["pos"]):
 			continue
 		var item_distance := _manhattan(player_pos, item["pos"])
-		if item_distance <= inspection_radius and item_distance < nearest_distance:
+		if item_distance < nearest_distance:
 			nearest = {"kind": "item", "entity": item}
 			nearest_distance = item_distance
 	if not nearest.is_empty():
@@ -5484,7 +5658,7 @@ func _nearest_automatic_inspection_target() -> Dictionary:
 		if not _is_cell_observed(special["pos"]):
 			continue
 		var special_distance := _manhattan(player_pos, special["pos"])
-		if special_distance <= inspection_radius and special_distance < nearest_distance:
+		if special_distance < nearest_distance:
 			nearest = special
 			nearest_distance = special_distance
 	return nearest
@@ -5502,7 +5676,7 @@ func _inspection_target_name(target: Dictionary) -> String:
 			var enemy_rules: Dictionary = GameRules.ENEMIES[target["entity"]["id"]]
 			return Loc.text(String(enemy_rules["name"]))
 		"item":
-			return Loc.text("INSPECT_CHEST")
+			return Loc.text("INSPECT_CRYPT" if target.get("entity", {}).get("appearance") == "crypt" else "INSPECT_CHEST")
 		"base":
 			return Loc.text("INSPECT_BASE")
 		"exit":
@@ -5544,7 +5718,7 @@ func _refresh_inspection_panel() -> void:
 		inspection_label.text = "%s\n%s\n%s" % [
 			level_line,
 			Loc.text(header_key),
-			Loc.text("INSPECT_NONE", [inspection_radius]),
+			Loc.text("INSPECT_NONE"),
 		]
 		return
 
@@ -5558,6 +5732,10 @@ func _refresh_inspection_panel() -> void:
 	if target["kind"] == "enemy":
 		var enemy: Dictionary = target["entity"]
 		var enemy_rules: Dictionary = GameRules.ENEMIES[enemy["id"]]
+		if String(enemy.id) in ["arachnid", "bone_crossbowman", "slag_smith"]:
+			lines.append(Loc.text("INSPECT_" + String(enemy.id).to_upper() + "_ABILITY"))
+		if enemy.has("preparation"):
+			lines.append(Loc.text("INSPECT_PREPARATION", [int(enemy.preparation.remaining)]))
 		lines.append(Loc.text("INSPECT_ENEMY_STATS", [
 			enemy["hp"], enemy["max_hp"], enemy["damage"], enemy["accuracy"],
 			int(enemy.get("vision", enemy_rules.get("vision", 0))),
@@ -5639,7 +5817,26 @@ func _refresh_interface() -> void:
 		equipment_lines.append("%s: %s" % [slot_name, item_name])
 	equipment_label.text = "\n".join(equipment_lines)
 
-	camp_upgrades_label.text = Loc.text("CAMP_MATERIAL_HINT")
+	camp_upgrades_label.text = ""
+	start_button.tooltip_text = Loc.text("CAMP_PREPARATION_DESC")
+	for station in stage1_object_buttons:
+		var object_button: Button = stage1_object_buttons[station]
+		object_button.visible = bool(state.camp_upgrades.get(station, false))
+		object_button.tooltip_text = Loc.text("CAMP_" + String(station).to_upper() + "_DESC") if object_button.visible else ""
+		object_button.accessibility_name = object_button.tooltip_text
+	for upgrade_id in stage1_build_buttons:
+		var button: Button = stage1_build_buttons[upgrade_id]
+		button.visible = state.is_camp_upgrade_revealed(upgrade_id)
+		button.text = Loc.text("CAMP_BUILT_" + String(upgrade_id).to_upper() if state.camp_upgrades[upgrade_id] else "CAMP_BUILD_" + String(upgrade_id).to_upper())
+		button.tooltip_text = Loc.text("CAMP_" + String(upgrade_id).to_upper() + "_DESC") if button.visible else ""
+		button.disabled = not state.can_build_camp_upgrade(upgrade_id)
+		_fit_button_text(button, 13, 9)
+	kettle_preparation_button.text = Loc.text("CAMP_KETTLE_SELECT")
+	kettle_preparation_button.button_pressed = state.camp_preparation.kettle_selected
+	kettle_preparation_button.visible = bool(state.camp_upgrades.kettle)
+	kettle_preparation_button.disabled = not state.camp_preparation.pending or not state.camp_preparation.satiated or (state.food < 1 and not state.camp_preparation.kettle_selected)
+	kettle_preparation_button.tooltip_text = Loc.text("CAMP_PREPARATION_DESC")
+	_fit_button_text(kettle_preparation_button, 13, 9)
 	build_crusher_button.text = Loc.text(
 		"CAMP_BUILT_CRUSHER"
 		if bool(state.camp_upgrades.get("crusher", false))

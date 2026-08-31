@@ -12,6 +12,7 @@ const RitualCampSuite := preload("res://tests/ritual_camp_test.gd")
 const AudioSuite := preload("res://tests/audio_test.gd")
 const DungeonViewportSuite := preload("res://tests/dungeon_viewport_test.gd")
 const SaveSlotsSuite := preload("res://tests/save_slots_test.gd")
+const ExactResumeSuite := preload("res://tests/exact_resume_test.gd")
 const SoulLevelSuite := preload("res://tests/soul_level_test.gd")
 const AppearanceSuite := preload("res://tests/appearance_test.gd")
 const VisualOverhaulSuite := preload("res://tests/visual_overhaul_test.gd")
@@ -20,6 +21,7 @@ const HearingContactSuite := preload("res://tests/hearing_contact_test.gd")
 const CharacterAttributeRowSuite := preload("res://tests/character_attribute_row_test.gd")
 const AutomaticMovementInputSuite := preload("res://tests/automatic_movement_input_test.gd")
 const WikiContractSuite := preload("res://tests/wiki_contract_test.gd")
+const ContentStage1Suite := preload("res://tests/content_stage1_test.gd")
 const RoomDoorSuite := preload("res://tests/room_door_test.gd")
 
 var failures: Array[String] = []
@@ -30,10 +32,14 @@ func _init() -> void:
 
 
 func _run() -> void:
+	if not preload("res://tests/nightly_environment.gd").verify():
+		quit(1)
+		return
 	_test_localization()
 	_test_platform_foundations()
 	_test_run_state()
 	_test_floor_generation()
+	failures.append_array(await ContentStage1Suite.new().run(self))
 	failures.append_array(await RoomDoorSuite.new().run(self))
 	var regression_failures: Array[String] = await RegressionSuite.new().run(self)
 	failures.append_array(regression_failures)
@@ -53,6 +59,7 @@ func _run() -> void:
 	failures.append_array(dungeon_viewport_failures)
 	var save_slots_failures: Array[String] = await SaveSlotsSuite.new().run(self)
 	failures.append_array(save_slots_failures)
+	failures.append_array(await ExactResumeSuite.new().run(self))
 	var soul_level_failures: Array[String] = await SoulLevelSuite.new().run(self)
 	failures.append_array(soul_level_failures)
 	var appearance_failures: Array[String] = await AppearanceSuite.new().run(self)
@@ -842,9 +849,6 @@ func _test_main_scene() -> void:
 		and main.settings_controls_button.visible,
 		"Gamepad B must return from controls to settings without requiring a mouse",
 	)
-	main._change_inspection_radius(1)
-	_expect(main.inspection_radius == 7, "Inspection radius must be adjustable from settings")
-	main._change_inspection_radius(-1)
 	_expect(
 		not main.settings_exit_button.visible
 		and main.settings_new_game_button.text == Loc.text("BTN_MAIN_MENU"),
@@ -852,8 +856,8 @@ func _test_main_scene() -> void:
 	)
 	main._close_settings()
 	_expect(
-		not main.settings_open and main.inspection_radius == 6 and not main.language_button.visible,
-		"Closing settings must hide its language control and keep the chosen radius",
+		not main.settings_open and not main.language_button.visible,
+		"Closing settings must hide its language control",
 	)
 	main.name_input.text = "Тестовый"
 	main._on_name_confirmed()

@@ -7,6 +7,10 @@ const Renderer := preload("res://scripts/ui/game_renderer.gd")
 const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
 
 const WORLD_ASSETS := [
+	"res://assets/dungeon/enemy-blind-scavenger.png",
+	"res://assets/dungeon/enemy-arachnid.png",
+	"res://assets/dungeon/enemy-bone-crossbowman.png",
+	"res://assets/dungeon/enemy-slag-smith.png",
 	"res://assets/dungeon/player-skeleton.png",
 	"res://assets/dungeon/player-zombie.png",
 	"res://assets/dungeon/player-ghoul.png",
@@ -22,6 +26,20 @@ const PORTRAIT_ASSETS := [
 	"res://assets/portraits/form-almost-human.png",
 ]
 const ICON_ASSETS := [
+	"res://assets/items/item-rusty-sabre.png",
+	"res://assets/items/item-short-crossbow.png",
+	"res://assets/items/item-bone-buckler.png",
+	"res://assets/items/item-gravediggers-lamp.png",
+	"res://assets/items/item-watchmans-cap.png",
+	"res://assets/items/item-archivists-mask.png",
+	"res://assets/items/item-wanderers-gambeson.png",
+	"res://assets/items/item-lamellar-vest.png",
+	"res://assets/items/item-scouts-trousers.png",
+	"res://assets/items/item-heavy-leg-wraps.png",
+	"res://assets/items/item-pilgrims-boots.png",
+	"res://assets/items/item-aiming-ring.png",
+	"res://assets/items/item-thickblood-ring.png",
+	"res://assets/items/item-expedition-backpack.png",
 	"res://assets/items/item-bone-knife.png",
 	"res://assets/items/item-grave-mace.png",
 	"res://assets/items/item-bone-bow.png",

@@ -518,7 +518,7 @@ static func _equipment() -> Array:
 	ids.sort()
 	var stat_keys := [
 		"weapon_type", "range", "damage", "ranged_damage", "max_hp", "soul_bonus", "soul_level_bonus",
-		"accuracy", "dodge", "mana", "spell_power", "regeneration",
+		"accuracy", "dodge", "mana", "spell_power", "regeneration", "vision", "preparation",
 	]
 	for item_id in ids:
 		var item: Dictionary = Rules.EQUIPMENT[item_id]
@@ -584,7 +584,7 @@ static func _camp_upgrades() -> Array:
 		result.append({
 			"id": upgrade_id,
 			"name": _localized(String(upgrade["name"])),
-			"cost": _sorted_dictionary(upgrade["cost"]),
+			"cost": _sorted_dictionary(upgrade["cost"].merged({"banked_souls": upgrade["banked_souls"], "minotaur_tail": upgrade["minotaur_tail"]}) if upgrade_id == "mural" else upgrade["cost"]),
 		})
 	return result
 

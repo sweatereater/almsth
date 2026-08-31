@@ -65,7 +65,7 @@ func _test_camera_math() -> void:
 		and Presentation.next_auto_movement_speed_percent(200) == 225
 		and Presentation.next_auto_movement_speed_percent(225) == 100
 		and is_equal_approx(Presentation.auto_movement_speed_multiplier(225), 2.25),
-		"Automatic movement speed must cycle Base/+50/+100/+125 and expose one multiplier",
+		"Automatic movement speed must cycle Normal/Faster/Very fast/Maximum and expose one multiplier",
 	)
 	var large := Vector2i(20, 14)
 	_expect(DungeonView.world_pixel_size(large) == Vector2(1320, 924), "20x14 world size must be 1320x924")

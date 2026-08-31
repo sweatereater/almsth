@@ -15,6 +15,9 @@ func _init() -> void:
 
 
 func _run() -> void:
+	if not preload("res://tests/nightly_environment.gd").verify():
+		quit(1)
+		return
 	_soak_floor_generation()
 	_soak_cradle_pity()
 	_soak_progression_and_survival()
@@ -108,8 +111,10 @@ func _soak_progression_and_survival() -> void:
 		"Progression soak could not buy the Ghoul Stomach skill",
 	)
 	state.apply_camp_entry_effects()
-	_check(state.status_remaining("rested") == 500, "Camp did not start the 500-turn Rested soak")
-	_check(state.status_remaining("satiated") == 400, "Camp did not start the 400-turn Satiated soak")
+	_check(state.active_statuses.is_empty() and state.camp_preparation.pending, "Return must defer soak statuses until departure")
+	state.begin_expedition()
+	_check(state.status_remaining("rested") == 500, "Departure did not start the 500-turn Rested soak")
+	_check(state.status_remaining("satiated") == 400, "Departure did not start the 400-turn Satiated soak")
 	state.finish_completed_round("dash", state.effective_cooldown("dash"))
 	_check(state.cooldown_remaining("dash") == 10, "Rested Dash soak did not snapshot 10")
 	for status_turn in range(501):

@@ -4,6 +4,7 @@ extends RefCounted
 const Loc := preload("res://scripts/localization/localization.gd")
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 const StatusSystem := preload("res://scripts/game/status_system.gd")
+const MANA_REGENERATION_EPSILON := 0.000001
 
 ## Persistent state and current-run state are kept together for the prototype,
 ## but all transitions happen through methods so they can be split later.
@@ -37,6 +38,16 @@ var loadout: Dictionary = {
 ## Equipment worn by the character lives in loadout and is therefore not
 ## duplicated in the inventory count.
 var inventory: Dictionary = {}
+## Marks belong to real stacks/physical equipped slots, not to item definitions.
+var inventory_marks: Dictionary = {}
+var equipped_marks: Dictionary = {}
+## Permanent milestones/trophies never enter the death-cleared inventory.
+var milestones: Dictionary = {"minotaur_defeated": false, "minotaur_tail_awarded": false}
+var trophies: Dictionary = {"minotaur_tail": 0}
+var camp_preparation: Dictionary = {
+	"pending": false, "satiated": false, "rested": false, "kettle_selected": false,
+	"backpack_satiated": false, "backpack_rested": false, "backpack_removed": false,
+}
 var resources := {
 	"wood": 0,
 	"stone": 0,
@@ -47,6 +58,7 @@ var camp_upgrades := {
 	"whetstone": false,
 	"ritual_table": false,
 	"campfire": false,
+	"kettle": false, "bunk": false, "mural": false,
 }
 var skill_levels: Dictionary = GameRules.default_skill_levels()
 var ability_loadout: Dictionary = AbilitySystem.default_loadout()
@@ -61,6 +73,179 @@ var regeneration_progress := 0
 var mana_regeneration_progress := 0.0
 var total_turns := 0
 var cradle_miss_streak := 0
+
+## Exact snapshots bypass legacy migrations, but accept only the current schema.
+const SNAPSHOT_FIELDS := [
+	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
+	"character_name", "attributes", "current_form_id", "display_form_id", "soul_level",
+	"base_level", "checkpoint_floor", "rope_floor", "current_floor", "hp", "mana",
+	"loadout", "inventory", "inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation", "resources", "camp_upgrades", "skill_levels",
+	"ability_loadout", "ability_cooldowns", "active_statuses", "unspent_attribute_points",
+	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
+	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
+]
+
+
+func to_snapshot_data() -> Dictionary:
+	var data := {}
+	for field in SNAPSHOT_FIELDS:
+		var value: Variant = get(field)
+		data[field] = value.duplicate(true) if value is Dictionary else value
+	return data
+
+
+func restore_snapshot_data(data: Dictionary) -> bool:
+	data = snapshot_data_from_json(data)
+	if not is_snapshot_data_valid(data):
+		return false
+	for field in SNAPSHOT_FIELDS:
+		var value: Variant = data[field]
+		set(field, value.duplicate(true) if value is Dictionary else value)
+	return true
+
+
+static func is_snapshot_data_valid(data: Dictionary) -> bool:
+	data = snapshot_data_from_json(data)
+	var defaults := RunState.new()
+	for field in SNAPSHOT_FIELDS:
+		if not data.has(field):
+			return false
+		var expected: Variant = defaults.get(field)
+		var value: Variant = data[field]
+		if expected is int:
+			if not _snapshot_integer(value) or int(value) < 0:
+				return false
+		elif expected is float:
+			if (not value is float and not value is int) or not is_finite(float(value)):
+				return false
+			# The mana tick deliberately rounds near-integer progress up. Subtracting
+			# that tick can leave a tiny negative remainder; retain its exact bits so
+			# saving neither rejects a valid round nor changes the following ticks.
+			var minimum := -MANA_REGENERATION_EPSILON if field == "mana_regeneration_progress" else 0.0
+			if float(value) < minimum:
+				return false
+		elif typeof(value) != typeof(expected):
+			return false
+	if String(data.character_name).strip_edges().is_empty() or String(data.character_name).length() > 24:
+		return false
+	if not GameRules.FORMS.has(data.current_form_id) or data.highest_unlocked_form_index >= GameRules.FORM_ORDER.size():
+		return false
+	if data.current_floor < 1 or data.current_floor > 100 or data.checkpoint_floor < 1 or data.checkpoint_floor > 100 or data.rope_floor < 1 or data.rope_floor > 100:
+		return false
+	if data.hunger > 100 or data.hunger_turn_progress > 9:
+		return false
+	for attribute in GameRules.ATTRIBUTE_ORDER:
+		if not _snapshot_integer(data.attributes.get(attribute)) or int(data.attributes[attribute]) < GameRules.STARTING_ATTRIBUTE_VALUE:
+			return false
+	for skill in data.skill_levels:
+		if not GameRules.SKILLS.has(skill) or not _snapshot_integer(data.skill_levels[skill]):
+			return false
+		if int(data.skill_levels[skill]) < 0 or int(data.skill_levels[skill]) > int(GameRules.SKILLS[skill].max_level):
+			return false
+	if AbilitySystem.sanitize_loadout(data.ability_loadout, data.skill_levels) != data.ability_loadout:
+		return false
+	if AbilitySystem.sanitize_cooldowns(data.ability_cooldowns) != data.ability_cooldowns or StatusSystem.sanitize(data.active_statuses) != data.active_statuses:
+		return false
+	for resource in defaults.resources:
+		if not _snapshot_integer(data.resources.get(resource)) or int(data.resources[resource]) < 0:
+			return false
+	for upgrade in defaults.camp_upgrades:
+		if not data.camp_upgrades.get(upgrade) is bool:
+			return false
+	if data.loadout.get(GameRules.PERMANENT_JACKET_SLOT_ID) != GameRules.permanent_jacket_key():
+		return false
+	for slot in data.loadout:
+		var key: Variant = data.loadout[slot]
+		if not key is String or not GameRules.EQUIPMENT_SLOTS.has(slot) or defaults._sanitized_item_key(key) != key:
+			return false
+		if not GameRules.is_slot_unlocked(data.current_form_id, slot) or not GameRules.item_fits_slot(key, slot):
+			return false
+	for key in data.inventory:
+		if not key is String or key.is_empty() or defaults._sanitized_item_key(key) != key or not GameRules.is_item_movable(key):
+			return false
+		if not _snapshot_integer(data.inventory[key]) or int(data.inventory[key]) <= 0:
+			return false
+	for field in ["milestones", "camp_preparation"]:
+		if data[field].size() != defaults.get(field).size():
+			return false
+		for key in defaults.get(field):
+			if not data[field].get(key) is bool:
+				return false
+	if data.trophies.size() != 1 or not _snapshot_integer(data.trophies.get("minotaur_tail")) or int(data.trophies.minotaur_tail) not in [0, 1]:
+		return false
+	if data.milestones.minotaur_tail_awarded != data.milestones.minotaur_defeated:
+		return false
+	if int(data.trophies.minotaur_tail) + int(data.camp_upgrades.mural) != int(data.milestones.minotaur_tail_awarded):
+		return false
+	for key in data.inventory_marks:
+		if not data.inventory.has(key) or data.inventory_marks[key] not in ["keep", "salvage"]:
+			return false
+	for slot in data.equipped_marks:
+		if not data.loadout.has(slot) or data.equipped_marks[slot] not in ["keep", "salvage"] or not GameRules.is_item_movable(data.loadout[slot]):
+			return false
+	# Use the validated fields directly, never the migration path which derives the
+	# body from souls, clamps health, or grants missing permanent items.
+	for field in SNAPSHOT_FIELDS:
+		defaults.set(field, data[field])
+	if data.hp < 1 or data.hp > defaults.get_max_hp() or data.mana > defaults.get_max_mana():
+		return false
+	if not String(data.display_form_id).is_empty():
+		if defaults.get_skill_level("choose_appearance") <= 0 or not defaults.available_display_form_ids().has(data.display_form_id):
+			return false
+	return true
+
+
+static func _snapshot_integer(value: Variant) -> bool:
+	return value is int or (value is float and is_finite(value) and value == floor(value) and absf(value) < 9007199254740992.0)
+
+
+## The state-only setup API retains older field sanitation, but the new durable
+## records must be complete before any primary file is selected or state mutated.
+static func is_stage1_save_data_valid(data: Dictionary) -> bool:
+	var defaults := RunState.new()
+	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation", "inventory", "loadout", "camp_upgrades"]:
+		if not data.get(field) is Dictionary:
+			return false
+	for field in ["milestones", "camp_preparation"]:
+		if data[field].size() != defaults.get(field).size():
+			return false
+		for key in defaults.get(field):
+			if not data[field].get(key) is bool:
+				return false
+	for upgrade in defaults.camp_upgrades:
+		if not data.camp_upgrades.get(upgrade) is bool:
+			return false
+	if data.trophies.size() != 1 or not _snapshot_integer(data.trophies.get("minotaur_tail")) or int(data.trophies.minotaur_tail) not in [0, 1]:
+		return false
+	if data.milestones.minotaur_tail_awarded != data.milestones.minotaur_defeated:
+		return false
+	if int(data.trophies.minotaur_tail) + int(bool(data.camp_upgrades.get("mural", false))) != int(data.milestones.minotaur_tail_awarded):
+		return false
+	for key in data.inventory_marks:
+		if not key is String or not data.inventory.has(key) or data.inventory_marks[key] not in ["keep", "salvage"] or not GameRules.is_item_movable(key):
+			return false
+	for slot in data.equipped_marks:
+		if not slot is String or not data.loadout.has(slot) or data.equipped_marks[slot] not in ["keep", "salvage"] or not GameRules.is_item_movable(String(data.loadout[slot])):
+			return false
+	return true
+
+
+static func snapshot_data_from_json(data: Dictionary) -> Dictionary:
+	var normalized: Dictionary = _snapshot_json_value(data)
+	if normalized.has("mana_regeneration_progress") and (normalized.mana_regeneration_progress is int or normalized.mana_regeneration_progress is float):
+		normalized.mana_regeneration_progress = float(data.mana_regeneration_progress)
+	return normalized
+
+
+static func _snapshot_json_value(value: Variant) -> Variant:
+	if value is Dictionary:
+		var result := {}
+		for key in value:
+			result[key] = _snapshot_json_value(value[key])
+		return result
+	# JSON reads every number as a float. Only integral values can be restored as
+	# integers; fractional/corrupt values stay fractional for schema rejection.
+	return int(value) if value is float and _snapshot_integer(value) else value
 
 
 func _init() -> void:
@@ -102,8 +287,13 @@ func to_save_data() -> Dictionary:
 		"mana": mana,
 		"loadout": loadout.duplicate(true),
 		"inventory": inventory.duplicate(true),
+		"inventory_marks": inventory_marks.duplicate(true),
+		"equipped_marks": equipped_marks.duplicate(true),
+		"milestones": milestones.duplicate(true),
+		"trophies": trophies.duplicate(true),
+		"camp_preparation": camp_preparation.duplicate(true),
 		"resources": resources.duplicate(true),
-		"camp_upgrades": camp_upgrades.duplicate(true),
+		"camp_upgrades": _complete_camp_upgrades(),
 		"skill_levels": _complete_skill_levels(),
 		"ability_loadout": AbilitySystem.sanitize_loadout(ability_loadout, skill_levels),
 		"ability_cooldowns": AbilitySystem.sanitize_cooldowns(ability_cooldowns),
@@ -118,6 +308,13 @@ func to_save_data() -> Dictionary:
 		"total_turns": total_turns,
 		"cradle_miss_streak": cradle_miss_streak,
 	}
+
+
+func _complete_camp_upgrades() -> Dictionary:
+	var result := RunState.new().camp_upgrades
+	for upgrade in result:
+		result[upgrade] = bool(camp_upgrades.get(upgrade, false))
+	return result
 
 
 func _complete_skill_levels() -> Dictionary:
@@ -151,9 +348,17 @@ func _minimum_soul_level_for_progress(use_permanent_bonus := true) -> int:
 
 
 func restore_save_data(data: Dictionary) -> bool:
+	var has_stage1_fields := false
+	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation"]:
+		has_stage1_fields = has_stage1_fields or data.has(field)
+	if has_stage1_fields and not is_stage1_save_data_valid(data):
+		return false
 	var restored_name := String(data.get("character_name", "")).strip_edges()
 	if restored_name.is_empty():
 		return false
+	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation"]:
+		if data.get(field) is Dictionary:
+			set(field, data[field].duplicate(true))
 	character_name = restored_name.left(24)
 	var restored_attributes: Dictionary = GameRules.default_attributes()
 	var saved_attributes = data.get("attributes", {})
@@ -228,6 +433,7 @@ func restore_save_data(data: Dictionary) -> bool:
 		"whetstone": false,
 		"ritual_table": false,
 		"campfire": false,
+		"kettle": false, "bunk": false, "mural": false,
 	}
 	var saved_camp_upgrades = data.get("camp_upgrades", {})
 	if saved_camp_upgrades is Dictionary:
@@ -294,7 +500,7 @@ func restore_save_data(data: Dictionary) -> bool:
 func get_derived_stats() -> Dictionary:
 	var result := GameRules.calculate_derived_stats(attributes, current_form_id, loadout, base_level)
 	result["max_hp"] += get_skill_level("strong_bones") * 3
-	result["mana"] += get_skill_level("magic_awakening") * 5
+	result["mana"] = maxi(0, int(result["mana"]) + get_skill_level("magic_awakening") * 5)
 	result["damage"] += StatusSystem.modifier(active_statuses, "damage")
 	result["ranged_damage"] += StatusSystem.modifier(active_statuses, "ranged_damage")
 	result["regeneration"] += StatusSystem.modifier(active_statuses, "regeneration")
@@ -349,6 +555,7 @@ func get_vision_radius() -> int:
 	return (
 		GameRules.PLAYER_VISION_BASE_RADIUS
 		+ get_skill_level("sharp_vision") * GameRules.SHARP_VISION_BONUS_PER_LEVEL
+		+ roundi(GameRules._equipment_bonus(loadout, "vision"))
 	)
 
 
@@ -413,12 +620,15 @@ func get_soul_bonus() -> int:
 	return result
 
 
-func begin_expedition(start_floor := 99) -> void:
+func begin_expedition(start_floor := 99) -> bool:
+	if not grant_departure_preparation():
+		return false
 	_ensure_permanent_jacket()
 	current_floor = clampi(start_floor, 1, 99)
-	hp = get_max_hp()
+	# HP/satiety are restored on entry, never by repeated departures.
 	mana = get_max_mana()
 	mana_regeneration_progress = 0.0
+	return true
 
 
 func has_rope_destination() -> bool:
@@ -523,6 +733,8 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 	var old_max_hp := get_max_hp()
 	var old_max_mana := get_max_mana()
 	var replaced_id: String = loadout.get(slot, "")
+	_remove_backpack_bonus(slot, replaced_id)
+	equipped_marks.erase(slot)
 	loadout[slot] = item_key
 	var hp_difference := get_max_hp() - old_max_hp
 	hp = clampi(hp + hp_difference, 1, get_max_hp())
@@ -537,19 +749,44 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 
 
 func add_item(item_id: String, upgrade_level := 0, count := 1) -> String:
-	var item_key := GameRules.make_item_key(item_id, upgrade_level)
-	if not GameRules.EQUIPMENT.has(item_id) or not GameRules.is_item_movable(item_key) or count <= 0:
-		return ""
-	inventory[item_key] = int(inventory.get(item_key, 0)) + count
-	return item_key
+	return add_item_key(GameRules.make_item_key(item_id, upgrade_level), count)
 
 
-func add_item_key(item_key: String, count := 1) -> String:
+func add_item_key(item_key: String, count := 1, mark := "") -> String:
 	item_key = _sanitized_item_key(item_key)
 	if item_key.is_empty() or not GameRules.is_item_movable(item_key) or count <= 0:
 		return ""
-	inventory[item_key] = int(inventory.get(item_key, 0)) + count
+	var previous_count := int(inventory.get(item_key, 0))
+	var previous_mark := String(inventory_marks.get(item_key, ""))
+	var merged_mark := mark if mark in ["keep", "salvage"] else ""
+	if previous_count > 0:
+		merged_mark = "keep" if "keep" in [previous_mark, merged_mark] else ("salvage" if previous_mark == "salvage" and merged_mark == "salvage" else "")
+	inventory[item_key] = previous_count + count
+	set_item_mark(item_key, merged_mark)
 	return item_key
+
+
+func set_item_mark(item_key: String, mark: String, source := "inventory", slot := "") -> bool:
+	if mark not in ["", "keep", "salvage"] or not GameRules.is_item_movable(item_key):
+		return false
+	var marks := inventory_marks
+	var key := item_key
+	if source == "equipped":
+		if String(loadout.get(slot, "")) != item_key:
+			return false
+		marks = equipped_marks
+		key = slot
+	elif source != "inventory" or not inventory.has(item_key):
+		return false
+	if mark.is_empty():
+		marks.erase(key)
+	else:
+		marks[key] = mark
+	return true
+
+
+func item_mark(item_key: String, source := "inventory", slot := "") -> String:
+	return String(equipped_marks.get(slot, "")) if source == "equipped" else String(inventory_marks.get(item_key, ""))
 
 
 func remove_item(item_key: String, count := 1) -> bool:
@@ -561,6 +798,7 @@ func remove_item(item_key: String, count := 1) -> bool:
 		return false
 	if available == count:
 		inventory.erase(item_key)
+		inventory_marks.erase(item_key)
 	else:
 		inventory[item_key] = available - count
 	return true
@@ -597,15 +835,18 @@ func equip_from_inventory(item_key: String, destination_slot := "") -> Dictionar
 	var slot := String(destination["slot"])
 	if not GameRules.item_fits_slot(item_key, slot):
 		return {"ok": false, "reason": "slot_locked", "slot": slot}
+	var mark := item_mark(item_key)
+	var old_mark := String(equipped_marks.get(slot, ""))
 	if not remove_item(item_key):
 		return {"ok": false, "reason": "missing"}
 	var replaced_key := String(loadout.get(slot, ""))
 	var result := equip(item_key, slot)
 	if not bool(result.get("ok", false)):
-		add_item_key(item_key)
+		add_item_key(item_key, 1, mark)
 		return result
+	set_item_mark(item_key, mark, "equipped", slot)
 	if not replaced_key.is_empty():
-		add_item_key(replaced_key)
+		add_item_key(replaced_key, 1, old_mark)
 	result["replaced_id"] = replaced_key
 	return result
 
@@ -619,8 +860,11 @@ func unequip(slot: String) -> Dictionary:
 	var old_max_hp := get_max_hp()
 	var old_max_mana := get_max_mana()
 	var item_key := String(loadout[slot])
+	_remove_backpack_bonus(slot, item_key)
+	var mark := String(equipped_marks.get(slot, ""))
+	equipped_marks.erase(slot)
 	loadout.erase(slot)
-	add_item_key(item_key)
+	add_item_key(item_key, 1, mark)
 	hp = clampi(hp + get_max_hp() - old_max_hp, 1, get_max_hp())
 	mana = clampi(mana + get_max_mana() - old_max_mana, 0, get_max_mana())
 	return {"ok": true, "item_key": item_key, "slot": slot}
@@ -637,6 +881,9 @@ func add_resources(gains: Dictionary) -> Dictionary:
 
 func can_build_camp_upgrade(upgrade_id: String) -> bool:
 	if not GameRules.CAMP_UPGRADES.has(upgrade_id) or bool(camp_upgrades.get(upgrade_id, false)):
+		return false
+	var upgrade: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]
+	if upgrade_id == "mural" and (int(trophies.minotaur_tail) < int(upgrade.minotaur_tail) or banked_souls < int(upgrade.banked_souls)):
 		return false
 	var cost: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]["cost"]
 	for resource_id in cost:
@@ -658,6 +905,10 @@ func build_camp_upgrade(upgrade_id: String) -> Dictionary:
 	camp_upgrades[upgrade_id] = true
 	if upgrade_id == "campfire":
 		soul_level += GameRules.CAMPFIRE_SOUL_LEVEL_BONUS
+	elif upgrade_id == "mural":
+		banked_souls -= int(GameRules.CAMP_UPGRADES.mural.banked_souls)
+		trophies.minotaur_tail -= int(GameRules.CAMP_UPGRADES.mural.minotaur_tail)
+		soul_level += 1
 	return {"ok": true, "upgrade_id": upgrade_id}
 
 
@@ -699,9 +950,10 @@ func bind_item(item_key: String, source := "inventory", equipped_slot := "") -> 
 			return {"ok": false, "reason": "missing"}
 		loadout[equipped_slot] = result_key
 	elif source == "inventory":
+		var mark := item_mark(item_key)
 		if not remove_item(item_key):
 			return {"ok": false, "reason": "missing"}
-		add_item_key(result_key)
+		add_item_key(result_key, 1, mark)
 	else:
 		return {"ok": false, "reason": "source"}
 	spend_souls(GameRules.ITEM_BINDING_SOUL_COST)
@@ -714,7 +966,7 @@ func bind_item(item_key: String, source := "inventory", equipped_slot := "") -> 
 	}
 
 
-func dismantle_item(item_key: String) -> Dictionary:
+func dismantle_item(item_key: String, confirm_keep := false) -> Dictionary:
 	item_key = _sanitized_item_key(item_key)
 	if not GameRules.is_item_movable(item_key):
 		_ensure_permanent_jacket()
@@ -726,6 +978,8 @@ func dismantle_item(item_key: String) -> Dictionary:
 		return {"ok": false, "reason": "missing"}
 	if GameRules.is_item_bound(item_key):
 		return {"ok": false, "reason": "bound"}
+	if item_mark(item_key) == "keep" and not confirm_keep:
+		return {"ok": false, "reason": "keep_confirmation"}
 	if not remove_item(item_key):
 		return {"ok": false, "reason": "missing"}
 	var salvage: Dictionary = item.get("salvage", {})
@@ -733,16 +987,16 @@ func dismantle_item(item_key: String) -> Dictionary:
 	return {"ok": true, "gained": gained, "item_key": item_key}
 
 
-func dismantle_all_items() -> Dictionary:
+func dismantle_all_items(marked_only := false) -> Dictionary:
 	_ensure_permanent_jacket()
 	if not bool(camp_upgrades.get("crusher", false)):
 		return {"ok": false, "reason": "crusher"}
-	if count_unbound_inventory_items() <= 0:
+	if count_unbound_inventory_items(marked_only) <= 0:
 		return {"ok": false, "reason": "empty"}
 	var total_gained := {"wood": 0, "stone": 0, "cloth": 0}
 	var dismantled_count := 0
 	for item_key in inventory.keys():
-		if GameRules.is_item_bound(String(item_key)) or not GameRules.is_item_movable(String(item_key)):
+		if not _can_bulk_dismantle(String(item_key), marked_only):
 			continue
 		var count := int(inventory[item_key])
 		var salvage: Dictionary = GameRules.item_rules(String(item_key)).get("salvage", {})
@@ -750,8 +1004,9 @@ func dismantle_all_items() -> Dictionary:
 			total_gained[resource_id] += int(salvage.get(resource_id, 0)) * count
 		dismantled_count += count
 	for item_key in inventory.keys():
-		if not GameRules.is_item_bound(String(item_key)) and GameRules.is_item_movable(String(item_key)):
+		if _can_bulk_dismantle(String(item_key), marked_only):
 			inventory.erase(item_key)
+			inventory_marks.erase(item_key)
 	add_resources(total_gained)
 	return {
 		"ok": true,
@@ -760,11 +1015,15 @@ func dismantle_all_items() -> Dictionary:
 	}
 
 
-func count_unbound_inventory_items() -> int:
+func _can_bulk_dismantle(item_key: String, marked_only := false) -> bool:
+	return GameRules.is_item_movable(item_key) and not GameRules.is_item_bound(item_key) and item_mark(item_key) != "keep" and (not marked_only or item_mark(item_key) == "salvage")
+
+
+func count_unbound_inventory_items(marked_only := false) -> int:
 	_ensure_permanent_jacket()
 	var result := 0
 	for item_key in inventory:
-		if not GameRules.is_item_bound(String(item_key)) and GameRules.is_item_movable(String(item_key)):
+		if _can_bulk_dismantle(String(item_key), marked_only):
 			result += int(inventory[item_key])
 	return result
 
@@ -833,8 +1092,9 @@ func upgrade_weapon(
 		if upgrading_equipped:
 			loadout[equipped_slot] = result_item_key
 		else:
+			var mark := item_mark(item_key)
 			remove_item(item_key)
-			add_item_key(result_item_key)
+			add_item_key(result_item_key, 1, mark)
 	return {
 		"ok": true,
 		"outcome": outcome,
@@ -1154,7 +1414,7 @@ func _regenerate_mana() -> int:
 		mana_regeneration_progress = 0.0
 		return 0
 	mana_regeneration_progress += maximum * get_mana_regeneration_percent() / 100.0
-	var restored := floori(mana_regeneration_progress + 0.000001)
+	var restored := floori(mana_regeneration_progress + MANA_REGENERATION_EPSILON)
 	if restored <= 0:
 		return 0
 	mana_regeneration_progress -= restored
@@ -1186,25 +1446,77 @@ func safe_return() -> int:
 
 
 func apply_camp_entry_effects() -> Dictionary:
-	var result := {
-		"hunger_refilled": false,
-		"satiated_granted": false,
-		"rested_granted": false,
-	}
+	var result := {"hunger_refilled": false, "satiated_granted": false, "rested_granted": false}
 	if uses_hunger():
-		result["hunger_refilled"] = hunger < 100
+		result.hunger_refilled = hunger < 100
 		hunger = 100
 		hunger_turn_progress = 0
-		add_or_refresh_status("satiated", 400, 3)
-		result["satiated_granted"] = true
-	if GameRules.has_intrinsic_feature(current_form_id, "nervous_system"):
-		add_or_refresh_status("rested", 500, 5)
-		result["rested_granted"] = true
+	# The return earns one departure. Existing timed effects are not refreshed here.
+	camp_preparation.pending = true
+	camp_preparation.satiated = uses_hunger()
+	camp_preparation.rested = GameRules.has_intrinsic_feature(current_form_id, "nervous_system")
+	camp_preparation.kettle_selected = false
 	return result
+
+
+func select_kettle_preparation(selected: bool) -> bool:
+	if selected and (not camp_preparation.pending or not camp_preparation.satiated or not bool(camp_upgrades.kettle) or food < GameRules.CAMP_KETTLE_FOOD_COST):
+		return false
+	camp_preparation.kettle_selected = selected
+	return true
+
+
+func grant_departure_preparation() -> bool:
+	if not camp_preparation.pending:
+		return true
+	if camp_preparation.kettle_selected and food < GameRules.CAMP_KETTLE_FOOD_COST:
+		return false
+	var backpack := GameRules.base_item_id(String(loadout.get("back", ""))) == "expedition_backpack"
+	camp_preparation.backpack_satiated = backpack and camp_preparation.satiated
+	camp_preparation.backpack_rested = backpack and camp_preparation.rested
+	camp_preparation.backpack_removed = false
+	if camp_preparation.satiated:
+		var duration := int(StatusSystem.rules("satiated").default_duration) + (GameRules.EXPEDITION_BACKPACK_BONUS if backpack else 0) + (GameRules.CAMP_KETTLE_DURATION_BONUS if camp_preparation.kettle_selected else 0)
+		add_or_refresh_status("satiated", duration, 3)
+	if camp_preparation.rested:
+		add_or_refresh_status("rested", int(StatusSystem.rules("rested").default_duration) + (GameRules.EXPEDITION_BACKPACK_BONUS if backpack else 0) + (GameRules.CAMP_BUNK_DURATION_BONUS if camp_upgrades.bunk else 0), 5)
+	if camp_preparation.kettle_selected:
+		food -= GameRules.CAMP_KETTLE_FOOD_COST
+	camp_preparation.pending = false
+	camp_preparation.kettle_selected = false
+	return true
+
+
+func _remove_backpack_bonus(slot: String, old_key: String) -> void:
+	if slot != "back" or GameRules.base_item_id(old_key) != "expedition_backpack" or camp_preparation.backpack_removed:
+		return
+	# Also remove a still-running previous expedition bonus while at camp.
+	for status_id in ["satiated", "rested"]:
+		if not camp_preparation["backpack_" + status_id] or not active_statuses.has(status_id):
+			continue
+		active_statuses[status_id].remaining_turns = maxi(0, int(active_statuses[status_id].remaining_turns) - GameRules.EXPEDITION_BACKPACK_BONUS)
+		if int(active_statuses[status_id].remaining_turns) == 0:
+			active_statuses.erase(status_id)
+	camp_preparation.backpack_removed = true
+
+
+func record_enemy_defeat(enemy_id: String) -> bool:
+	if enemy_id != "minotaur" or milestones.minotaur_defeated:
+		return false
+	milestones.minotaur_defeated = true
+	milestones.minotaur_tail_awarded = true
+	trophies.minotaur_tail = 1
+	return true
+
+
+func is_camp_upgrade_revealed(upgrade_id: String) -> bool:
+	return upgrade_id != "mural" or int(trophies.minotaur_tail) > 0 or bool(camp_upgrades.mural)
 
 
 func die() -> Dictionary:
 	_ensure_permanent_jacket()
+	var old_inventory_marks := inventory_marks.duplicate()
+	var old_equipped_marks := equipped_marks.duplicate()
 	var lost_souls := carried_souls
 	var lost_items := 0
 	var kept_inventory: Dictionary = {}
@@ -1231,15 +1543,18 @@ func die() -> Dictionary:
 	display_form_id = ""
 	loadout.clear()
 	inventory.clear()
+	inventory_marks.clear()
+	equipped_marks.clear()
 	for item_key in kept_inventory:
-		inventory[item_key] = int(kept_inventory[item_key])
+		add_item_key(item_key, int(kept_inventory[item_key]), String(old_inventory_marks.get(item_key, "")))
 	for slot in kept_loadout:
 		var item_key := String(kept_loadout[slot])
 		var item := GameRules.item_rules(item_key)
 		if GameRules.is_slot_unlocked(current_form_id, slot) and GameRules.item_fits_slot(item_key, slot):
 			loadout[slot] = item_key
+			set_item_mark(item_key, String(old_equipped_marks.get(slot, "")), "equipped", slot)
 		else:
-			add_item_key(item_key)
+			add_item_key(item_key, 1, String(old_equipped_marks.get(slot, "")))
 	_ensure_permanent_jacket()
 	food = 0
 	hunger = 100
@@ -1250,6 +1565,8 @@ func die() -> Dictionary:
 	cradle_miss_streak = 0
 	ability_cooldowns.clear()
 	active_statuses.clear()
+	for key in camp_preparation:
+		camp_preparation[key] = false
 	hp = get_max_hp()
 	mana = get_max_mana()
 	return {"souls": lost_souls, "items": lost_items}

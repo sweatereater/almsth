@@ -68,7 +68,7 @@ func generate(floor_number: int, seed_value: int, cradle_chance := 0.0) -> Dicti
 		))
 	_build_wall_outline(tiles)
 
-	return {
+	var result := {
 		"width": WIDTH,
 		"height": HEIGHT,
 		"tiles": tiles,
@@ -89,6 +89,9 @@ func generate(floor_number: int, seed_value: int, cradle_chance := 0.0) -> Dicti
 		"cradle_roll_chance": clampf(float(cradle_chance), 0.0, 1.0),
 		"seed": seed_value,
 	}
+
+	FloorDecoration.populate(result, floor_number)
+	return result
 
 
 func _plan_rooms() -> Array:
@@ -276,12 +279,15 @@ func _spawn_enemies(
 	var depth := 100 - floor_number
 	var count := enemy_count_for_depth(depth) if count_override < 0 else count_override
 	var pool := GameRules.enemy_pool(floor_number)
+	var thematic := GameRules.biome_id(floor_number) == "weaving_crypts"
+	if thematic:
+		pool.erase("arachnid")
 	for _index in range(count):
 		var cell := _find_spawn_cell(tiles, occupied, start, minimum_distance)
 		if cell.x < 0:
 			break
 		occupied[cell] = true
-		var enemy_id := String(pool[rng.randi_range(0, pool.size() - 1)])
+		var enemy_id := "arachnid" if thematic and rng.randf() < GameRules.WEAVING_CRYPTS_THEMATIC_CHANCE else String(pool[rng.randi_range(0, pool.size() - 1)])
 		var rules: Dictionary = GameRules.ENEMIES[enemy_id]
 		var tier_bonus := enemy_stat_bonus_for_depth(depth, ENEMY_HP_DEPTH_INTERVAL)
 		var max_hp := int(rules["max_hp"]) + tier_bonus

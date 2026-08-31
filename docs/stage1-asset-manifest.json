@@ -1,0 +1,704 @@
+[
+	{
+		"alpha_bounds": [
+			10,
+			24,
+			244,
+			236
+		],
+		"generation": "built-in image_gen",
+		"id": "E01",
+		"kind": "world",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/enemy-blind-scavenger.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. New monster sprite: blind scavenger, squat thick broad armored quadruped with thick forelimbs, small eyeless lowered head and folded bony plate ridges on back. No horns or glowing eyes, no human clothing. Entire creature full body three-quarter front view facing slightly left, centered in square, all four feet near bottom; safe4% margin. Creature grounded, no shadow blob or floor. Final264x264 intended, anchorbottomcenter.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "c5e77cd761dc941431eb10e64795c914620e12ea19cf901f1be6afc52af56abf",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-a2bc057d-c042-48be-a93e-15cbf2e40338.png",
+		"source_sha256": "2173c3e3c399b79ba9b2908829f812e6c805107707bea48b9ee1da49b3abb3c7",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			16,
+			37,
+			231,
+			223
+		],
+		"generation": "built-in image_gen",
+		"id": "E03",
+		"kind": "world",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/enemy-arachnid.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. New monster sprite: crypt arachnid, one compact grey-brown chitin-covered SPIDER with exactly eight substantial bent legs around low rounded two-section body. No human skull, no giant web, no venom effects or decoration. Three-quarter top/front game view, square composition, entire creature, broad compact silhouette with feet inside safe4% margin. Final264x264 intended anchorbottomcenter.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "80896fe38bd0965fc0791aa172ca45ce369ab784047cb70b87834dfb4d4ef864",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-a33cf851-a84b-48d2-9452-025ba06ad52e.png",
+		"source_sha256": "fc5c450831f5674b20fce66e4ba9f24c24dbf1eb5503bdd0a5f9561fec498482",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			54,
+			4,
+			156,
+			256
+		],
+		"generation": "built-in image_gen",
+		"id": "E06",
+		"kind": "world",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/enemy-bone-crossbowman.png",
+		"prompt": "Retained art brief, not the unavailable exact original prompt: Bone Crossbowman. Weathered skeletal marksman holding a short crossbow in a readable three-quarter full-body pose; restrained dark fantasy painted game sprite; real RGBA cutout; final264x264, lower-center anchor132,260, one-cell footprint.",
+		"prompt_status": "retained art brief; exact early prompt unavailable",
+		"runtime_sha256": "0053e550eef7ee78d1c80d237c913ff83c0cd1254128736c8ce0c6800f433afa",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-8e87f19a-f0d7-446a-b131-1487f0e8f1f9.png",
+		"source_sha256": "1cc11b2e02bb103b990a052ab93893085dacb63fd836ca87ca95382c20035d53",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			57,
+			6,
+			150,
+			254
+		],
+		"generation": "built-in image_gen",
+		"id": "E09",
+		"kind": "world",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/enemy-slag-smith.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. New monster sprite: slag smith, one heavy stocky humanoid former forge worker in a coarse dark leather apron, blackened iron shoulder protection, thick bare arms dark with soot, head lowered under a blunt dark hood. Holds one large block-headed forge hammer vertically with its head lowered at his right side. Full body, three-quarter front view, powerful static stance with both boots on same baseline, safe4% margin in square. No fire/glow, no smoke, no scenic anvil. Final264x264 anchorbottomcenter.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "19264c003b17cd98daa3df7cf9773397a2011662db4d7c9fa4e18f0ef6647428",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-1aa3346b-f735-4dba-b172-ad439894c744.png",
+		"source_sha256": "473d0911931284335bf527f4faf76024e788e7c3a9c36c895e3f102610cf3697",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			9,
+			8,
+			114,
+			115
+		],
+		"generation": "built-in image_gen",
+		"id": "I01",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-rusty-sabre.png",
+		"prompt": "Retained art brief, not the unavailable exact original prompt: Rusty Sabre. A single worn curved iron sabre with visibly rusted blade, compact readable painterly inventory silhouette; real RGBA, no scene/text; final132x132 with8px clear padding.",
+		"prompt_status": "retained art brief; exact early prompt unavailable",
+		"runtime_sha256": "566c002ab48db7affac63ecba6281435b0540c60e40fd8387584581f58e8f12a",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-dae64b92-4838-40fc-9037-1b1da414d111.png",
+		"source_sha256": "4641c0f769266755eff3cea87da1279ed26763a1a406bea17c7e29e11c355182",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			8,
+			8,
+			116,
+			116
+		],
+		"generation": "built-in image_gen",
+		"id": "I04",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-short-crossbow.png",
+		"prompt": "Retained art brief, not the unavailable exact original prompt: Short Crossbow. One compact wooden and iron crossbow with short limbs and visible stock, dark muted painterly materials; real RGBA, no scene/text; final132x132 with8px clear padding.",
+		"prompt_status": "retained art brief; exact early prompt unavailable",
+		"runtime_sha256": "f41e541cc8f2a038fbed8467b645bb650c9e26f68f975c0b8e7562bc7cf9352f",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-62f9da65-1982-4217-b202-9df412db08bf.png",
+		"source_sha256": "abc90af7f19701e356c39a853ce53c2764628a91bf468f70077810010a556890",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			15,
+			14,
+			102,
+			104
+		],
+		"generation": "built-in image_gen",
+		"id": "I05",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-bone-buckler.png",
+		"prompt": "Retained art brief, not the unavailable exact original prompt: Bone Buckler. A compact small round shield made of weathered bone and dark bindings, readable silhouette, dark fantasy painterly inventory asset; real RGBA, no scene/text; final132x132 with8px clear padding.",
+		"prompt_status": "retained art brief; exact early prompt unavailable",
+		"runtime_sha256": "5767819d15f89c87642f98f460c10b2a1709da514658cb8f97d093309e6b5120",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-ef3c0584-2171-4671-9df6-17e9d9b41fc0.png",
+		"source_sha256": "f2587129c7b1701a191c59e1fd9964417ac26d36ce56c09eecf962ca11d8b032",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			21,
+			8,
+			89,
+			115
+		],
+		"generation": "built-in image_gen",
+		"id": "I06",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-gravediggers-lamp.png",
+		"prompt": "Retained art brief, not the unavailable exact original prompt: Gravedigger's Lamp. A worn portable grave lamp, dark metal frame and handle with a small warm light, restrained painterly inventory asset; real RGBA, no scene/text; final132x132 with8px clear padding.",
+		"prompt_status": "retained art brief; exact early prompt unavailable",
+		"runtime_sha256": "feb64d95305764cb010c44dea22247f1e4e54373135a19b4939eab4cbc5ccecd",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-1a1bdec8-503c-4358-bbe2-085cc62d9a8e.png",
+		"source_sha256": "d351f665765c0585616456fe378187a2077423f624dfd25f35a898b048bb2605",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			12,
+			28,
+			108,
+			75
+		],
+		"generation": "built-in image_gen",
+		"id": "I07",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-watchmans-cap.png",
+		"prompt": "Generate one Almsth inventory icon. Match reference only as painting style: worn dark fantasy materials, restrained painterly realism, clean compact silhouette readable at33px. High resolution SQUARE PNG for final132x132 icon. Object centered with8% empty margins; genuine transparent alpha background like provided PNG reference. No background pattern, scenery, floor, body, mannequin, captions, frame, UI, sheet, floating debris or additional objects. One watchman's cap: simple dark grey-brown soft worn cloth cap with short folded brim, enclosed compact silhouette, humble guard gear without badges or magic.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "325b3f446a08b703040b1739fc99d7dbf8dd05c0885f960ad672a334c7f372b3",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-f4bbd576-3964-4f04-9ff8-55549c3bf4b3.png",
+		"source_sha256": "a50cbbba666bf634dcdcda884ef5cd88dc18d4db707e78d1df071d8ed38253a9",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			27,
+			11,
+			77,
+			109
+		],
+		"generation": "built-in image_gen",
+		"id": "I08",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-archivists-mask.png",
+		"prompt": "Generate one Almsth inventory icon. Match reference only as painting style: worn dark fantasy materials, restrained painterly realism, clean compact silhouette readable at33px. High resolution SQUARE PNG for final132x132 icon. Object centered with8% empty margins; genuine transparent alpha background like provided PNG reference. No background pattern, scenery, floor, body, mannequin, captions, frame, UI, sheet, floating debris or additional objects. One archivist's full face mask, old parchment-bone ceramic with dark large eye openings, austere face, discreet incised marks, worn corners. No hood, no glowing eyes or floating head.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "aa6dbeb700dccc687f18165aed471c76c920ff86c52e0843e31bef9db8355cb5",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-605ed130-a4ed-4eee-91bf-28974c778f2f.png",
+		"source_sha256": "7abc3f1e9c6de6aa87bb677a8aa0067b9f12e2f064ac0977f2ee99db7678fa71",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			20,
+			11,
+			91,
+			110
+		],
+		"generation": "built-in image_gen",
+		"id": "I09",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-wanderers-gambeson.png",
+		"prompt": "Generate one Almsth inventory icon. Match reference only as painting style: worn dark fantasy materials, restrained painterly realism, clean compact silhouette readable at33px. High resolution SQUARE PNG for final132x132 icon. Object centered with8% empty margins; genuine transparent alpha background like provided PNG reference. No background pattern, scenery, floor, body, mannequin, captions, frame, UI, sheet, floating debris or additional objects. One wanderer's gambeson: sleeveless or short-sleeved padded quilted torso garment in faded brown-beige cloth, large stitched diamond quilting. Soft light armor, no metal, no lower body.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "e5ef4bf2753c9ae86b43bbf0216d27a40a618ca04c162c21ae62c8b12b0b730a",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-27538a12-8a27-4467-9ac3-c11316fc5cc2.png",
+		"source_sha256": "72fed7dac9e1054352eaded505fa759225064d535d85459c4d5ad598fd2296b8",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			23,
+			8,
+			85,
+			116
+		],
+		"generation": "built-in image_gen",
+		"id": "I10",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-lamellar-vest.png",
+		"prompt": "Generate one Almsth inventory icon. Match reference only as painting style: worn dark fantasy materials, restrained painterly realism, clean compact silhouette readable at33px. High resolution SQUARE PNG for final132x132 icon. Object centered with8% empty margins; genuine transparent alpha background like provided PNG reference. No background pattern, scenery, floor, body, mannequin, captions, frame, UI, sheet, floating debris or additional objects. One lamellar vest: heavy sleeveless torso armor made from large overlapping dark iron plates laced together over brown leather. Recognizably heavy compared to cloth gambeson, no arms/body inside.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "ce865e25b47b018520bd04295a5286e8326ce26b85342fb76b25500d5a2a37c0",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-59de5891-a030-43bb-a5f7-d74a6d920b59.png",
+		"source_sha256": "4500e63cdc4b3b82625b5757167a22dfa7168fc376852a9445b400c505f01c7a",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			33,
+			8,
+			66,
+			116
+		],
+		"generation": "built-in image_gen",
+		"id": "I11",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-scouts-trousers.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. A pair of scout's trousers, practical faded charcoal-brown cloth with clearly separated two trouser legs, modest belt and reinforced knees. Display just the garment front view.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "df33de8011bd48e28d1300677e9583314ee0952362dfda6b2df27c8a2ded738c",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-ebbc7023-bf57-4e79-a4d0-001d8b95b79e.png",
+		"source_sha256": "6f08f4bc898df73254ae58eb95987727db48d4b2e69589457f21af3df5dec7ff",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			19,
+			8,
+			93,
+			116
+		],
+		"generation": "built-in image_gen",
+		"id": "I12",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-heavy-leg-wraps.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. A paired set of heavy leg wraps: TWO wearable lower-leg cloth bindings shaped like short puttees/gaiters, coarse thick brown-beige cloth bands around tapered shin forms. No feet or legs inside, not medical bandage rolls.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "5c0c9742966b849b935d69075438f3fea6a35e86e20fab26f0b489d7398b0761",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-ce087982-a962-4a00-bd3c-9ddc473f0a20.png",
+		"source_sha256": "ed12e49bba7396628a6e9720b7b6a00245bde13b36664425e3cf92caef003708",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			9,
+			14,
+			113,
+			103
+		],
+		"generation": "built-in image_gen",
+		"id": "I15",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-pilgrims-boots.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. A pair of pilgrim's boots: closed low ankle leather boots, worn dark brown leather, visible thick soles, rounded sturdy toes, three-quarter perspective.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "b177c3db5f9c1d644c1023d2df4edb8e1492f03aa507e703071aff0583d38d13",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-938e6b21-dc48-4b6a-83fe-27ec0da91863.png",
+		"source_sha256": "b0e80c9af9cccc27b194a97a924ab6f8360b272f83827e99c06ff9500be566d9",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			12,
+			11,
+			108,
+			110
+		],
+		"generation": "built-in image_gen",
+		"id": "I17",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-aiming-ring.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. One aiming ring: worn dark silver ring with large simple flat geometric diamond-shaped metal signet with a tiny engraved straight sight notch. Compact broad silhouette; no literal floating crosshair HUD, no glowing magic, no gem.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "468d7bafb2d3185047d768e8fbadb21883b9da2ef08acfe453f8de74fe5ab61f",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-eeefb4f2-2e51-4b96-83cf-9865d45c8375.png",
+		"source_sha256": "ab866d8e0b428aa8b0839de156b37b9ccba1cd3146f3ed184e693a481a40941d",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			18,
+			10,
+			96,
+			112
+		],
+		"generation": "built-in image_gen",
+		"id": "I18",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-thickblood-ring.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. One thickblood ring: thick tarnished iron ring with one large dark blood-red oval cabochon stone, distinguishable bold silhouette and heavy setting, no blood drips, no magic glow.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "d50e35072207f7eab449aeb7e8bcafa319232bbc6cb1404b818c9ddbd1541709",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-67f4d235-f045-493a-8daf-6f23ad6f35f4.png",
+		"source_sha256": "0b3d8a2b38b9f11e4e4118ce9c51c71147c38dca3f7bd8d0811bfce6ac573fc7",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			10,
+			8,
+			112,
+			116
+		],
+		"generation": "built-in image_gen",
+		"id": "I19",
+		"kind": "icon",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/items/item-expedition-backpack.png",
+		"prompt": "One separate inventory item icon for Almsth. Match the reference dark muted painterly realism and weathered materials. High resolution SQUARE PNG. Object centered, fills80% canvas with clear compact silhouette, intended132x132. Transparent alpha channel background, no checkerboard or any background pattern. No character/body/mannequin, floor, text, frame, scene, multiple views, or UI. One expedition backpack: compact coarse tan-brown canvas travel backpack with a broad flap, two visible leather shoulder straps, brass buckles and a small rolled cloth at top. No tools/weapons/person, no extra pockets clutter.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "0d69975e9cd0be294a0fc2c620d41b0c563a07845bde3abff683db19028d4a9f",
+		"runtime_size": [
+			132,
+			132
+		],
+		"source_file": "exec-77a672b2-fa06-490b-a262-374fe6bc5592.png",
+		"source_sha256": "ae0066affe3ade86b92e8b0cf1ecc5e0c5dccc2da3ef8b8f213c0e6d4ddddba6",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			4,
+			101,
+			256,
+			159
+		],
+		"generation": "built-in image_gen",
+		"id": "O06",
+		"kind": "world",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/chest-crypt.png",
+		"prompt": "Create ONE isolated closed low stone coffin game sprite for Almsth. Slightly elevated three-quarter view like reference chest, compact shallow rectangular sarcophagus with worn heavy grey stone lid and broad bevels. It is a chest appearance variant, not stairs, no open lid, no bones, no candles or glow, no ground or pedestal. Restrained dark painterly realism, readable silhouette at40px. Square high-resolution PNG with real TRANSPARENT alpha background like reference, no background pattern. Entire coffin visible, centered horizontally, bottom aligned with small margins. Intended runtime264x264.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "fb04fec33fbc032e980063b4d3f7763e3939ead9facdcf6b7bfb3b1e032c8214",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-45b004f7-4ea0-4b97-9ff8-d30e66c37c0e.png",
+		"source_sha256": "1b21dacb1290144bb50a30d5da77ad465b1bf19484454f0b7b393db9dfd3cd5f",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			8,
+			66,
+			247,
+			132
+		],
+		"generation": "built-in image_gen",
+		"id": "D01a",
+		"kind": "decor",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/decor-cocoon-1.png",
+		"prompt": "One collapsed EMPTY cocoon shell lying low on the ground, isolated game decoration for Almsth. Elongated torn pale grey-brown silk shell with a broad empty opening and a few coarse fibers, no creature or loot inside, no webs spanning canvas. Top-down slightly elevated view, low contrast muted painterly realism, large readable forms. Transparent alpha background, no background pattern, no ground patch, no text, no scene. Square PNG intended264x264. Use reference for worn painterly detail only.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "a4c964ad3e75e9794f596d45c55dd10ec2a1d951ed0a528aa2fdfdbd868e6e07",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-a1e52159-5ccc-4a7e-84fb-ae6239345eeb.png",
+		"source_sha256": "9eb6784e6e3d51f831f03b55f2c1c37a4888c31cafa18046b538a865ec1e808e",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			7,
+			30,
+			250,
+			203
+		],
+		"generation": "built-in image_gen",
+		"id": "D01b",
+		"kind": "decor",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/dungeon/decor-cocoon-2.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. One empty dried spider cocoon husk torn wide open, lying low on its side. A SINGLE oblong flattened grey-beige woven shell with a ragged dark opening and sparse thick silk strands, no contents/body/loot/web carpet. Three-quarter overhead world game decoration perspective. Distinct asymmetric split on upper right, compact broad silhouette in square canvas. Final264x264.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "b9b8e41860ac0806ff507b7e6a47556a61cdc6238e2f870019b0e69d74517a14",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-a402c1c5-ebb8-446a-a3b5-375d42b4e229.png",
+		"source_sha256": "e6d258034d3d03054bcb80488d0aeb960cf0e24eb780ee99b6aad587dbc80a88",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			0,
+			0,
+			264,
+			264
+		],
+		"generation": "built-in image_gen",
+		"id": "D02a",
+		"kind": "tile",
+		"normalization": "Full-area Lanczos downscale to RGB8; no crop, recolor or edge painting",
+		"path": "assets/dungeon/decor-mosaic-1.png",
+		"prompt": "Create one seamless square game floor texture for Almsth: worn FUNERARY MOSAIC, motif of interwoven bone-like geometric bands built from large chipped slate and grey-beige tesserae. Direct orthographic top view, fills entire square edge to edge, seamless repeat on all sides. Match reference dark worn stone value and lighting, subdued LOW CONTRAST, matte, about8-10 main stone pieces across tile not hundreds of tiny dots. Faint funerary pattern, no obvious skull focal point, no magical circle, no glowing runes, no text, no border/frame. Fully opaque RGB texture intended264x264 covering1world cell, can repeat over a near-square8–16cell patch.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "baeb93537fb6e2fa5e8f8ad3aefd6678ff37dbc3cbad4b1bffc6220f5cd5bad7",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-f3ecd041-83ea-4e68-9c5f-e8c0aadd226b.png",
+		"source_sha256": "b45d6e5b6c118a6acc5c9f917af6176ad77ad6e1357f2cfa2bd5dc797d396be8",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			0,
+			0,
+			264,
+			264
+		],
+		"generation": "built-in image_gen",
+		"id": "D02b",
+		"kind": "tile",
+		"normalization": "Full-area Lanczos downscale to RGB8; no crop, recolor or edge painting",
+		"path": "assets/dungeon/decor-mosaic-2.png",
+		"prompt": "Create one seamless square game floor texture for Almsth: worn FUNERARY MOSAIC, a broad eroded stone rosette pattern made from large chipped slate and muted grey-beige stone pieces. Direct orthographic top view, fills entire square edge to edge, seamless repeat all sides. Match reference dark worn stone value, LOW CONTRAST, matte, roughly8-10 main stone pieces across not noisy tiny dots. Pattern almost worn away. No magical circle, no glowing runes, no text, no border/frame. Fully opaque RGB texture intended264x264 covering1world cell, repeats over8–16cell patch.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "d20a2ea89a7e60fd3886d1d06b9c09f4c32c41108e9658893cd6fb10f9bf0a6c",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-03dd1e42-7539-4ceb-a01a-cee1880b2ce7.png",
+		"source_sha256": "5aed79db31c653ef5515a35e9a591a08ac7a8720a1495e6acbbab1f2680a9520",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			0,
+			0,
+			264,
+			264
+		],
+		"generation": "built-in image_gen",
+		"id": "D02c",
+		"kind": "tile",
+		"normalization": "Full-area Lanczos downscale to RGB8; no crop, recolor or edge painting",
+		"path": "assets/dungeon/decor-mosaic-3.png",
+		"prompt": "Create one seamless square game floor texture for Almsth: worn FUNERARY MOSAIC, fragmented angular laurel wreath geometric pattern built from broad chipped dark slate and muted grey-beige stone pieces. Direct orthographic top view, fills entire square edge to edge, seamless repeat all sides. Match reference dark worn stone value, LOW CONTRAST matte,8-10 large pieces across tile, visible wear interrupts motif. No magical circle, no glowing runes, no text, no border/frame. Fully opaque RGB texture intended264x264 covering1world cell repeating over8–16cell patch.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "79ff7dd6be77584f960100dc0d8205483431019bb3b7ed1a0ed7535d56dedd5e",
+		"runtime_size": [
+			264,
+			264
+		],
+		"source_file": "exec-e72a661d-e95a-4e6f-ac70-03e4b095a98a.png",
+		"source_sha256": "d8a1c4e9bd0dd9c295087df63f331f70daed9af53aeb0e597ebea2c3eb534e94",
+		"source_size": [
+			1254,
+			1254
+		]
+	},
+	{
+		"alpha_bounds": [
+			10,
+			19,
+			111,
+			81
+		],
+		"generation": "built-in image_gen",
+		"id": "B02",
+		"kind": "camp",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/art/camp-kettle.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. One soot-black iron camp cooking kettle standing on three very short stout feet, lid leaning against its right side. No tall tripod, no fire, no steam. Three-quarter elevated front perspective. Full object, low broad silhouette, landscape132:104 aspect,4% clear margins. Final132x104 camp overlay.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "e2cc2f751ca6ea4e446d3c982bd112a8e43cf30fca124801ee44b10711d28433",
+		"runtime_size": [
+			132,
+			104
+		],
+		"source_file": "exec-0042bf55-a6f8-4207-905d-6c0570356dc2.png",
+		"source_sha256": "049f929d6f022e40971548f6d8d1a4b13ff7076d78f07344070268ed85dc2457",
+		"source_size": [
+			1415,
+			1112
+		]
+	},
+	{
+		"alpha_bounds": [
+			9,
+			6,
+			229,
+			90
+		],
+		"generation": "built-in image_gen",
+		"id": "B03",
+		"kind": "camp",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/art/camp-bunk.png",
+		"prompt": "Use case: stylized-concept. Create one separate Almsth game camp overlay, not a new scene. Input image is reference ONLY for worn dark fantasy painterly realism, front three-quarter camera and upper-left soft camp lighting. Isolated object with REAL transparent alpha-channel background: no floor or wall patch, no rectangular background, no checkerboard, no frame/text/UI, no cropped edges. Large clear simple silhouette, restrained muted materials. One low horizontal rustic wooden sleeping bunk/bed with faded beige-grey rough cloth mattress and a single folded blanket. No person, no canopy, no chair or adjacent objects. Long axis left-to-right, same elevated front-three-quarter view as reference. Wide low silhouette approximately248:100, modest4%margin, four low legs grounded at96%height. Intended final248x100 overlay.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "537b54fc9697e2d920096bb01c9090adfa4334819d90854435c2a01abf981bce",
+		"runtime_size": [
+			248,
+			100
+		],
+		"source_file": "exec-9904ef3c-e98a-4865-a23e-31a4f02c554c.png",
+		"source_sha256": "921cee3cae3cb1e94f73e348a3f192d55c56ad3876da3a9f5ce00627b0c9269d",
+		"source_size": [
+			1952,
+			806
+		]
+	},
+	{
+		"alpha_bounds": [
+			29,
+			8,
+			94,
+			68
+		],
+		"generation": "built-in image_gen",
+		"id": "B05",
+		"kind": "decal",
+		"normalization": "Premultiplied-alpha Lanczos downscale only; transparent empty-margin crop and deterministic padding, no background removal or alpha cleanup",
+		"path": "assets/art/camp-mural.png",
+		"prompt": "Use case stylized-concept. Make a single standalone painted game asset with a TRANSPARENT BACKGROUND, delivered as RGBA PNG. Reference image is for the transparent asset presentation and restrained weathered dark fantasy painting style only, not its subject. No scene or surface behind the object. Clear silhouette and simple broad readable forms, softly lit from upper left, muted ochre/grey-brown palette, no writing. One flat chalk-and-faded-ochre graffiti showing a horned minotaur head and muscular shoulders with a small celebratory human stick figure beneath. Only worn DRAWN STROKES with fully transparent spaces between them. Flat wall-facing view, no wall material or stone plate, no writing or framed object. Coarse handdrawn broad chalk outlines readable at152x84. Wide152:84 aspect, generous8%clear margins. Final152x84 camp wall decal.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "13bfd8bd381129e2a16dec8887d78cdf8eec5d487cdd5e25eab07bc6ea3e71a8",
+		"runtime_size": [
+			152,
+			84
+		],
+		"source_file": "exec-31376dae-f39c-426c-92b1-5007c485e2b4.png",
+		"source_sha256": "4c78d8470c01471a8576969f916cc57831020f182cd685f6de3c4ef0a9721fc0",
+		"source_size": [
+			1688,
+			932
+		]
+	}
+]

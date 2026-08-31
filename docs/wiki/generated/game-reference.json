@@ -70,6 +70,17 @@
   "camp_upgrades": [
     {
       "cost": {
+        "cloth": 6,
+        "wood": 8
+      },
+      "id": "bunk",
+      "name": {
+        "en": "Cloth Bunk",
+        "ru": "Тканевые нары"
+      }
+    },
+    {
+      "cost": {
         "cloth": 0,
         "stone": 3,
         "wood": 3
@@ -90,6 +101,32 @@
       "name": {
         "en": "Crusher",
         "ru": "Дробилка"
+      }
+    },
+    {
+      "cost": {
+        "cloth": 2,
+        "stone": 8,
+        "wood": 6
+      },
+      "id": "kettle",
+      "name": {
+        "en": "Expedition Kettle",
+        "ru": "Походный котёл"
+      }
+    },
+    {
+      "cost": {
+        "banked_souls": 60,
+        "cloth": 5,
+        "minotaur_tail": 1,
+        "stone": 20,
+        "wood": 12
+      },
+      "id": "mural",
+      "name": {
+        "en": "Mural",
+        "ru": "Мурал"
       }
     },
     {
@@ -119,14 +156,85 @@
   ],
   "counts": {
     "abilities": 6,
-    "camp_upgrades": 4,
-    "enemies": 5,
-    "equipment": 9,
+    "camp_upgrades": 7,
+    "enemies": 9,
+    "equipment": 23,
     "forms": 5,
     "skills": 15,
     "statuses": 2
   },
   "enemies": [
+    {
+      "abilities": [
+        "double_attack"
+      ],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
+      "dodge": 3,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "A",
+        "ru": "А"
+      },
+      "id": "arachnid",
+      "max_hp": 7,
+      "meat": false,
+      "min_depth": 11,
+      "name": {
+        "en": "Crypt Arachnid",
+        "ru": "Арахнид"
+      },
+      "range": 1,
+      "souls": 3,
+      "vision": 5
+    },
+    {
+      "abilities": [],
+      "accuracy": 2,
+      "attack_type": "melee",
+      "damage": 1,
+      "dodge": 1,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "S",
+        "ru": "П"
+      },
+      "id": "blind_scavenger",
+      "max_hp": 12,
+      "meat": true,
+      "min_depth": 4,
+      "name": {
+        "en": "Blind Scavenger",
+        "ru": "Слепой падальщик"
+      },
+      "range": 1,
+      "souls": 1,
+      "vision": 2
+    },
+    {
+      "abilities": [],
+      "accuracy": 4,
+      "attack_type": "ranged",
+      "damage": 2,
+      "dodge": 0,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "C",
+        "ru": "К"
+      },
+      "id": "bone_crossbowman",
+      "max_hp": 5,
+      "meat": false,
+      "min_depth": 20,
+      "name": {
+        "en": "Bone Crossbowman",
+        "ru": "Костяной арбалетчик"
+      },
+      "range": 5,
+      "souls": 3,
+      "vision": 6
+    },
     {
       "abilities": [],
       "accuracy": 2,
@@ -226,6 +334,29 @@
       "accuracy": 4,
       "attack_type": "melee",
       "damage": 2,
+      "dodge": 0,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "F",
+        "ru": "Ш"
+      },
+      "id": "slag_smith",
+      "max_hp": 10,
+      "meat": false,
+      "min_depth": 15,
+      "name": {
+        "en": "Slag Smith",
+        "ru": "Шлаковый кузнец"
+      },
+      "range": 1,
+      "souls": 5,
+      "vision": 5
+    },
+    {
+      "abilities": [],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
       "dodge": 2,
       "fixed_floor": null,
       "glyph": {
@@ -260,6 +391,47 @@
   },
   "equipment": [
     {
+      "category": "ring",
+      "id": "aiming_ring",
+      "min_depth": 15,
+      "name": {
+        "en": "Aiming Ring",
+        "ru": "Кольцо прицела"
+      },
+      "salvage": {
+        "stone": 1
+      },
+      "slots": [
+        "ring_1",
+        "ring_2"
+      ],
+      "stats": {
+        "accuracy": 2,
+        "dodge": -1
+      }
+    },
+    {
+      "category": "head",
+      "id": "archivists_mask",
+      "min_depth": 18,
+      "name": {
+        "en": "Archivist’s Mask",
+        "ru": "Маска архивиста"
+      },
+      "salvage": {
+        "cloth": 1,
+        "stone": 1
+      },
+      "slots": [
+        "head"
+      ],
+      "stats": {
+        "accuracy": -1,
+        "mana": 5,
+        "spell_power": 1
+      }
+    },
+    {
       "category": "weapon",
       "id": "bone_bow",
       "min_depth": 0,
@@ -281,6 +453,26 @@
       }
     },
     {
+      "category": "offhand",
+      "id": "bone_buckler",
+      "min_depth": 8,
+      "name": {
+        "en": "Bone Buckler",
+        "ru": "Костяной баклер"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "left_hand"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
       "category": "weapon",
       "id": "bone_knife",
       "min_depth": 0,
@@ -298,6 +490,25 @@
       "stats": {
         "accuracy": 1,
         "damage": 1
+      }
+    },
+    {
+      "category": "back",
+      "id": "expedition_backpack",
+      "min_depth": 15,
+      "name": {
+        "en": "Expedition Backpack",
+        "ru": "Походный рюкзак"
+      },
+      "salvage": {
+        "cloth": 3,
+        "wood": 1
+      },
+      "slots": [
+        "back"
+      ],
+      "stats": {
+        "preparation": 200
       }
     },
     {
@@ -322,6 +533,43 @@
     },
     {
       "category": "offhand",
+      "id": "gravediggers_lamp",
+      "min_depth": 6,
+      "name": {
+        "en": "Gravedigger’s Lamp",
+        "ru": "Лампа могильщика"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "left_hand"
+      ],
+      "stats": {
+        "vision": 1
+      }
+    },
+    {
+      "category": "legs",
+      "id": "heavy_leg_wraps",
+      "min_depth": 9,
+      "name": {
+        "en": "Heavy Leg Wraps",
+        "ru": "Плотные обмотки"
+      },
+      "salvage": {
+        "cloth": 2
+      },
+      "slots": [
+        "legs"
+      ],
+      "stats": {
+        "max_hp": 3
+      }
+    },
+    {
+      "category": "offhand",
       "id": "hollow_lantern",
       "min_depth": 18,
       "name": {
@@ -340,6 +588,26 @@
         "max_hp": 2,
         "soul_bonus": 1,
         "spell_power": 1
+      }
+    },
+    {
+      "category": "body",
+      "id": "lamellar_vest",
+      "min_depth": 15,
+      "name": {
+        "en": "Lamellar Vest",
+        "ru": "Ламельный жилет"
+      },
+      "salvage": {
+        "cloth": 2,
+        "stone": 2
+      },
+      "slots": [
+        "body"
+      ],
+      "stats": {
+        "dodge": -2,
+        "max_hp": 7
       }
     },
     {
@@ -382,6 +650,25 @@
       }
     },
     {
+      "category": "feet",
+      "id": "pilgrims_boots",
+      "min_depth": 4,
+      "name": {
+        "en": "Pilgrim’s Boots",
+        "ru": "Башмаки паломника"
+      },
+      "salvage": {
+        "cloth": 1,
+        "wood": 1
+      },
+      "slots": [
+        "feet"
+      ],
+      "stats": {
+        "max_hp": 2
+      }
+    },
+    {
       "category": "body",
       "id": "rotting_mail",
       "min_depth": 3,
@@ -398,6 +685,67 @@
       "stats": {
         "dodge": -1,
         "max_hp": 3
+      }
+    },
+    {
+      "category": "weapon",
+      "id": "rusty_sabre",
+      "min_depth": 5,
+      "name": {
+        "en": "Rusty Sabre",
+        "ru": "Ржавая сабля"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "right_hand"
+      ],
+      "stats": {
+        "accuracy": 2,
+        "damage": 1
+      }
+    },
+    {
+      "category": "legs",
+      "id": "scouts_trousers",
+      "min_depth": 14,
+      "name": {
+        "en": "Scout’s Trousers",
+        "ru": "Штаны лазутчика"
+      },
+      "salvage": {
+        "cloth": 1
+      },
+      "slots": [
+        "legs"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
+      "category": "weapon",
+      "id": "short_crossbow",
+      "min_depth": 12,
+      "name": {
+        "en": "Short Crossbow",
+        "ru": "Короткий арбалет"
+      },
+      "salvage": {
+        "cloth": 1,
+        "wood": 2
+      },
+      "slots": [
+        "right_hand"
+      ],
+      "stats": {
+        "accuracy": -1,
+        "range": 4,
+        "ranged_damage": 3,
+        "weapon_type": "ranged"
       }
     },
     {
@@ -421,6 +769,27 @@
       }
     },
     {
+      "category": "ring",
+      "id": "thickblood_ring",
+      "min_depth": 15,
+      "name": {
+        "en": "Thickblood Ring",
+        "ru": "Кольцо плотной крови"
+      },
+      "salvage": {
+        "cloth": 1,
+        "stone": 1
+      },
+      "slots": [
+        "ring_1",
+        "ring_2"
+      ],
+      "stats": {
+        "mana": -5,
+        "max_hp": 3
+      }
+    },
+    {
       "category": "body",
       "id": "unexpectedly_comfortable_jacket",
       "min_depth": 0,
@@ -434,6 +803,43 @@
       ],
       "stats": {
         "soul_level_bonus": 1
+      }
+    },
+    {
+      "category": "body",
+      "id": "wanderers_gambeson",
+      "min_depth": 10,
+      "name": {
+        "en": "Wanderer’s Gambeson",
+        "ru": "Стёганка странника"
+      },
+      "salvage": {
+        "cloth": 2
+      },
+      "slots": [
+        "body"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
+      "category": "head",
+      "id": "watchmans_cap",
+      "min_depth": 4,
+      "name": {
+        "en": "Watchman’s Cap",
+        "ru": "Шапка сторожа"
+      },
+      "salvage": {
+        "cloth": 1
+      },
+      "slots": [
+        "head"
+      ],
+      "stats": {
+        "max_hp": 2
       }
     }
   ],
@@ -1253,7 +1659,7 @@
       },
       "icon": "rested_ember",
       "id": "rested",
-      "max_duration": 500,
+      "max_duration": 800,
       "modifiers": {
         "damage": 1,
         "ranged_damage": 1
@@ -1274,7 +1680,7 @@
       },
       "icon": "satiated_meal",
       "id": "satiated",
-      "max_duration": 400,
+      "max_duration": 700,
       "modifiers": {
         "regeneration": 1
       },

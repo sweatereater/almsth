@@ -108,8 +108,12 @@ func _test_legacy_import_once() -> void:
 		"version": 1,
 		"state": {"character_name": "Imported", "banked_souls": 11, "carried_souls": 2, "absorbed_souls": 20},
 	}))
+	var old_bytes := FileAccess.get_file_as_string(LEGACY_PATH)
+	var rejected := SaveSystem.import_legacy_once(LEGACY_PATH, SLOTS_PATH, 299, func() -> String: return "old-rejected")
+	_expect(not rejected.get("imported", false) and FileAccess.get_file_as_string(LEGACY_PATH) == old_bytes, "Old test saves stay untouched and never auto-import")
+	_write_text(LEGACY_PATH, JSON.stringify({"version": SaveSystem.SAVE_VERSION, "kind": "state_only", "state": RunState.new().to_save_data().merged({"character_name": "Imported", "banked_souls": 11, "carried_souls": 2, "absorbed_souls": 20}, true)}))
 	var imported := SaveSystem.import_legacy_once(LEGACY_PATH, SLOTS_PATH, 300, func() -> String: return "legacy-slot")
-	_expect(bool(imported.get("ok", false)) and bool(imported.get("imported", false)), "A valid v1 legacy save must import once")
+	_expect(bool(imported.get("ok", false)) and bool(imported.get("imported", false)), "An explicit current state-only helper can import once")
 	var imported_load := SaveSystem.load_slot("legacy-slot", SLOTS_PATH)
 	_expect(
 		bool(imported_load.get("ok", false))
@@ -229,7 +233,7 @@ func _test_permanent_slot_deletion() -> void:
 	var imported_dir := ROOT + "/delete-imported"
 	var imported_legacy := ROOT + "/delete-imported-legacy.json"
 	_write_text(imported_legacy, JSON.stringify({
-		"version": 1, "state": {"character_name": "Imported Delete", "absorbed_souls": 1},
+		"version": SaveSystem.SAVE_VERSION, "kind": "state_only", "state": RunState.new().to_save_data().merged({"character_name": "Imported Delete", "absorbed_souls": 1}, true),
 	}))
 	var imported := SaveSystem.import_legacy_once(
 		imported_legacy, imported_dir, 700, func() -> String: return "imported-delete",
@@ -257,11 +261,12 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	main.persistence_enabled = true
 	main.audio_playback_enabled = false
 	main.save_slots_directory = ui_slots
+	main.settings_path = ROOT + "/settings.cfg"
 	main.legacy_save_path = ROOT + "/missing-legacy.json"
 	var ids := ["single", "history-a", "history-b", "history-c"]
 	var times := [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800]
 	main.save_id_factory = func() -> String: return String(ids.pop_front())
-	main.save_time_provider = func() -> int: return int(times.pop_front())
+	main.save_time_provider = func() -> int: return int(times.pop_front()) if not times.is_empty() else 1900
 	tree.root.add_child(main)
 	await tree.process_frame
 	await tree.process_frame
@@ -695,6 +700,7 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 
 	# Opening the menu cancels every transient gameplay mode and blocks world input.
 	main.screen = main.Screen.DUNGEON
+	main.state.current_floor = 99
 	main.floor_data = _floor_fixture()
 	main.player_pos = Vector2i(2, 2)
 	var player_before: Vector2i = main.player_pos
@@ -720,8 +726,9 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	main.save_menu_panel.exit_button.pressed.emit()
 	_expect(
 		exit_calls.size() == 1 and SaveSystem.list_slots(ui_slots).size() == slot_count_before_exit,
-		"Injected dungeon Exit must request shutdown once without publishing a dungeon snapshot",
+		"Injected dungeon Exit must save the active slot and request shutdown once without creating a history milestone",
 	)
+	_expect(not SaveSystem.load_slot(main.active_save_slot_id, ui_slots).get("snapshot", {}).is_empty(), "Dungeon Exit must publish an exact snapshot")
 	main._resume_from_main_menu()
 
 	# Starting another character keeps every existing slot and resets the policy checkbox to ON.
@@ -752,6 +759,9 @@ func _floor_fixture() -> Dictionary:
 		"width": 5, "height": 5, "tiles": tiles, "start": Vector2i(1, 1),
 		"base_gate": Vector2i(0, 0), "exit": Vector2i(4, 4), "exit_known": false,
 		"cradle": Vector2i(-1, -1), "items": [], "enemies": [],
+		"cradle_known": false, "cradle_used": false, "cradle_pity_resolved": true,
+		"seed": 1, "cradle_roll_chance": 0.0,
+		"biome": "", "initial_enemy_kinds": [], "decorations": {},
 		"visible_cells": {}, "explored_cells": {}, "observed_cells": {},
 	}
 

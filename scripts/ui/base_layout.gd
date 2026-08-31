@@ -57,9 +57,25 @@ static func map_from_old_image(rect: Rect2) -> Rect2:
 	return map_normalized_rect(normalized_rect(rect, OLD_IMAGE_RECT), IMAGE_RECT)
 
 
+const STAGE1_OVERLAY_RECTS := {
+	"kettle": Rect2(608, 438, 132, 104),
+	"bunk": Rect2(78, 444, 248, 100),
+	"mural": Rect2(632, 142, 152, 84),
+}
+const STAGE1_HITBOX_RECTS := {
+	"kettle": Rect2(622, 448, 106, 88),
+	"bunk": Rect2(88, 464, 228, 70),
+	"mural": Rect2(632, 142, 152, 84),
+}
+
+
 static func station_overlay_rect(station_id: String) -> Rect2:
+	if STAGE1_OVERLAY_RECTS.has(station_id):
+		return STAGE1_OVERLAY_RECTS[station_id]
 	return map_from_old_image(STATION_OVERLAY_SOURCE_RECTS.get(station_id, Rect2()))
 
 
 static func station_hitbox_rect(station_id: String) -> Rect2:
+	if STAGE1_HITBOX_RECTS.has(station_id):
+		return STAGE1_HITBOX_RECTS[station_id]
 	return map_from_old_image(STATION_HITBOX_SOURCE_RECTS.get(station_id, Rect2()))
