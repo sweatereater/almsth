@@ -3,6 +3,7 @@ extends SceneTree
 const Loc := preload("res://scripts/localization/localization.gd")
 const InputProfile := preload("res://scripts/system/input_bindings.gd")
 const StoreBridge := preload("res://scripts/platform/store_gateway.gd")
+const BodySkillSuite := preload("res://tests/body_skill_test.gd")
 const RegressionSuite := preload("res://tests/regression_test.gd")
 const AbilitySuite := preload("res://tests/ability_test.gd")
 const RangedCombatSuite := preload("res://tests/ranged_combat_test.gd")
@@ -23,6 +24,9 @@ const AutomaticMovementInputSuite := preload("res://tests/automatic_movement_inp
 const WikiContractSuite := preload("res://tests/wiki_contract_test.gd")
 const ContentStage1Suite := preload("res://tests/content_stage1_test.gd")
 const RoomDoorSuite := preload("res://tests/room_door_test.gd")
+const CharacterSexSuite := preload("res://tests/character_sex_test.gd")
+const CampBuildPanelSuite := preload("res://tests/camp_build_panel_test.gd")
+const NightlyContractSuite := preload("res://tests/nightly_contract_test.gd")
 
 var failures: Array[String] = []
 
@@ -38,7 +42,11 @@ func _run() -> void:
 	_test_localization()
 	_test_platform_foundations()
 	_test_run_state()
+	failures.append_array(BodySkillSuite.new().run())
 	_test_floor_generation()
+	failures.append_array(await CharacterSexSuite.new().run(self))
+	failures.append_array(NightlyContractSuite.new().run())
+	failures.append_array(await CampBuildPanelSuite.new().run(self))
 	failures.append_array(await ContentStage1Suite.new().run(self))
 	failures.append_array(await RoomDoorSuite.new().run(self))
 	var regression_failures: Array[String] = await RegressionSuite.new().run(self)
@@ -278,27 +286,25 @@ func _test_run_state() -> void:
 	var locked_sharp_vision := vision_progression.purchase_skill("sharp_vision")
 	_expect(
 		not locked_sharp_vision["ok"] and locked_sharp_vision["reason"] == "stage_locked",
-		"Sharp Vision must remain locked until the revenant stage is reached",
+		"Sharp Vision must remain locked until the zombie stage is reached",
 	)
-	vision_progression.highest_unlocked_form_index = GameRules.FORM_ORDER.find("revenant")
+	vision_progression.current_form_id = "zombie"
+	vision_progression.absorbed_souls = int(GameRules.FORMS["zombie"]["threshold"])
+	vision_progression.highest_unlocked_form_index = GameRules.FORM_ORDER.find("zombie")
 	var first_sharp_vision := vision_progression.purchase_skill("sharp_vision")
 	var second_sharp_vision := vision_progression.purchase_skill("sharp_vision")
 	_expect(
 		first_sharp_vision["ok"] and first_sharp_vision["cost"] == 80
-		and second_sharp_vision["ok"] and second_sharp_vision["cost"] == 120
-		and vision_progression.get_vision_radius() == 6,
-		"Two Sharp Vision levels must cost 80/120 souls and extend vision to six cells",
-	)
-	_expect(
-		vision_progression.purchase_skill("sharp_vision")["reason"] == "max_level",
-		"Sharp Vision must stop at level two",
+		and not second_sharp_vision["ok"] and second_sharp_vision["reason"] == "max_level"
+		and vision_progression.get_vision_radius() == 5,
+		"One Sharp Vision level must cost 80 souls and extend actual Zombie vision to five cells",
 	)
 	var restored_vision_progression := RunState.new()
 	restored_vision_progression.restore_save_data(vision_progression.to_save_data())
 	_expect(
-		restored_vision_progression.get_skill_level("sharp_vision") == 2
-		and restored_vision_progression.get_vision_radius() == 6,
-		"Sharp Vision levels and their bonus must survive saving",
+		restored_vision_progression.get_skill_level("sharp_vision") == 1
+		and restored_vision_progression.get_vision_radius() == 5,
+		"Sharp Vision and its actual-form bonus must survive saving",
 	)
 
 	var magic_progression := RunState.new()
@@ -465,8 +471,8 @@ func _test_run_state() -> void:
 	)
 	var locked_fundamentals := progression.purchase_skill("fundamentals")
 	_expect(
-		not locked_fundamentals["ok"] and locked_fundamentals["reason"] == "prerequisite",
-		"Skeleton skills must follow their prerequisite chain",
+		not locked_fundamentals["ok"] and locked_fundamentals["reason"] == "stage_locked",
+		"Develop Fundamentals must belong to the Almost Human stage",
 	)
 	var hp_before_bones := progression.get_max_hp()
 	var bones_purchase := progression.purchase_skill("strong_bones")
@@ -475,20 +481,25 @@ func _test_run_state() -> void:
 		progression.get_max_hp() == hp_before_bones + 3,
 		"Each Sturdy Bones level must add exactly three maximum HP",
 	)
-	var fundamentals_purchase := progression.purchase_skill("fundamentals")
-	_expect(fundamentals_purchase["ok"], "Develop Fundamentals must unlock after Sturdy Bones")
-	_expect(progression.unspent_attribute_points == 5, "Develop Fundamentals must grant five attribute points once")
-	var vitality_before := int(progression.attributes["vitality"])
-	_expect(progression.spend_attribute_point("vitality"), "Granted attribute points must be spendable")
+	var fundamentals_progression := RunState.new()
+	fundamentals_progression.current_form_id = "almost_human"
+	fundamentals_progression.absorbed_souls = int(GameRules.FORMS["almost_human"]["threshold"])
+	fundamentals_progression.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
+	fundamentals_progression.banked_souls = 25
+	var fundamentals_purchase := fundamentals_progression.purchase_skill("fundamentals")
+	_expect(fundamentals_purchase["ok"], "Develop Fundamentals must be an independent Almost Human purchase")
+	_expect(fundamentals_progression.unspent_attribute_points == 5, "Develop Fundamentals must grant five attribute points once")
+	var vitality_before := int(fundamentals_progression.attributes["vitality"])
+	_expect(fundamentals_progression.spend_attribute_point("vitality"), "Granted attribute points must be spendable")
 	_expect(
-		progression.attributes["vitality"] == vitality_before + 1
-		and progression.unspent_attribute_points == 4,
+		fundamentals_progression.attributes["vitality"] == vitality_before + 1
+		and fundamentals_progression.unspent_attribute_points == 4,
 		"Spending an attribute point must update the stat and remaining pool",
 	)
 	var locked_regeneration := progression.purchase_skill("flesh_regeneration")
 	_expect(
 		not locked_regeneration["ok"] and locked_regeneration["reason"] == "stage_locked",
-		"Zombie skills must remain locked until the zombie stage is reached",
+		"Circulatory regeneration must remain locked until the Ghoul stage is reached",
 	)
 	progression.add_souls(10)
 	_expect(progression.evolve_at_cradle()["ok"], "The Cradle must unlock zombie for progression tests")
@@ -507,9 +518,24 @@ func _test_run_state() -> void:
 	var regeneration_before_skill := progression.advance_survival_turn()
 	_expect(
 		regeneration_before_skill["healed"] == 0 and progression.hp == regeneration_hp_before_skill,
-		"Zombie regeneration must remain inactive until its skill is learned",
+		"Zombie base regeneration must remain inactive without the Ghoul skill",
 	)
-	_expect(progression.purchase_skill("flesh_regeneration")["ok"], "Zombie regeneration must be purchasable")
+	_expect(
+		progression.purchase_skill("flesh_regeneration")["reason"] == "stage_locked",
+		"Circulatory regeneration must remain locked until the Ghoul stage",
+	)
+	progression.add_resources({"wood": 3, "stone": 3})
+	_expect(
+		bool(progression.build_camp_upgrade("campfire").get("ok", false)),
+		"Campfire must supply the second effective Soul Level before Ghoul evolution",
+	)
+	progression.add_souls(14)
+	_expect(progression.evolve_at_cradle()["ok"], "The Cradle must unlock ghoul for Stomach tests")
+	_expect(
+		progression.current_form_id == "ghoul" and not progression.uses_hunger(),
+		"Ghoul evolution alone must still leave Satiety disabled",
+	)
+	_expect(progression.purchase_skill("flesh_regeneration")["ok"], "Ghoul regeneration must be purchasable")
 	progression.attributes["vitality"] = 1000
 	progression.hp = progression.get_max_hp() - 2
 	progression.hunger = 0
@@ -519,13 +545,7 @@ func _test_run_state() -> void:
 		regeneration_turn["healed"] == 1
 		and regeneration_turn["starvation_damage"] == 0
 		and progression.hunger == 0 and progression.hunger_turn_progress == 9,
-		"Zombie Regeneration must work independently while locked Satiety has no effect",
-	)
-	progression.add_souls(14)
-	_expect(progression.evolve_at_cradle()["ok"], "The Cradle must unlock ghoul for Stomach tests")
-	_expect(
-		progression.current_form_id == "ghoul" and not progression.uses_hunger(),
-		"Ghoul evolution alone must still leave Satiety disabled",
+		"Ghoul regeneration must work independently while Satiety remains locked",
 	)
 	var stomach_purchase := progression.purchase_skill("stomach")
 	_expect(
@@ -564,11 +584,11 @@ func _test_run_state() -> void:
 	)
 	_expect(
 		progression_restored.get_skill_level("strong_bones") == 1
-		and progression_restored.get_skill_level("fundamentals") == 1
+		and progression_restored.get_skill_level("fundamentals") == 0
 		and progression_restored.get_skill_level("flesh_regeneration") == 1
 		and progression_restored.get_skill_level("stomach") == 1
 		and progression_restored.uses_hunger()
-		and progression_restored.unspent_attribute_points == 4
+		and progression_restored.unspent_attribute_points == 0
 		and progression_restored.highest_unlocked_form_index == progression.highest_unlocked_form_index
 		and progression_restored.food == 3
 		and progression_restored.hunger == 0
@@ -694,6 +714,13 @@ func _test_main_scene() -> void:
 	root.add_child(main)
 	await process_frame
 	_expect(main.screen == main.Screen.NAME_CREATION, "The game must open at character naming")
+	_expect(not main.title_label.visible, "Character naming must not show a redundant corner title")
+	_expect(main.name_prompt_label.text == "Введите имя персонажа", "Character naming must use the direct Russian prompt")
+	_expect(
+		not main.sex_choice_panel.labels.female.visible
+		and not main.sex_choice_panel.labels.male.visible,
+		"Character portraits must not show redundant sex captions",
+	)
 	_expect(not main.language_button.visible, "Language switch must not occupy the permanent top bar")
 	_expect(main.menu_button.visible, "Menu must be available in the upper-right corner")
 	main._open_settings()
@@ -709,7 +736,10 @@ func _test_main_scene() -> void:
 	)
 	main._on_language_pressed()
 	_expect(Loc.current_locale == "en", "Language button in the menu must switch the active locale")
-	_expect(main.title_label.text == "Character Creation — Name", "Visible UI must refresh after a language switch")
+	_expect(
+		not main.title_label.visible and main.name_prompt_label.text == "Enter character name",
+		"Visible character-creation copy must refresh after a language switch",
+	)
 	_expect(main.attribute_name_labels["strength"].text == "Strength", "Attribute labels must be localized")
 	main._on_language_pressed()
 	_expect(
@@ -953,8 +983,9 @@ func _test_main_scene() -> void:
 	main._select_skill_stage("revenant")
 	_expect(
 		not main.revenant_tab_button.disabled
-		and main.skill_node_buttons["sharp_vision"].visible,
-		"Unlocking revenant must reveal the Sharp Vision skill node",
+		and main.skill_node_buttons["nervous_system"].visible
+		and not main.skill_node_buttons["sharp_vision"].visible,
+		"Unlocking Revenant must reveal Nervous System and keep Zombie Sharp Vision hidden",
 	)
 	main.state.highest_unlocked_form_index = 0
 	main._select_skill_stage("skeleton")
@@ -1295,6 +1326,8 @@ func _test_main_scene() -> void:
 		"enemies": [],
 	}
 	main.player_pos = Vector2i(1, 1)
+	main.state.current_form_id = "zombie"
+	main.state.absorbed_souls = int(GameRules.FORMS["zombie"]["threshold"])
 	main.state.skill_levels["sharp_vision"] = 0
 	main._update_player_visibility(false)
 	_expect(
@@ -1321,13 +1354,13 @@ func _test_main_scene() -> void:
 		main._get_inspection_target().get("kind", "") == "item",
 		"A chest must become identifiable after entering true vision",
 	)
-	main.state.skill_levels["sharp_vision"] = 2
-	main._update_player_visibility(false)
 	_expect(
-		main._is_cell_visible(Vector2i(7, 1)),
-		"Two Sharp Vision levels must reveal a clear cell at distance six",
+		not main._is_cell_visible(Vector2i(7, 1)),
+		"Sharp Vision must stop at one level and leave distance six outside true vision",
 	)
 	main.state.skill_levels["sharp_vision"] = 0
+	main.state.current_form_id = "skeleton"
+	main.state.absorbed_souls = 0
 	var path_test_tiles := {}
 	for y in range(5):
 		for x in range(5):
@@ -1378,6 +1411,12 @@ func _test_main_scene() -> void:
 		main._get_inspection_target().get("kind", "") == "item",
 		"A remembered item must remain selectable outside current visibility",
 	)
+	# The following navigation assertion isolates wall routing. Move the earlier
+	# memory landmarks off its corridor because live enemies correctly treat
+	# chests and landmarks as occupied cells.
+	main.floor_data["base_gate"] = Vector2i(0, 4)
+	main.floor_data["cradle"] = Vector2i(4, 4)
+	main.floor_data["items"][0]["pos"] = Vector2i(4, 0)
 	main.floor_data["enemies"] = [{
 		"uid": "blocked_primary", "id": "grave_rat", "pos": Vector2i(1, 2),
 		"hp": 2, "max_hp": 2, "damage": 1, "accuracy": 2, "dodge": 2,
@@ -1419,6 +1458,11 @@ func _test_main_scene() -> void:
 	_expect(
 		main._enemy_step_toward_player(0) == Vector2i(1, 1),
 		"Enemies must route around a wall even when the first step increases Manhattan distance",
+	)
+	main.floor_data["items"][0]["pos"] = Vector2i(1, 1)
+	_expect(
+		main._enemy_step_toward(0, Vector2i(1, 1)) == Vector2i(1, 2),
+		"A stale remembered chest cell must not become an enemy-occupied goal",
 	)
 	main.floor_data = generated_floor
 	main.player_pos = generated_player_position

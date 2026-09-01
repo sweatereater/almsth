@@ -2,9 +2,10 @@ class_name SaveSlotsTestSuite
 extends RefCounted
 
 const SaveSystem := preload("res://scripts/system/persistence.gd")
+const Snapshot := preload("res://scripts/system/run_snapshot.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
 
-const ROOT := "res://.tmp/save-slots-regression"
+const ROOT := "res://.tmp/nightly/save-slots-regression"
 const LEGACY_PATH := ROOT + "/legacy.json"
 const SLOTS_PATH := ROOT + "/slots"
 
@@ -16,12 +17,370 @@ func run(tree: SceneTree) -> Array[String]:
 	_cleanup()
 	_test_lifetime_counter()
 	_test_atomic_backup_and_listing()
+	_test_strict_v17_state_only_validation()
+	await _test_main_rejects_invalid_v17_state_only(tree)
+	await _test_strict_v17_full_run_validation(tree)
 	_test_legacy_import_once()
 	_test_failure_does_not_publish_slot()
 	_test_permanent_slot_deletion()
 	await _test_main_and_panel(tree)
 	_cleanup()
 	return failures
+
+
+func _test_strict_v17_state_only_validation() -> void:
+	var strict_dir := ROOT + "/strict-v17"
+	var source := _state("Strict v17", 4)
+	var source_before := source.to_snapshot_data()
+	var fixtures := [
+		{"id": "missing-soul", "kind": "erase", "field": "soul_level"},
+		{"id": "missing-hp", "kind": "erase", "field": "hp"},
+		{"id": "extra-top-level", "kind": "extra"},
+		{"id": "missing-save-policy", "kind": "metadata_policy"},
+		{"id": "state-only-publication-order", "kind": "metadata_order"},
+		{"id": "wrong-turn-type", "kind": "set", "field": "total_turns", "value": "0"},
+		{"id": "negative-soul", "kind": "set", "field": "soul_level", "value": -1},
+		{"id": "missing-skill", "kind": "missing_skill"},
+		{"id": "extra-skill", "kind": "extra_skill"},
+		{"id": "overmax-skill", "kind": "overmax_skill"},
+		{"id": "missing-skill-prereq", "kind": "skill_prerequisite"},
+		{"id": "form-lifetime-mismatch", "kind": "progression"},
+		{"id": "noncanonical-absorbed-total", "kind": "absorbed_gap"},
+		{"id": "skeleton-satiated", "kind": "status"},
+		{"id": "skeleton-rested", "kind": "rested_status"},
+		{"id": "highest-without-lifetime", "kind": "highest_lifetime"},
+		{"id": "highest-plus-wallet-without-lifetime", "kind": "highest_wallet_lifetime"},
+		{"id": "invalid-kettle-preparation", "kind": "kettle_preparation"},
+		{"id": "invalid-rest-preparation", "kind": "rest_preparation"},
+		{"id": "unlearned-cooldown", "kind": "cooldown"},
+		{"id": "current-form-locked-cooldown", "kind": "form_locked_cooldown"},
+		{"id": "inactive-regeneration-progress", "kind": "regeneration"},
+		{"id": "overflow-mana-progress", "kind": "mana_overflow"},
+		{"id": "full-mana-progress", "kind": "mana_full"},
+		{"id": "two-hand-offhand", "kind": "two_hand"},
+		{"id": "writing-no-workbench", "kind": "camp", "built": "writing_set"},
+		{"id": "kettle-no-campfire", "kind": "camp", "built": "kettle"},
+	]
+	for fixture in fixtures:
+		var slot_id := String(fixture.id)
+		_expect(
+			bool(SaveSystem.save_slot(source, slot_id, "overwrite", strict_dir, 710).get("ok", false)),
+			"Strict v17 fixture must begin as a valid state-only slot: %s" % slot_id,
+		)
+		var path := strict_dir.path_join(slot_id + ".json")
+		var envelope := _read_json(path)
+		var disk_state: Dictionary = envelope.get("state", {})
+		match String(fixture.kind):
+			"erase":
+				disk_state.erase(String(fixture.field))
+			"set":
+				disk_state[String(fixture.field)] = fixture.value
+			"missing_skill":
+				disk_state.skill_levels.erase("strong_spine")
+			"extra_skill":
+				disk_state.skill_levels["spinal_cord"] = 0
+			"overmax_skill":
+				disk_state.skill_levels.strong_bones = 6
+			"extra":
+				disk_state["intruder"] = true
+			"metadata_policy":
+				envelope.metadata.erase("save_policy")
+			"metadata_order":
+				envelope.metadata["publication_order"] = "123"
+			"skill_prerequisite":
+				disk_state.skill_levels.magic_missile = 1
+			"progression":
+				disk_state.absorbed_souls = 20
+			"absorbed_gap":
+				disk_state.absorbed_souls = 15
+				disk_state.current_form_id = "zombie"
+				disk_state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("zombie")
+				disk_state.lifetime_souls_earned = int(disk_state.carried_souls) + 15
+			"status":
+				disk_state.active_statuses = {
+					"satiated": {"remaining_turns": 10, "temporary_hp": 3},
+				}
+			"rested_status":
+				disk_state.active_statuses = {
+					"rested": {"remaining_turns": 10, "temporary_hp": 5},
+				}
+			"highest_lifetime":
+				disk_state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
+				disk_state.soul_level = 3
+			"highest_wallet_lifetime":
+				disk_state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
+				disk_state.soul_level = 3
+				disk_state.lifetime_souls_earned = int(GameRules.FORMS.almost_human.threshold)
+			"kettle_preparation":
+				disk_state.camp_preparation.pending = true
+				disk_state.camp_preparation.kettle_selected = true
+				disk_state.food = 0
+			"rest_preparation":
+				disk_state.camp_preparation.pending = true
+				disk_state.camp_preparation.rested = true
+			"cooldown":
+				disk_state.ability_cooldowns = {"dash": 5}
+			"form_locked_cooldown":
+				disk_state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+				disk_state.soul_level = 1
+				disk_state.lifetime_souls_earned = (
+					int(disk_state.carried_souls) + int(GameRules.FORMS.ghoul.threshold)
+				)
+				disk_state.skill_levels.dash = 1
+				disk_state.ability_cooldowns = {"dash": 5}
+			"regeneration":
+				disk_state.regeneration_progress = 1
+			"mana_overflow":
+				disk_state.mana = 0
+				disk_state.mana_regeneration_progress = 2.0
+			"mana_full":
+				disk_state.mana_regeneration_progress = 0.5
+			"two_hand":
+				disk_state.loadout["right_hand"] = "old_claymore"
+				disk_state.loadout["left_hand"] = "hollow_lantern"
+			"camp":
+				disk_state.camp_upgrades[String(fixture.built)] = true
+		envelope["state"] = disk_state
+		_write_text(path, JSON.stringify(envelope, "  ", true, true))
+		if slot_id == "missing-soul":
+			_write_text(path + ".bak", "{\"version\":15,\"preserve\":\"backup\"}")
+			_write_text(path + ".tmp", "{interrupted-temporary")
+		var before_family := _snapshot_family_bytes(path)
+		_expect(
+			not bool(SaveSystem.load_slot(slot_id, strict_dir).get("ok", false))
+			and _snapshot_family_bytes(path) == before_family
+			and source.to_snapshot_data() == source_before,
+			"Invalid v17 state-only disk payload must reject with exact file/runtime preservation: %s"
+			% slot_id,
+		)
+
+	var legacy_path := strict_dir.path_join("missing-soul-legacy.json")
+	var legacy_state := source.to_save_data()
+	legacy_state.erase("soul_level")
+	_write_text(legacy_path, JSON.stringify({
+		"version": SaveSystem.SAVE_VERSION,
+		"kind": "state_only",
+		"state": legacy_state,
+	}, "  ", true, true))
+	var legacy_bytes := FileAccess.get_file_as_bytes(legacy_path)
+	_expect(
+		SaveSystem.load_game(legacy_path).is_empty()
+		and FileAccess.get_file_as_bytes(legacy_path) == legacy_bytes
+		and source.to_snapshot_data() == source_before,
+		"Legacy-path v17 state-only missing soul_level must reject without mutation",
+	)
+
+
+func _test_main_rejects_invalid_v17_state_only(tree: SceneTree) -> void:
+	var strict_dir := ROOT + "/strict-main"
+	var invalid_source := _state("Invalid on disk", 3)
+	_expect(
+		bool(SaveSystem.save_slot(
+			invalid_source, "missing-soul", "overwrite", strict_dir, 720,
+		).get("ok", false)),
+		"Main strict-load fixture must publish before corruption",
+	)
+	var path := strict_dir.path_join("missing-soul.json")
+	var envelope := _read_json(path)
+	var disk_state: Dictionary = envelope.get("state", {})
+	disk_state.erase("soul_level")
+	envelope["state"] = disk_state
+	_write_text(path, JSON.stringify(envelope, "  ", true, true))
+	_write_text(path + ".bak", "{\"version\":15,\"preserve\":\"backup\"}")
+	_write_text(path + ".tmp", "{interrupted-temporary")
+	var before_family := _snapshot_family_bytes(path)
+
+	var main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	main.persistence_enabled = true
+	main.audio_playback_enabled = false
+	main.save_slots_directory = strict_dir
+	main.settings_path = ROOT + "/strict-main-settings.cfg"
+	main.legacy_save_path = ROOT + "/strict-main-missing-legacy.json"
+	tree.root.add_child(main)
+	await tree.process_frame
+	await tree.process_frame
+	var live_state := _state("Live sentinel", 9)
+	main.state = live_state
+	main.active_save_slot_id = "live-sentinel"
+	main.screen = main.Screen.BASE
+	main.main_menu_open = true
+	var live_before := live_state.to_snapshot_data()
+	main._on_save_slot_load_requested("missing-soul")
+	_expect(
+		main.state == live_state
+		and main.state.to_snapshot_data() == live_before
+		and main.active_save_slot_id == "live-sentinel"
+		and main.screen == main.Screen.BASE
+		and main.last_save_error == Loc.text("MSG_LOAD_FAILED")
+		and _snapshot_family_bytes(path) == before_family,
+		"Main must reject missing soul_level before restore with exact live/file preservation",
+	)
+	main.queue_free()
+	await tree.process_frame
+
+
+func _test_strict_v17_full_run_validation(tree: SceneTree) -> void:
+	var strict_dir := ROOT + "/strict-full-run"
+	var invalid_families := {}
+	for fixture in [
+		{"id": "full-missing-skill", "kind": "missing_skill"},
+		{"id": "full-extra-attribute", "kind": "extra_attribute"},
+		{"id": "full-extra-state", "kind": "extra_state"},
+		{"id": "full-missing-rooms", "kind": "missing_rooms"},
+		{"id": "full-empty-rooms", "kind": "empty_rooms"},
+		{"id": "full-fixed-bypass", "kind": "fixed_bypass"},
+		{"id": "full-missing-boss", "kind": "missing_boss"},
+		{"id": "full-progression", "kind": "progression"},
+		{"id": "full-missing-policy", "kind": "missing_policy"},
+		{"id": "full-missing-order", "kind": "missing_order"},
+		{"id": "full-metadata-lifetime", "kind": "metadata_lifetime"},
+	]:
+		var slot_id := String(fixture.id)
+		var kind := String(fixture.kind)
+		var full_state := _state("Strict full", 5)
+		var snapshot_override := {}
+		if kind in ["missing_rooms", "empty_rooms", "fixed_bypass"]:
+			full_state.current_floor = 99
+			var random := RandomNumberGenerator.new()
+			random.seed = 160099
+			var floor := FloorGenerator.new().generate(99, 160099, 0.0)
+			snapshot_override = Snapshot.capture(
+				"dungeon", floor, floor.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			)
+		elif kind == "missing_boss":
+			full_state.current_floor = 90
+			var random := RandomNumberGenerator.new()
+			random.seed = 160090
+			var floor := FixedFloor90.create()
+			snapshot_override = Snapshot.capture(
+				"dungeon", floor, floor.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			)
+		var publish_result := _save_full_run(
+			full_state, slot_id, strict_dir, 730, snapshot_override,
+		)
+		_expect(
+			bool(publish_result.get("ok", false)),
+			"Strict full-run fixture must publish before corruption: %s (%s)"
+			% [slot_id, publish_result],
+		)
+		if not bool(publish_result.get("ok", false)):
+			continue
+		var path := strict_dir.path_join(slot_id + ".json")
+		var envelope := _read_json(path)
+		match kind:
+			"missing_skill":
+				envelope.state.skill_levels.erase("ears")
+			"extra_attribute":
+				envelope.state.attributes["intruder"] = 7
+			"extra_state":
+				envelope.state["intruder"] = true
+			"missing_rooms":
+				envelope.snapshot.floor_data.erase("rooms")
+			"empty_rooms":
+				envelope.snapshot.floor_data.rooms = []
+			"fixed_bypass":
+				envelope.snapshot.floor_data.erase("rooms")
+				envelope.snapshot.floor_data.fixed_layout = true
+			"missing_boss":
+				for field in ["boss_uid", "boss_defeated", "boss_door", "boss_door_open"]:
+					envelope.snapshot.floor_data.erase(field)
+			"progression":
+				envelope.state.absorbed_souls = 20
+			"missing_policy":
+				envelope.metadata.erase("save_policy")
+			"missing_order":
+				envelope.metadata.erase("publication_order")
+			"metadata_lifetime":
+				envelope.metadata.lifetime_souls_earned = (
+					int(envelope.metadata.lifetime_souls_earned) + 1
+				)
+		_write_text(path, JSON.stringify(envelope, "  ", true, true))
+		var before_family := _snapshot_family_bytes(path)
+		invalid_families[slot_id] = before_family
+		var decode_errors: Array = []
+		var decoded_state: Variant = Snapshot.decode(envelope.state, decode_errors)
+		var snapshot_rejected := (
+			decoded_state is Dictionary
+			and Snapshot.restore(envelope.snapshot, decoded_state).is_empty()
+		)
+		var metadata_only := kind in ["missing_policy", "missing_order", "metadata_lifetime"]
+		_expect(
+			decode_errors.is_empty()
+			and decoded_state is Dictionary
+			and (not snapshot_rejected if metadata_only else snapshot_rejected)
+			and not bool(SaveSystem.load_slot(slot_id, strict_dir).get("ok", false))
+			and _snapshot_family_bytes(path) == before_family,
+			"Current v17 full-run schema must reject without file mutation: %s"
+			% slot_id,
+		)
+
+	# An invalid primary does not poison a valid full-run backup. Loading is read-only
+	# and write-locked so a later save branches instead of overwriting either source.
+	var fallback_id := "full-backup-fallback"
+	var fallback_before := _state("Fallback before", 6)
+	var fallback_after := _state("Fallback after", 7)
+	_expect(
+		bool(_save_full_run(fallback_before, fallback_id, strict_dir, 740).get("ok", false))
+		and bool(_save_full_run(fallback_after, fallback_id, strict_dir, 741).get("ok", false)),
+		"Full-run fallback fixture must publish valid primary and backup",
+	)
+	var fallback_path := strict_dir.path_join(fallback_id + ".json")
+	var corrupt_primary := _read_json(fallback_path)
+	corrupt_primary.metadata.erase("save_policy")
+	_write_text(fallback_path, JSON.stringify(corrupt_primary, "  ", true, true))
+	var fallback_family_before := _snapshot_family_bytes(fallback_path)
+	var recovered := SaveSystem.load_slot(fallback_id, strict_dir)
+	_expect(
+		bool(recovered.get("ok", false))
+		and bool(recovered.get("recovered_from_backup", false))
+		and bool(recovered.get("write_locked", false))
+		and String((recovered.get("state", {}) as Dictionary).get("character_name", ""))
+		== "Fallback before"
+		and _snapshot_family_bytes(fallback_path) == fallback_family_before,
+		"Invalid-metadata full-run primary must load the valid backup read-only and write-locked",
+	)
+
+	var main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	main.persistence_enabled = true
+	main.audio_playback_enabled = false
+	main.save_slots_directory = strict_dir
+	main.settings_path = ROOT + "/strict-full-run-settings.cfg"
+	main.legacy_save_path = ROOT + "/strict-full-run-missing-legacy.json"
+	tree.root.add_child(main)
+	await tree.process_frame
+	await tree.process_frame
+	var live_state := _state("Full live sentinel", 10)
+	main.state = live_state
+	main.active_save_slot_id = "full-live-sentinel"
+	main.screen = main.Screen.BASE
+	main.main_menu_open = true
+	var live_before := live_state.to_snapshot_data()
+	for slot_id in invalid_families:
+		main._on_save_slot_load_requested(String(slot_id))
+		var path := strict_dir.path_join(String(slot_id) + ".json")
+		_expect(
+			main.state == live_state
+			and main.state.to_snapshot_data() == live_before
+			and main.active_save_slot_id == "full-live-sentinel"
+			and main.screen == main.Screen.BASE
+			and main.last_save_error == Loc.text("MSG_LOAD_FAILED")
+			and _snapshot_family_bytes(path) == invalid_families[slot_id],
+			"Main must reject invalid full-run nested schema with exact live/file preservation: %s"
+			% slot_id,
+		)
+	main._on_save_slot_load_requested(fallback_id)
+	_expect(
+		main.state != live_state
+		and main.state.character_name == "Fallback before"
+		and main.active_save_slot_id == fallback_id
+		and main.active_save_write_locked
+		and _snapshot_family_bytes(fallback_path) == fallback_family_before,
+		"Main must restore a valid full-run backup without rewriting the corrupt family",
+	)
+	main.queue_free()
+	await tree.process_frame
 
 
 func _test_lifetime_counter() -> void:
@@ -50,6 +409,13 @@ func _test_atomic_backup_and_listing() -> void:
 		"The default hexadecimal id generator must publish a valid slot without an injected factory",
 	)
 	var first := _state("First", 5)
+	first.absorbed_souls = int(GameRules.FORMS.revenant.threshold)
+	first.lifetime_souls_earned += first.absorbed_souls
+	first.current_form_id = "revenant"
+	first.highest_unlocked_form_index = GameRules.FORM_ORDER.find("revenant")
+	first.skill_levels.nervous_system = 1
+	first.skill_levels.dash = 1
+	first.skill_levels.double_attack = 1
 	first.ability_cooldowns = {"dash": 13, "double_attack": 2}
 	first.active_statuses = {"rested": {"remaining_turns": 177, "temporary_hp": 3}}
 	var first_save := SaveSystem.save_slot(first, "slot-a", "overwrite", SLOTS_PATH, 100)
@@ -64,7 +430,7 @@ func _test_atomic_backup_and_listing() -> void:
 	var recovered_state_ok := recovered_state.restore_save_data(recovered.get("state", {}))
 	_expect(
 		bool(recovered.get("ok", false)) and bool(recovered.get("recovered_from_backup", false))
-		and int((recovered.get("state", {}) as Dictionary).get("lifetime_souls_earned", 0)) == 5
+		and int((recovered.get("state", {}) as Dictionary).get("lifetime_souls_earned", 0)) == 53
 		and recovered_state_ok
 		and recovered_state.ability_cooldowns == {"dash": 13, "double_attack": 2}
 		and recovered_state.active_statuses == {
@@ -111,13 +477,32 @@ func _test_legacy_import_once() -> void:
 	var old_bytes := FileAccess.get_file_as_string(LEGACY_PATH)
 	var rejected := SaveSystem.import_legacy_once(LEGACY_PATH, SLOTS_PATH, 299, func() -> String: return "old-rejected")
 	_expect(not rejected.get("imported", false) and FileAccess.get_file_as_string(LEGACY_PATH) == old_bytes, "Old test saves stay untouched and never auto-import")
-	_write_text(LEGACY_PATH, JSON.stringify({"version": SaveSystem.SAVE_VERSION, "kind": "state_only", "state": RunState.new().to_save_data().merged({"character_name": "Imported", "banked_souls": 11, "carried_souls": 2, "absorbed_souls": 20}, true)}))
+	_write_text(LEGACY_PATH, JSON.stringify({
+		"version": SaveSystem.SAVE_VERSION,
+		"kind": "state_only",
+		"state": _valid_state_only_data("Imported", 11, 2, 24),
+	}))
+	var collision_dir := ROOT + "/legacy-collision-slots"
+	var occupied := SaveSystem.save_slot(_state("Keep", 2), "legacy-collision", "overwrite", collision_dir, 299)
+	_expect(bool(occupied.get("ok", false)), "Legacy collision fixture must publish an occupied family")
+	var occupied_path := collision_dir + "/legacy-collision.json"
+	var occupied_bytes := FileAccess.get_file_as_bytes(occupied_path)
+	var collision_ids := ["legacy-collision", "legacy-free"]
+	var collision_import := SaveSystem.import_legacy_once(
+		LEGACY_PATH, collision_dir, 300, func() -> String: return collision_ids.pop_front(),
+	)
+	_expect(
+		bool(collision_import.get("ok", false)) and bool(collision_import.get("imported", false))
+		and collision_import.get("slot_id", "") == "legacy-free"
+		and FileAccess.get_file_as_bytes(occupied_path) == occupied_bytes,
+		"Automatic legacy import must retry a fully occupied family without overwriting it",
+	)
 	var imported := SaveSystem.import_legacy_once(LEGACY_PATH, SLOTS_PATH, 300, func() -> String: return "legacy-slot")
 	_expect(bool(imported.get("ok", false)) and bool(imported.get("imported", false)), "An explicit current state-only helper can import once")
 	var imported_load := SaveSystem.load_slot("legacy-slot", SLOTS_PATH)
 	_expect(
 		bool(imported_load.get("ok", false))
-		and int((imported_load.get("state", {}) as Dictionary).get("lifetime_souls_earned", 0)) == 33,
+		and int((imported_load.get("state", {}) as Dictionary).get("lifetime_souls_earned", 0)) == 37,
 		"Legacy import must preserve state and establish its lower-bound lifetime total",
 	)
 	var count_before := SaveSystem.list_slots(SLOTS_PATH).size()
@@ -126,6 +511,38 @@ func _test_legacy_import_once() -> void:
 		bool(repeated.get("ok", false)) and not bool(repeated.get("imported", true))
 		and SaveSystem.list_slots(SLOTS_PATH).size() == count_before,
 		"Legacy import must not duplicate a save on later startups",
+	)
+
+	# The single-file boundary is intentionally state-only. A structurally valid
+	# full-run envelope must never have its dungeon snapshot stripped and restored
+	# through the permissive setup helper as a base save.
+	var full_legacy_path := ROOT + "/legacy-full-run.json"
+	var full_legacy_slots := ROOT + "/legacy-full-run-slots"
+	var full_legacy_state := _state("Full legacy rejection", 3)
+	full_legacy_state.current_floor = 99
+	var full_legacy_floor: Dictionary = FloorGenerator.new().generate(99, 160901, 0.0)
+	var full_legacy_random := RandomNumberGenerator.new()
+	full_legacy_random.seed = 160901
+	_write_text(full_legacy_path, JSON.stringify({
+		"version": SaveSystem.SAVE_VERSION,
+		"kind": "full_run",
+		"state": full_legacy_state.to_snapshot_data(),
+		"snapshot": Snapshot.capture(
+			"dungeon", full_legacy_floor, full_legacy_floor.start, full_legacy_random,
+			{"attack_memories": {}, "event_revision": 0},
+		),
+	}, "  ", true, true))
+	var full_legacy_bytes := FileAccess.get_file_as_bytes(full_legacy_path)
+	var full_legacy_import := SaveSystem.import_legacy_once(
+		full_legacy_path, full_legacy_slots, 401,
+		func() -> String: return "must-not-import-full-run",
+	)
+	_expect(
+		SaveSystem.load_game(full_legacy_path).is_empty()
+		and not bool(full_legacy_import.get("imported", false))
+		and FileAccess.get_file_as_bytes(full_legacy_path) == full_legacy_bytes
+		and SaveSystem.list_slots(full_legacy_slots).is_empty(),
+		"Legacy single-file loading must reject full_run without stripping its snapshot or mutating files",
 	)
 
 
@@ -233,7 +650,9 @@ func _test_permanent_slot_deletion() -> void:
 	var imported_dir := ROOT + "/delete-imported"
 	var imported_legacy := ROOT + "/delete-imported-legacy.json"
 	_write_text(imported_legacy, JSON.stringify({
-		"version": SaveSystem.SAVE_VERSION, "kind": "state_only", "state": RunState.new().to_save_data().merged({"character_name": "Imported Delete", "absorbed_souls": 1}, true),
+		"version": SaveSystem.SAVE_VERSION,
+		"kind": "state_only",
+		"state": _valid_state_only_data("Imported Delete", 0, 0, 0),
 	}))
 	var imported := SaveSystem.import_legacy_once(
 		imported_legacy, imported_dir, 700, func() -> String: return "imported-delete",
@@ -491,6 +910,37 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	)
 	main._resume_from_main_menu()
 
+	# Unsafe siblings load read-only, then Main branches to a fresh family without
+	# touching the valid primary, incompatible backup, or interrupted temporary.
+	for unsafe_case in ["backup", "temporary"]:
+		var unsafe_id: String = "unsafe-" + str(unsafe_case)
+		_expect(
+			bool(SaveSystem.save_slot(_state("Unsafe sibling", 4), unsafe_id, "overwrite", ui_slots, 950).get("ok", false)),
+			"Unsafe sibling fixture must publish: %s" % unsafe_case,
+		)
+		var unsafe_path := ui_slots.path_join(unsafe_id + ".json")
+		var sibling_path := unsafe_path + (".bak" if unsafe_case == "backup" else ".tmp")
+		_write_text(sibling_path, "{\"version\":15,\"preserve\":\"%s\"}" % unsafe_case)
+		var unsafe_primary_bytes := FileAccess.get_file_as_bytes(unsafe_path)
+		var unsafe_sibling_bytes := FileAccess.get_file_as_bytes(sibling_path)
+		main._on_save_slot_load_requested(unsafe_id)
+		_expect(
+			main.active_save_slot_id == unsafe_id and main.active_save_write_locked,
+			"Main must retain but write-lock a loaded family with an unsafe %s" % unsafe_case,
+		)
+		var branch_id: String = "branch-from-" + str(unsafe_case)
+		var branch_factory_before: Callable = main.save_id_factory
+		main.save_id_factory = func() -> String: return branch_id
+		_expect(
+			main._save_game_at_base("update") and main.active_save_slot_id == branch_id
+			and not main.active_save_write_locked
+			and FileAccess.get_file_as_bytes(unsafe_path) == unsafe_primary_bytes
+			and FileAccess.get_file_as_bytes(sibling_path) == unsafe_sibling_bytes
+			and bool(SaveSystem.load_slot(branch_id, ui_slots).get("ok", false)),
+			"A write-locked %s family must branch safely and preserve every original byte" % unsafe_case,
+		)
+		main.save_id_factory = branch_factory_before
+
 	# Production defaults must create a valid hexadecimal id without test factories.
 	main.state = _state("Default Id Hero", 2)
 	main.active_save_slot_id = ""
@@ -526,13 +976,20 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	_expect(main._save_game_at_base("death") and main.active_save_slot_id != history_a, "Death return must create a fresh history snapshot")
 	_expect(SaveSystem.list_slots(ui_slots).size() == history_count + 1, "Meaningful history return must add exactly one snapshot")
 
-	# Save failure is localized and never advances the active id.
-	var valid_factory: Callable = main.save_id_factory
+	# Save failure is localized and never advances/publishes a generated active id.
 	main.active_save_slot_id = ""
-	main.save_id_factory = func() -> String: return "../invalid"
-	_expect(not main._save_game_at_base("death"), "Unwritable injected path must surface a save failure")
-	_expect(main.active_save_slot_id.is_empty() and not main.last_save_error.is_empty(), "Failed saves must not advance active ids and must expose localized feedback")
-	main.save_id_factory = valid_factory
+	main.save_id_factory = func() -> String: return "unpublished-failure"
+	main.save_fault_injector = func(stage: String) -> bool: return stage == "after_primary_backup"
+	_expect(not main._save_game_at_base("death"), "Injected write fault must surface a save failure")
+	_expect(
+		main.active_save_slot_id.is_empty()
+		and not main.last_save_error.is_empty()
+		and not FileAccess.file_exists(ui_slots.path_join("unpublished-failure.json"))
+		and not FileAccess.file_exists(ui_slots.path_join("unpublished-failure.json.tmp")),
+		"Failed saves must not advance active ids or publish bytes and must expose localized feedback",
+	)
+	main.save_fault_injector = Callable()
+	main.save_id_factory = func() -> String: return String(ids.pop_front())
 
 	# A rotated-write failure must not advance an active id or its published timestamp.
 	main.active_save_slot_id = "newest"
@@ -750,14 +1207,59 @@ func _state(character_name: String, souls: int) -> RunState:
 	return state
 
 
+func _save_full_run(
+	state: RunState, slot_id: String, saves_dir: String, timestamp: int,
+	snapshot_override: Dictionary = {},
+) -> Dictionary:
+	var random := RandomNumberGenerator.new()
+	random.seed = 160091
+	var snapshot := (
+		Snapshot.capture("base", {}, Vector2i.ZERO, random, {})
+		if snapshot_override.is_empty()
+		else snapshot_override
+	)
+	return SaveSystem.save_slot(
+		state, slot_id, "overwrite", saves_dir, timestamp,
+		Callable(), {}, Callable(), snapshot,
+	)
+
+
+func _valid_state_only_data(
+	character_name: String, banked_souls: int, carried_souls: int, absorbed_souls: int,
+) -> Dictionary:
+	var state := RunState.new()
+	state.configure_character(character_name, GameRules.default_attributes())
+	state.banked_souls = banked_souls
+	state.carried_souls = carried_souls
+	state.absorbed_souls = absorbed_souls
+	state.lifetime_souls_earned = banked_souls + carried_souls + absorbed_souls
+	state.current_form_id = GameRules.form_for_absorbed_souls(absorbed_souls)
+	state.highest_unlocked_form_index = GameRules.FORM_ORDER.find(state.current_form_id)
+	return state.to_save_data()
+
+
 func _floor_fixture() -> Dictionary:
 	var tiles := {}
 	for y in range(5):
 		for x in range(5):
 			tiles[Vector2i(x, y)] = "floor"
+	tiles[Vector2i(0, 1)] = "wall"
+	tiles[Vector2i(4, 3)] = "wall"
 	return {
 		"width": 5, "height": 5, "tiles": tiles, "start": Vector2i(1, 1),
-		"base_gate": Vector2i(0, 0), "exit": Vector2i(4, 4), "exit_known": false,
+		"rooms": [
+			{
+				"door": Vector2i(1, 0), "outward": Vector2i.RIGHT,
+				"cells": {Vector2i(0, 0): true},
+				"reserved": {Vector2i(0, 0): true, Vector2i(1, 0): true},
+			},
+			{
+				"door": Vector2i(3, 4), "outward": Vector2i.LEFT,
+				"cells": {Vector2i(4, 4): true},
+				"reserved": {Vector2i(4, 4): true, Vector2i(3, 4): true},
+			},
+		],
+		"base_gate": Vector2i(0, 2), "exit": Vector2i(4, 2), "exit_known": false,
 		"cradle": Vector2i(-1, -1), "items": [], "enemies": [],
 		"cradle_known": false, "cradle_used": false, "cradle_pity_resolved": true,
 		"seed": 1, "cradle_roll_chance": 0.0,
@@ -779,6 +1281,23 @@ func _write_text(path: String, text: String) -> void:
 	if file != null:
 		file.store_string(text)
 		file.flush()
+
+
+func _read_json(path: String) -> Dictionary:
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary else {}
+
+
+func _snapshot_family_bytes(primary_path: String) -> Dictionary:
+	var result := {}
+	for suffix: String in ["", ".bak", ".tmp"]:
+		var path: String = primary_path + suffix
+		var exists := FileAccess.file_exists(path)
+		result[suffix] = {
+			"exists": exists,
+			"bytes": FileAccess.get_file_as_bytes(path) if exists else PackedByteArray(),
+		}
+	return result
 
 
 func _push_action(main, tree: SceneTree, action: String) -> void:
@@ -863,6 +1382,7 @@ func _cleanup() -> void:
 
 
 func _remove_tree(path: String) -> void:
+	assert(path == ROOT or path.begins_with(ROOT + "/"), "Save-slot cleanup escaped its fixed nightly root")
 	var directory := DirAccess.open(path)
 	if directory == null:
 		if FileAccess.file_exists(path):

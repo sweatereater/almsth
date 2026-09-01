@@ -292,12 +292,16 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 	main.floor_data["items"] = [{
 		"uid": "dash_chest", "id": "bone_knife", "pos": target, "wood": 0, "stone": 0,
 	}]
+	main.player_map_presentation.activate("female", "ghoul")
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
 	_expect(
 		main._confirm_dash(target)
 		and main.player_pos == target
 		and main.state.total_turns == turns_before + 1
-		and main.state.inventory.has(GameRules.make_item_key("bone_knife")),
-		"Confirming a three-cell Dash must spend one turn and collect only its endpoint chest",
+		and main.state.inventory.has(GameRules.make_item_key("bone_knife"))
+		and not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Confirming a three-cell Dash must reset unfinished walk presentation, spend one turn and collect only its endpoint chest",
 	)
 	var diagonal_turns: int = main.state.total_turns
 	main._begin_dash_targeting()
@@ -322,14 +326,18 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 	main.floor_data["enemies"] = [_enemy("move_target", Vector2i(4, 3), 3, "grave_rat")]
 	_reveal_floor(main)
 	var turns_before: int = main.state.total_turns
+	main.player_map_presentation.activate("female", "ghoul")
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
 	main._attempt_player_action(Vector2i.RIGHT)
 	_expect(
 		main.floor_data["enemies"].is_empty()
 		and main.state.carried_souls == 1
 		and main.state.food == 1
 		and not main.message.contains(Loc.text("MSG_FOOD_GAINED", [1]))
-		and main.state.total_turns == turns_before + 1,
-		"A pre-Stomach Ghoul must collect meat silently while resolving one reward and turn",
+		and main.state.total_turns == turns_before + 1
+		and not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"A melee attack must snap unfinished walk presentation while resolving one reward and turn",
 	)
 	main.state.ability_cooldowns.erase("double_attack")
 	main.floor_data["enemies"] = [_enemy("f_target", Vector2i(4, 3), 5, "hollow_guard")]
@@ -512,6 +520,15 @@ func _test_magic_dispatch_and_ui_contracts(tree: SceneTree) -> void:
 	main.player_pos = Vector2i(2, 3)
 	main.floor_data["enemies"] = [_enemy("spell_target", Vector2i(4, 3), 10, "hollow_guard")]
 	_reveal_floor(main)
+	main.player_map_presentation.activate("female", "ghoul")
+	main.player_map_presentation.begin_step(Vector2i.RIGHT, 0.2)
+	main.player_map_presentation.update(0.04)
+	_expect(
+		main.player_map_presentation.moving
+		and main.player_map_presentation.step_duration == 0.10
+		and main.player_map_presentation.visual().offset_cells != Vector2.ZERO,
+		"Magic Missile reset fixture must begin inside an active capped movement transient",
+	)
 	var mana_before: int = main.state.mana
 	var turns_before: int = main.state.total_turns
 	_expect(
@@ -521,6 +538,11 @@ func _test_magic_dispatch_and_ui_contracts(tree: SceneTree) -> void:
 		and main.state.total_turns == turns_before + 1
 		and main.magic_traces.size() == 1,
 		"Magic Missile must retain its damage, mana, visibility, trace and one-turn dispatcher contract",
+	)
+	_expect(
+		not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Magic Missile must snap an unfinished map step before casting without another turn",
 	)
 	_expect(
 		main.hotbar_ability_buttons.size() == 4
@@ -566,8 +588,11 @@ func _new_main(tree: SceneTree):
 	main.persistence_enabled = false
 	tree.root.add_child(main)
 	await tree.process_frame
-	main.screen = main.Screen.DUNGEON
 	main.state = RunState.new()
+	# Enter through the UI lifecycle so hidden creation controls cannot consume
+	# native keyboard/controller events intended for ability targeting.
+	main._show_base("", "none")
+	main._show_dungeon_interface()
 	return main
 
 

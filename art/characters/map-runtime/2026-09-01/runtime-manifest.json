@@ -1,0 +1,994 @@
+{
+  "schema_version": 2,
+  "frame_size": [
+    264,
+    264
+  ],
+  "format": "RGBA8",
+  "anchor": [
+    132,
+    260
+  ],
+  "minimum_alpha_padding": 4,
+  "sets": {
+    "female/skeleton": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/female-skeleton-attempt-02.png",
+      "deterministic_light_background_matte": true,
+      "shared_normalization_scale": 0.475471698113,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/female/skeleton/walk-00.png",
+          "sha256": "F4411B66602C6E8C78ADE2FF30ACA479FB1E6DCADA39FFA894AACF26B4D42CE2",
+          "silhouette_sha256": "668E83DDE2B742B0665E0C2A72441CE4C5552AC085BD7017607DA34F1D177869",
+          "source_subject_size": [
+            417,
+            528
+          ],
+          "resized_subject_size": [
+            198,
+            251
+          ],
+          "alpha_bounds": [
+            33,
+            9,
+            231,
+            260
+          ],
+          "alpha_padding": [
+            33,
+            9,
+            33,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/skeleton/walk-01.png",
+          "sha256": "35CBA6D5683C5F949DF1C9410254A2ED19DBD9AF973CF03E0E86C43866FA6C5F",
+          "silhouette_sha256": "218D1B8C208247C05035D026059759D01D39F5BF6A7C15C09E014D6DE7F4A380",
+          "source_subject_size": [
+            362,
+            530
+          ],
+          "resized_subject_size": [
+            172,
+            252
+          ],
+          "alpha_bounds": [
+            46,
+            8,
+            218,
+            260
+          ],
+          "alpha_padding": [
+            46,
+            8,
+            46,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/skeleton/walk-02.png",
+          "sha256": "0BA2F641750999FB227EF1BF63912EC277816240EEDB04F55F8FFB0497F71058",
+          "silhouette_sha256": "D165438D8F948A2645470A956409D13572EF310E976B289F5AF22E09026B5DA9",
+          "source_subject_size": [
+            429,
+            528
+          ],
+          "resized_subject_size": [
+            204,
+            251
+          ],
+          "alpha_bounds": [
+            30,
+            9,
+            234,
+            260
+          ],
+          "alpha_padding": [
+            30,
+            9,
+            30,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/skeleton/walk-03.png",
+          "sha256": "9B51D6FCEA1C301190053D86106A38DE4F712F06D5AE11633A4F77E257A15DEC",
+          "silhouette_sha256": "3F861EFA8BC25A2181D30D28AD4D36C3B7637798ED9C9DF6AFDC518BD6D07B67",
+          "source_subject_size": [
+            423,
+            523
+          ],
+          "resized_subject_size": [
+            201,
+            249
+          ],
+          "alpha_bounds": [
+            32,
+            11,
+            233,
+            260
+          ],
+          "alpha_padding": [
+            32,
+            11,
+            31,
+            4
+          ]
+        }
+      ]
+    },
+    "female/zombie": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/female-zombie-attempt-02.png",
+      "deterministic_light_background_matte": true,
+      "shared_normalization_scale": 0.376119402985,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/female/zombie/walk-00.png",
+          "sha256": "65F74E11E4C9C76CD58BFE7A96C81B390E7ADD9C2DFD8D5C7066A048578B6A7A",
+          "silhouette_sha256": "19DEF058C11723FEF5682632B84C4B5908AE22ABCBE94B5AEB5F19190CC379D3",
+          "source_subject_size": [
+            424,
+            669
+          ],
+          "resized_subject_size": [
+            159,
+            252
+          ],
+          "alpha_bounds": [
+            53,
+            8,
+            212,
+            260
+          ],
+          "alpha_padding": [
+            53,
+            8,
+            52,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/zombie/walk-01.png",
+          "sha256": "00DA48B5D57044AFE41AF23231AB2022951272522D8C921B918BF72AF25849E7",
+          "silhouette_sha256": "708A2C3A85485C728B4ECB25CD289EAC41D46934A6DCD9E5F1408D28E5E10873",
+          "source_subject_size": [
+            425,
+            670
+          ],
+          "resized_subject_size": [
+            160,
+            252
+          ],
+          "alpha_bounds": [
+            52,
+            8,
+            212,
+            260
+          ],
+          "alpha_padding": [
+            52,
+            8,
+            52,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/zombie/walk-02.png",
+          "sha256": "8C03A67A4C8F6576C1B974003268B247550CF696306A5B00707E854332DCD8C4",
+          "silhouette_sha256": "011A17804962CCF07711176DD644F72269A7BAA1281A5BD3528F9930009199D9",
+          "source_subject_size": [
+            423,
+            660
+          ],
+          "resized_subject_size": [
+            159,
+            248
+          ],
+          "alpha_bounds": [
+            53,
+            12,
+            212,
+            260
+          ],
+          "alpha_padding": [
+            53,
+            12,
+            52,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/zombie/walk-03.png",
+          "sha256": "37FEA8267B0E2BDC2E156AAFD79C245B76A5F07C24C6005282A3168A58F22CBB",
+          "silhouette_sha256": "E011604C66C8CB51DEE907EABAD250EB5447E580D8230237DEA208AF14D9B03A",
+          "source_subject_size": [
+            415,
+            661
+          ],
+          "resized_subject_size": [
+            156,
+            249
+          ],
+          "alpha_bounds": [
+            54,
+            11,
+            210,
+            260
+          ],
+          "alpha_padding": [
+            54,
+            11,
+            54,
+            4
+          ]
+        }
+      ]
+    },
+    "female/revenant": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/female-revenant-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.362068965517,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/female/revenant/walk-00.png",
+          "sha256": "5F0EB01CF97EEAB7487708EEDC599958ED39C85BE6B2C93DF567BA93925094EC",
+          "silhouette_sha256": "BFAFF568338AC32920A7D80A24BDFD09D007C0EBA1F630A78095CF5ACAB900B6",
+          "source_subject_size": [
+            463,
+            696
+          ],
+          "resized_subject_size": [
+            168,
+            252
+          ],
+          "alpha_bounds": [
+            48,
+            8,
+            216,
+            260
+          ],
+          "alpha_padding": [
+            48,
+            8,
+            48,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/revenant/walk-01.png",
+          "sha256": "51C42529244B2F474BF2B8AEF3E8A48392C40ABAD5D19F3AD4220C69FECDED4B",
+          "silhouette_sha256": "CD451C694CBD5A3DF1CAAC14AAEF18742262C6408BCFBFED9D4F1ADD718700C1",
+          "source_subject_size": [
+            478,
+            688
+          ],
+          "resized_subject_size": [
+            173,
+            249
+          ],
+          "alpha_bounds": [
+            46,
+            11,
+            219,
+            260
+          ],
+          "alpha_padding": [
+            46,
+            11,
+            45,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/revenant/walk-02.png",
+          "sha256": "F341A8F95FBC491B6D9BECEED2A0AFCD93BD00E805329173C058E5E1D757E9E6",
+          "silhouette_sha256": "44E772133EF9435F2D2BD601597EA329FFD6B9643C703D9B58685807D98C3BF7",
+          "source_subject_size": [
+            462,
+            696
+          ],
+          "resized_subject_size": [
+            167,
+            252
+          ],
+          "alpha_bounds": [
+            49,
+            8,
+            216,
+            260
+          ],
+          "alpha_padding": [
+            49,
+            8,
+            48,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/revenant/walk-03.png",
+          "sha256": "831F81B9A205B8ACB490146C7143416639C89642840BF4A943793B96432E1F5B",
+          "silhouette_sha256": "39E84DF91DCCF5A3D41C911C0E7E95B74C20E5C9B2E1C27F9E0F8ABEBC57DBDC",
+          "source_subject_size": [
+            477,
+            684
+          ],
+          "resized_subject_size": [
+            173,
+            248
+          ],
+          "alpha_bounds": [
+            46,
+            12,
+            219,
+            260
+          ],
+          "alpha_padding": [
+            46,
+            12,
+            45,
+            4
+          ]
+        }
+      ]
+    },
+    "female/almost_human": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/female-almost-human-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.413114754098,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/female/almost_human/walk-00.png",
+          "sha256": "3400F7E218B82477691F359B47F2B15EAE7C2A5ECA4A39893E47BDD9E4FEADBE",
+          "silhouette_sha256": "8B5DEFCA6573F958AE20ECC34BCA7FEFAA131791183A1154C7A84842445DCAB7",
+          "source_subject_size": [
+            442,
+            595
+          ],
+          "resized_subject_size": [
+            183,
+            246
+          ],
+          "alpha_bounds": [
+            41,
+            14,
+            224,
+            260
+          ],
+          "alpha_padding": [
+            41,
+            14,
+            40,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/almost_human/walk-01.png",
+          "sha256": "02174E556545F6E5EE0E770A318FB5C193FBD221E3AD6612FADBB6A88BFF6721",
+          "silhouette_sha256": "24481F5D085E0545BDA7366A0245F9347D4B991620EAB340162E80BB7CD5E7F6",
+          "source_subject_size": [
+            369,
+            601
+          ],
+          "resized_subject_size": [
+            152,
+            248
+          ],
+          "alpha_bounds": [
+            56,
+            12,
+            208,
+            260
+          ],
+          "alpha_padding": [
+            56,
+            12,
+            56,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/almost_human/walk-02.png",
+          "sha256": "8BC1FCD8C0A1AFED01E280AE7FECE6A4CFECF76567D010C912EB59C6A7007DFE",
+          "silhouette_sha256": "E8C3E8DBAB22CCA663461D80057867E82C3842C1E9B4B425EF84E272A24C639B",
+          "source_subject_size": [
+            492,
+            610
+          ],
+          "resized_subject_size": [
+            203,
+            252
+          ],
+          "alpha_bounds": [
+            31,
+            8,
+            234,
+            260
+          ],
+          "alpha_padding": [
+            31,
+            8,
+            30,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/female/almost_human/walk-03.png",
+          "sha256": "35A1FEDFBDF1EF206049275E77B309738DD4B464E5C08BBB6A09E63C9FC5EFCC",
+          "silhouette_sha256": "BD0DF30D579D7C5064FD06B440D76EDAD7F0EC8AD855FBFEFD985E7DC69F7677",
+          "source_subject_size": [
+            385,
+            609
+          ],
+          "resized_subject_size": [
+            159,
+            252
+          ],
+          "alpha_bounds": [
+            53,
+            8,
+            212,
+            260
+          ],
+          "alpha_padding": [
+            53,
+            8,
+            52,
+            4
+          ]
+        }
+      ]
+    },
+    "male/skeleton": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/male-skeleton-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.365217391304,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/male/skeleton/walk-00.png",
+          "sha256": "B2E0638E3A4E0C543938F180D17C7B2A3A18600E580749E78CB27BE048DEA90F",
+          "silhouette_sha256": "D46D4212B8189BFA744F71CD966F96CFC7D88DFB20E86B419ED73BBD2B1BF4CD",
+          "source_subject_size": [
+            375,
+            689
+          ],
+          "resized_subject_size": [
+            137,
+            252
+          ],
+          "alpha_bounds": [
+            64,
+            8,
+            201,
+            260
+          ],
+          "alpha_padding": [
+            64,
+            8,
+            63,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/skeleton/walk-01.png",
+          "sha256": "870A908E3FF3D6B47053E4090DE01E89E3D7453D32F717B60331D29F58955DE3",
+          "silhouette_sha256": "0E9ED8671A3B52EE93546AD77BE14EC1FC29DC99CEA0A733F00315D3117FFC92",
+          "source_subject_size": [
+            376,
+            681
+          ],
+          "resized_subject_size": [
+            137,
+            249
+          ],
+          "alpha_bounds": [
+            64,
+            11,
+            201,
+            260
+          ],
+          "alpha_padding": [
+            64,
+            11,
+            63,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/skeleton/walk-02.png",
+          "sha256": "14D2404B00CFB67C47657A7ED996DC01F2B59F3412C750E78B913064C7EBB9FF",
+          "silhouette_sha256": "240A984B86B877EACA91CE7372FA18AFF13C52161075E6881E5C072A9DBB285E",
+          "source_subject_size": [
+            414,
+            690
+          ],
+          "resized_subject_size": [
+            151,
+            252
+          ],
+          "alpha_bounds": [
+            57,
+            8,
+            208,
+            260
+          ],
+          "alpha_padding": [
+            57,
+            8,
+            56,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/skeleton/walk-03.png",
+          "sha256": "CD8A79131014EBFAF7D9FF52357A8B6EC715C124150D15E4748090DC87CDF88D",
+          "silhouette_sha256": "CD477DD1D5A60702C60B4B8605318305AC2C2742BF77C75DF59F3DE07F49B8F0",
+          "source_subject_size": [
+            387,
+            675
+          ],
+          "resized_subject_size": [
+            141,
+            247
+          ],
+          "alpha_bounds": [
+            62,
+            13,
+            203,
+            260
+          ],
+          "alpha_padding": [
+            62,
+            13,
+            61,
+            4
+          ]
+        }
+      ]
+    },
+    "male/zombie": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/male-zombie-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.353436185133,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/male/zombie/walk-00.png",
+          "sha256": "9A14EF1FD54A20B03F51D174165C34281D34E2717EE3A39D298F9C4333EFE89B",
+          "silhouette_sha256": "1988D4CA6257911FEFE767E198F150B7B3DE0546466372C137A17F541A12BC20",
+          "source_subject_size": [
+            409,
+            707
+          ],
+          "resized_subject_size": [
+            145,
+            250
+          ],
+          "alpha_bounds": [
+            60,
+            10,
+            205,
+            260
+          ],
+          "alpha_padding": [
+            60,
+            10,
+            59,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/zombie/walk-01.png",
+          "sha256": "B2F5906191F9C3AF05691CB287107BE9B1A02576CA0D1A3050A200E0EFD5D9C9",
+          "silhouette_sha256": "4685FB663902D740C5054C090DAD1B7FAAF3245DEE54903604DC421DCF9DDCC5",
+          "source_subject_size": [
+            405,
+            690
+          ],
+          "resized_subject_size": [
+            143,
+            244
+          ],
+          "alpha_bounds": [
+            61,
+            16,
+            204,
+            260
+          ],
+          "alpha_padding": [
+            61,
+            16,
+            60,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/zombie/walk-02.png",
+          "sha256": "A359EFE76ED2DF5E239A002B926C77A489418539F4387956D4636C14D9A29B8A",
+          "silhouette_sha256": "FE8C9A4409A1D2A9CC4AAB703DD39C03D47CC862DF35FE61CBCA2385FFF82765",
+          "source_subject_size": [
+            431,
+            713
+          ],
+          "resized_subject_size": [
+            152,
+            252
+          ],
+          "alpha_bounds": [
+            56,
+            8,
+            208,
+            260
+          ],
+          "alpha_padding": [
+            56,
+            8,
+            56,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/zombie/walk-03.png",
+          "sha256": "2271BF631AC3548682615CBD57061835194D4DA08480F47F406A6288C6E7ACB4",
+          "silhouette_sha256": "E05038388DF0AD745A44F3F40CAD756194670BEC87D7386048DBB0110C0191F9",
+          "source_subject_size": [
+            420,
+            705
+          ],
+          "resized_subject_size": [
+            148,
+            249
+          ],
+          "alpha_bounds": [
+            58,
+            11,
+            206,
+            260
+          ],
+          "alpha_padding": [
+            58,
+            11,
+            58,
+            4
+          ]
+        }
+      ]
+    },
+    "male/ghoul": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/male-ghoul-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.353436185133,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/male/ghoul/walk-00.png",
+          "sha256": "B0065B02988B7214445500BBAFEAC3C6E904E926FFD2CC19001088CB357B3984",
+          "silhouette_sha256": "495754A63625A2701CBA2907B97A91C53522A7F4A10144886EF36FB119BA10CB",
+          "source_subject_size": [
+            445,
+            713
+          ],
+          "resized_subject_size": [
+            157,
+            252
+          ],
+          "alpha_bounds": [
+            54,
+            8,
+            211,
+            260
+          ],
+          "alpha_padding": [
+            54,
+            8,
+            53,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/ghoul/walk-01.png",
+          "sha256": "9480DE18F9C3E4EB027721EADDD7A4F497D0892CB696F82BC0B1282FB711BBE0",
+          "silhouette_sha256": "BB8949EBE85FF983378E98EE3DCD905A82A7F4A745613879CE5DDF6635AAE097",
+          "source_subject_size": [
+            413,
+            712
+          ],
+          "resized_subject_size": [
+            146,
+            252
+          ],
+          "alpha_bounds": [
+            59,
+            8,
+            205,
+            260
+          ],
+          "alpha_padding": [
+            59,
+            8,
+            59,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/ghoul/walk-02.png",
+          "sha256": "A17DCCFDB217CB896C8E122862AB8FCE3E71535239BA5FE998367B6C7FA0B1B6",
+          "silhouette_sha256": "A5BB87C7595BCAB41A580426C2C51C55FD6FBD407887961E1C73A7544B7960F1",
+          "source_subject_size": [
+            455,
+            712
+          ],
+          "resized_subject_size": [
+            161,
+            252
+          ],
+          "alpha_bounds": [
+            52,
+            8,
+            213,
+            260
+          ],
+          "alpha_padding": [
+            52,
+            8,
+            51,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/ghoul/walk-03.png",
+          "sha256": "A55E0246E30BD49A1414B3D3587E80CE5396B47A744678C8BA27B9205137F389",
+          "silhouette_sha256": "38888C614AC132FE4E16538DDE9810B60603FE03C84054F43DD8D44ADFE96383",
+          "source_subject_size": [
+            438,
+            711
+          ],
+          "resized_subject_size": [
+            155,
+            251
+          ],
+          "alpha_bounds": [
+            55,
+            9,
+            210,
+            260
+          ],
+          "alpha_padding": [
+            55,
+            9,
+            54,
+            4
+          ]
+        }
+      ]
+    },
+    "male/revenant": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/male-revenant-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.356435643564,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/male/revenant/walk-00.png",
+          "sha256": "7FE35774F5C1CEC410E63E5F2A4496E38B1B1E6F48C294AD8667C5C4BE7ECA7F",
+          "silhouette_sha256": "27B36454C9DBCEEED22221366783D9ADFE26B08949790AE2259E76ABA77673F1",
+          "source_subject_size": [
+            414,
+            706
+          ],
+          "resized_subject_size": [
+            148,
+            252
+          ],
+          "alpha_bounds": [
+            58,
+            8,
+            206,
+            260
+          ],
+          "alpha_padding": [
+            58,
+            8,
+            58,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/revenant/walk-01.png",
+          "sha256": "F741BDC59E219C22222264426FDC1847A527705A62CB29C59B71F120B1B4F5D9",
+          "silhouette_sha256": "3679F1FEDF19D3068150610580F530436040642753A3B9D193D9D004D98ED7E0",
+          "source_subject_size": [
+            403,
+            707
+          ],
+          "resized_subject_size": [
+            144,
+            252
+          ],
+          "alpha_bounds": [
+            60,
+            8,
+            204,
+            260
+          ],
+          "alpha_padding": [
+            60,
+            8,
+            60,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/revenant/walk-02.png",
+          "sha256": "A5DB0688E3410A1FE8C5B5AC8C3679AE419D0B53637C7A3E042929126FB41B59",
+          "silhouette_sha256": "259C002D7E29945914DDEC6DEA20583098383F27732494D35510BBBC91839CEF",
+          "source_subject_size": [
+            423,
+            704
+          ],
+          "resized_subject_size": [
+            151,
+            251
+          ],
+          "alpha_bounds": [
+            57,
+            9,
+            208,
+            260
+          ],
+          "alpha_padding": [
+            57,
+            9,
+            56,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/revenant/walk-03.png",
+          "sha256": "DC0DEF182C9C9E49D79C0A0321FBFF4F3EB81BED82FB28209A28014EBBA8672D",
+          "silhouette_sha256": "279AECEEABF3B5876E9344F627CB897D3D03F8E1C1871FA6A8908653FC3929FC",
+          "source_subject_size": [
+            414,
+            697
+          ],
+          "resized_subject_size": [
+            148,
+            248
+          ],
+          "alpha_bounds": [
+            58,
+            12,
+            206,
+            260
+          ],
+          "alpha_padding": [
+            58,
+            12,
+            58,
+            4
+          ]
+        }
+      ]
+    },
+    "male/almost_human": {
+      "candidate": "art/characters/map-runtime/2026-09-01/candidates/male-almost-human-attempt-01.png",
+      "deterministic_light_background_matte": false,
+      "shared_normalization_scale": 0.370044052863,
+      "frames": [
+        {
+          "path": "assets/dungeon/player-forms/male/almost_human/walk-00.png",
+          "sha256": "A4069B3A7B7766B87644E7F38B64272CC66903AE7FF5C1E831A17E39693F1031",
+          "silhouette_sha256": "DC6B0304417569B5189F4CA889A01389EB5380B86C6B5571EE479C11CC986D92",
+          "source_subject_size": [
+            384,
+            681
+          ],
+          "resized_subject_size": [
+            142,
+            252
+          ],
+          "alpha_bounds": [
+            61,
+            8,
+            203,
+            260
+          ],
+          "alpha_padding": [
+            61,
+            8,
+            61,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/almost_human/walk-01.png",
+          "sha256": "4BF643D133AEE647BB12E105FEE614EF6A7F030FE00ADD2FA3FDCAC87E91AA9C",
+          "silhouette_sha256": "FCC588360F42F45D4A8B330D766AD8F5AA6953A0CB7376252A53B7CE0FBFF09E",
+          "source_subject_size": [
+            424,
+            663
+          ],
+          "resized_subject_size": [
+            157,
+            245
+          ],
+          "alpha_bounds": [
+            54,
+            15,
+            211,
+            260
+          ],
+          "alpha_padding": [
+            54,
+            15,
+            53,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/almost_human/walk-02.png",
+          "sha256": "99CAFEDACAEC0955A8CB10421EEE93529D068E68059C92FE74422C3EF8E8B7E7",
+          "silhouette_sha256": "EF6ECC9C7A148D85E47244708854E68F2D41C3CE5C4C7B30789C465AA1EC70C2",
+          "source_subject_size": [
+            405,
+            674
+          ],
+          "resized_subject_size": [
+            150,
+            249
+          ],
+          "alpha_bounds": [
+            57,
+            11,
+            207,
+            260
+          ],
+          "alpha_padding": [
+            57,
+            11,
+            57,
+            4
+          ]
+        },
+        {
+          "path": "assets/dungeon/player-forms/male/almost_human/walk-03.png",
+          "sha256": "3985CB4D72BD3BC2972386896C2DF83AC4FA93C44F8980148102061AE99BEDC6",
+          "silhouette_sha256": "0C7AA4C6C8988D43B636912392F9700C9DD244EC62D3430E62DE810B2A231F05",
+          "source_subject_size": [
+            435,
+            676
+          ],
+          "resized_subject_size": [
+            161,
+            250
+          ],
+          "alpha_bounds": [
+            52,
+            10,
+            213,
+            260
+          ],
+          "alpha_padding": [
+            52,
+            10,
+            51,
+            4
+          ]
+        }
+      ]
+    }
+  },
+  "old_claymore": {
+    "path": "assets/items/item-old-claymore.png",
+    "sha256": "A4B328C366E2CE9A026CB6B9E462400C523F131084BDA05DDF58CE243BAD6F5D",
+    "alpha_bounds": [
+      8,
+      9,
+      124,
+      122
+    ],
+    "alpha_padding": [
+      8,
+      9,
+      8,
+      10
+    ]
+  }
+}

@@ -16,8 +16,15 @@ func run(_tree: SceneTree) -> Array[String]:
 		failures.append("Wiki skill count must follow GameRules")
 	if int(data["counts"]["equipment"]) != GameRules.EQUIPMENT.size():
 		failures.append("Wiki equipment count must follow GameRules")
+	if int(data["counts"]["equipment"]) != 24:
+		failures.append("Generated reference must expose exactly 24 item entries")
 	if int(data["counts"]["enemies"]) != GameRules.ENEMIES.size():
 		failures.append("Wiki enemy count must follow GameRules")
+	if int(data["counts"]["camp_upgrades"]) != 12:
+		failures.append("Generated reference must expose exactly 12 camp entries")
+	for item in data["equipment"]:
+		if item["category"] == "weapon" and (item["attack_type"].is_empty() or item["grip"].is_empty()):
+			failures.append("Generated weapon reference must expose attack_type and grip: %s" % item["id"])
 	var roadmap := FileAccess.get_file_as_string("res://docs/wiki/roadmap.md")
 	if not roadmap.contains("atomic-сохранения v%d" % SaveSystem.SAVE_VERSION):
 		failures.append("Wiki roadmap save version must follow Persistence.SAVE_VERSION")

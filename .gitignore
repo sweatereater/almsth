@@ -13,6 +13,8 @@ tmp/
 .idea/
 .pnpm-store/
 **/node_modules/
+**/__pycache__/
+*.pyc
 
 # OS files
 .DS_Store

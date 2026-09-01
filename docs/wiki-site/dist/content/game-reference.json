@@ -70,6 +70,18 @@
   "camp_upgrades": [
     {
       "cost": {
+        "cloth": 6,
+        "wood": 8
+      },
+      "id": "bunk",
+      "name": {
+        "en": "Cloth Bunk",
+        "ru": "Тканевые нары"
+      },
+      "requires": []
+    },
+    {
+      "cost": {
         "cloth": 0,
         "stone": 3,
         "wood": 3
@@ -78,7 +90,8 @@
       "name": {
         "en": "Campfire",
         "ru": "Костёр"
-      }
+      },
+      "requires": []
     },
     {
       "cost": {
@@ -90,7 +103,47 @@
       "name": {
         "en": "Crusher",
         "ru": "Дробилка"
-      }
+      },
+      "requires": []
+    },
+    {
+      "cost": {
+        "cloth": 2,
+        "stone": 8,
+        "wood": 6
+      },
+      "id": "kettle",
+      "name": {
+        "en": "Expedition Kettle",
+        "ru": "Походный котёл"
+      },
+      "requires": [
+        "campfire"
+      ]
+    },
+    {
+      "cost": {
+        "banked_souls": 60,
+        "cloth": 5,
+        "minotaur_tail": 1,
+        "stone": 20,
+        "wood": 12
+      },
+      "id": "mural",
+      "name": {
+        "en": "Mural",
+        "ru": "Мурал"
+      },
+      "requires": []
+    },
+    {
+      "cost": {},
+      "id": "record_player",
+      "name": {
+        "en": "Record Player",
+        "ru": "Проигрыватель"
+      },
+      "requires": []
     },
     {
       "cost": {
@@ -102,7 +155,28 @@
       "name": {
         "en": "Ritual Table",
         "ru": "Ритуальный стол"
-      }
+      },
+      "requires": []
+    },
+    {
+      "cost": {
+        "wood": 30
+      },
+      "id": "rocking_chair",
+      "name": {
+        "en": "Rocking Chair",
+        "ru": "Кресло-качалка"
+      },
+      "requires": []
+    },
+    {
+      "cost": {},
+      "id": "textile_area",
+      "name": {
+        "en": "Textile Area",
+        "ru": "Ткацкий уголок"
+      },
+      "requires": []
     },
     {
       "cost": {
@@ -114,19 +188,111 @@
       "name": {
         "en": "Whetstone",
         "ru": "Точильный камень"
-      }
+      },
+      "requires": []
+    },
+    {
+      "cost": {},
+      "id": "workbench",
+      "name": {
+        "en": "Workbench",
+        "ru": "Верстак"
+      },
+      "requires": []
+    },
+    {
+      "cost": {},
+      "id": "writing_set",
+      "name": {
+        "en": "Writing Set",
+        "ru": "Письменные принадлежности"
+      },
+      "requires": [
+        "workbench"
+      ]
     }
   ],
   "counts": {
     "abilities": 6,
-    "camp_upgrades": 4,
-    "enemies": 5,
-    "equipment": 9,
+    "camp_upgrades": 12,
+    "enemies": 9,
+    "equipment": 24,
     "forms": 5,
-    "skills": 15,
+    "skills": 19,
     "statuses": 2
   },
   "enemies": [
+    {
+      "abilities": [
+        "double_attack"
+      ],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
+      "dodge": 3,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "A",
+        "ru": "А"
+      },
+      "id": "arachnid",
+      "max_hp": 7,
+      "meat": false,
+      "min_depth": 11,
+      "name": {
+        "en": "Crypt Arachnid",
+        "ru": "Арахнид"
+      },
+      "range": 1,
+      "souls": 3,
+      "vision": 5
+    },
+    {
+      "abilities": [],
+      "accuracy": 2,
+      "attack_type": "melee",
+      "damage": 1,
+      "dodge": 1,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "S",
+        "ru": "П"
+      },
+      "id": "blind_scavenger",
+      "max_hp": 12,
+      "meat": true,
+      "min_depth": 4,
+      "name": {
+        "en": "Blind Scavenger",
+        "ru": "Слепой падальщик"
+      },
+      "range": 1,
+      "souls": 1,
+      "vision": 2
+    },
+    {
+      "abilities": [],
+      "accuracy": 4,
+      "attack_type": "ranged",
+      "damage": 2,
+      "dodge": 0,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "C",
+        "ru": "К"
+      },
+      "id": "bone_crossbowman",
+      "max_hp": 5,
+      "meat": false,
+      "min_depth": 20,
+      "name": {
+        "en": "Bone Crossbowman",
+        "ru": "Костяной арбалетчик"
+      },
+      "range": 5,
+      "souls": 3,
+      "vision": 6
+    },
     {
       "abilities": [],
       "accuracy": 2,
@@ -226,6 +392,29 @@
       "accuracy": 4,
       "attack_type": "melee",
       "damage": 2,
+      "dodge": 0,
+      "fixed_floor": null,
+      "glyph": {
+        "en": "F",
+        "ru": "Ш"
+      },
+      "id": "slag_smith",
+      "max_hp": 10,
+      "meat": false,
+      "min_depth": 15,
+      "name": {
+        "en": "Slag Smith",
+        "ru": "Шлаковый кузнец"
+      },
+      "range": 1,
+      "souls": 5,
+      "vision": 5
+    },
+    {
+      "abilities": [],
+      "accuracy": 4,
+      "attack_type": "melee",
+      "damage": 2,
       "dodge": 2,
       "fixed_floor": null,
       "glyph": {
@@ -250,17 +439,64 @@
     "damage": "base.damage + floor(depth / 35)",
     "depth": "depth = 100 - floor_number",
     "dodge": "base.dodge + floor(depth / 30)",
-    "enemy_count": "min(9, 4 + floor(depth / 12))",
+    "enemy_count": "min(12, 5 + floor(depth / 12))",
     "max_hp": "base.max_hp + floor(depth / 20)",
-    "note": "Floor 90 is hand-authored and uses the Minotaur base values without these bonuses.",
-    "scope": "regular_generated_floors",
+    "note": "Each of 2–3 sealed rooms adds 2–3 enemies with the same stat bonuses. Floor 90 is hand-authored and uses the Minotaur base values without these bonuses.",
+    "scope": "regular_generated_floor_main_hall",
     "souls": "base.souls + floor(depth / 30)",
     "source": "scripts/world/floor_generator.gd:_spawn_enemies",
     "vision": "base.vision"
   },
   "equipment": [
     {
+      "attack_type": "",
+      "category": "ring",
+      "grip": "",
+      "id": "aiming_ring",
+      "min_depth": 15,
+      "name": {
+        "en": "Aiming Ring",
+        "ru": "Кольцо прицела"
+      },
+      "salvage": {
+        "stone": 1
+      },
+      "slots": [
+        "ring_1",
+        "ring_2"
+      ],
+      "stats": {
+        "accuracy": 2,
+        "dodge": -1
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "head",
+      "grip": "",
+      "id": "archivists_mask",
+      "min_depth": 18,
+      "name": {
+        "en": "Archivist’s Mask",
+        "ru": "Маска архивиста"
+      },
+      "salvage": {
+        "cloth": 1,
+        "stone": 1
+      },
+      "slots": [
+        "head"
+      ],
+      "stats": {
+        "accuracy": -1,
+        "mana": 5,
+        "spell_power": 1
+      }
+    },
+    {
+      "attack_type": "ranged",
       "category": "weapon",
+      "grip": "two_handed",
       "id": "bone_bow",
       "min_depth": 0,
       "name": {
@@ -276,12 +512,35 @@
       ],
       "stats": {
         "range": 5,
-        "ranged_damage": 1,
-        "weapon_type": "ranged"
+        "ranged_damage": 1
       }
     },
     {
+      "attack_type": "",
+      "category": "offhand",
+      "grip": "",
+      "id": "bone_buckler",
+      "min_depth": 8,
+      "name": {
+        "en": "Bone Buckler",
+        "ru": "Костяной баклер"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "left_hand"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
+      "attack_type": "melee",
       "category": "weapon",
+      "grip": "one_handed",
       "id": "bone_knife",
       "min_depth": 0,
       "name": {
@@ -301,7 +560,30 @@
       }
     },
     {
+      "attack_type": "",
+      "category": "back",
+      "grip": "",
+      "id": "expedition_backpack",
+      "min_depth": 15,
+      "name": {
+        "en": "Expedition Backpack",
+        "ru": "Походный рюкзак"
+      },
+      "salvage": {
+        "cloth": 3,
+        "wood": 1
+      },
+      "slots": [
+        "back"
+      ],
+      "stats": {
+        "preparation": 200
+      }
+    },
+    {
+      "attack_type": "melee",
       "category": "weapon",
+      "grip": "one_handed",
       "id": "grave_mace",
       "min_depth": 8,
       "name": {
@@ -321,7 +603,50 @@
       }
     },
     {
+      "attack_type": "",
       "category": "offhand",
+      "grip": "",
+      "id": "gravediggers_lamp",
+      "min_depth": 6,
+      "name": {
+        "en": "Gravedigger’s Lamp",
+        "ru": "Лампа могильщика"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "left_hand"
+      ],
+      "stats": {
+        "vision": 1
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "legs",
+      "grip": "",
+      "id": "heavy_leg_wraps",
+      "min_depth": 9,
+      "name": {
+        "en": "Heavy Leg Wraps",
+        "ru": "Плотные обмотки"
+      },
+      "salvage": {
+        "cloth": 2
+      },
+      "slots": [
+        "legs"
+      ],
+      "stats": {
+        "max_hp": 3
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "offhand",
+      "grip": "",
       "id": "hollow_lantern",
       "min_depth": 18,
       "name": {
@@ -343,7 +668,31 @@
       }
     },
     {
+      "attack_type": "",
+      "category": "body",
+      "grip": "",
+      "id": "lamellar_vest",
+      "min_depth": 15,
+      "name": {
+        "en": "Lamellar Vest",
+        "ru": "Ламельный жилет"
+      },
+      "salvage": {
+        "cloth": 2,
+        "stone": 2
+      },
+      "slots": [
+        "body"
+      ],
+      "stats": {
+        "dodge": -2,
+        "max_hp": 7
+      }
+    },
+    {
+      "attack_type": "",
       "category": "hands",
+      "grip": "",
       "id": "leather_gloves",
       "min_depth": 10,
       "name": {
@@ -362,7 +711,31 @@
       }
     },
     {
+      "attack_type": "melee",
+      "category": "weapon",
+      "grip": "two_handed",
+      "id": "old_claymore",
+      "min_depth": 14,
+      "name": {
+        "en": "Old Claymore",
+        "ru": "Старый клеймор"
+      },
+      "salvage": {
+        "stone": 3,
+        "wood": 1
+      },
+      "slots": [
+        "right_hand"
+      ],
+      "stats": {
+        "accuracy": 2,
+        "damage": 3
+      }
+    },
+    {
+      "attack_type": "",
       "category": "offhand",
+      "grip": "",
       "id": "pilgrim_shield",
       "min_depth": 28,
       "name": {
@@ -382,7 +755,30 @@
       }
     },
     {
+      "attack_type": "",
+      "category": "feet",
+      "grip": "",
+      "id": "pilgrims_boots",
+      "min_depth": 4,
+      "name": {
+        "en": "Pilgrim’s Boots",
+        "ru": "Башмаки паломника"
+      },
+      "salvage": {
+        "cloth": 1,
+        "wood": 1
+      },
+      "slots": [
+        "feet"
+      ],
+      "stats": {
+        "max_hp": 2
+      }
+    },
+    {
+      "attack_type": "",
       "category": "body",
+      "grip": "",
       "id": "rotting_mail",
       "min_depth": 3,
       "name": {
@@ -401,7 +797,75 @@
       }
     },
     {
+      "attack_type": "melee",
+      "category": "weapon",
+      "grip": "one_handed",
+      "id": "rusty_sabre",
+      "min_depth": 5,
+      "name": {
+        "en": "Rusty Sabre",
+        "ru": "Ржавая сабля"
+      },
+      "salvage": {
+        "stone": 1,
+        "wood": 1
+      },
+      "slots": [
+        "right_hand"
+      ],
+      "stats": {
+        "accuracy": 2,
+        "damage": 1
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "legs",
+      "grip": "",
+      "id": "scouts_trousers",
+      "min_depth": 14,
+      "name": {
+        "en": "Scout’s Trousers",
+        "ru": "Штаны лазутчика"
+      },
+      "salvage": {
+        "cloth": 1
+      },
+      "slots": [
+        "legs"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
+      "attack_type": "ranged",
+      "category": "weapon",
+      "grip": "two_handed",
+      "id": "short_crossbow",
+      "min_depth": 12,
+      "name": {
+        "en": "Short Crossbow",
+        "ru": "Короткий арбалет"
+      },
+      "salvage": {
+        "cloth": 1,
+        "wood": 2
+      },
+      "slots": [
+        "right_hand"
+      ],
+      "stats": {
+        "accuracy": -1,
+        "range": 4,
+        "ranged_damage": 3
+      }
+    },
+    {
+      "attack_type": "",
       "category": "talisman",
+      "grip": "",
       "id": "soul_locket",
       "min_depth": 0,
       "name": {
@@ -421,7 +885,32 @@
       }
     },
     {
+      "attack_type": "",
+      "category": "ring",
+      "grip": "",
+      "id": "thickblood_ring",
+      "min_depth": 15,
+      "name": {
+        "en": "Thickblood Ring",
+        "ru": "Кольцо плотной крови"
+      },
+      "salvage": {
+        "cloth": 1,
+        "stone": 1
+      },
+      "slots": [
+        "ring_1",
+        "ring_2"
+      ],
+      "stats": {
+        "mana": -5,
+        "max_hp": 3
+      }
+    },
+    {
+      "attack_type": "",
       "category": "body",
+      "grip": "",
       "id": "unexpectedly_comfortable_jacket",
       "min_depth": 0,
       "name": {
@@ -434,6 +923,47 @@
       ],
       "stats": {
         "soul_level_bonus": 1
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "body",
+      "grip": "",
+      "id": "wanderers_gambeson",
+      "min_depth": 10,
+      "name": {
+        "en": "Wanderer’s Gambeson",
+        "ru": "Стёганка странника"
+      },
+      "salvage": {
+        "cloth": 2
+      },
+      "slots": [
+        "body"
+      ],
+      "stats": {
+        "dodge": 1,
+        "max_hp": 2
+      }
+    },
+    {
+      "attack_type": "",
+      "category": "head",
+      "grip": "",
+      "id": "watchmans_cap",
+      "min_depth": 4,
+      "name": {
+        "en": "Watchman’s Cap",
+        "ru": "Шапка сторожа"
+      },
+      "salvage": {
+        "cloth": 1
+      },
+      "slots": [
+        "head"
+      ],
+      "stats": {
+        "max_hp": 2
       }
     }
   ],
@@ -466,15 +996,15 @@
         {
           "id": "right_hand",
           "name": {
-            "en": "Right hand",
-            "ru": "Правая рука"
+            "en": "Main Hand",
+            "ru": "Основная рука"
           }
         },
         {
           "id": "left_hand",
           "name": {
-            "en": "Left hand",
-            "ru": "Левая рука"
+            "en": "Off Hand",
+            "ru": "Вспомогательная рука"
           }
         },
         {
@@ -517,15 +1047,15 @@
         {
           "id": "right_hand",
           "name": {
-            "en": "Right hand",
-            "ru": "Правая рука"
+            "en": "Main Hand",
+            "ru": "Основная рука"
           }
         },
         {
           "id": "left_hand",
           "name": {
-            "en": "Left hand",
-            "ru": "Левая рука"
+            "en": "Off Hand",
+            "ru": "Вспомогательная рука"
           }
         },
         {
@@ -585,15 +1115,15 @@
         {
           "id": "right_hand",
           "name": {
-            "en": "Right hand",
-            "ru": "Правая рука"
+            "en": "Main Hand",
+            "ru": "Основная рука"
           }
         },
         {
           "id": "left_hand",
           "name": {
-            "en": "Left hand",
-            "ru": "Левая рука"
+            "en": "Off Hand",
+            "ru": "Вспомогательная рука"
           }
         },
         {
@@ -675,15 +1205,15 @@
         {
           "id": "right_hand",
           "name": {
-            "en": "Right hand",
-            "ru": "Правая рука"
+            "en": "Main Hand",
+            "ru": "Основная рука"
           }
         },
         {
           "id": "left_hand",
           "name": {
-            "en": "Left hand",
-            "ru": "Левая рука"
+            "en": "Off Hand",
+            "ru": "Вспомогательная рука"
           }
         },
         {
@@ -830,15 +1360,15 @@
         {
           "id": "right_hand",
           "name": {
-            "en": "Right hand",
-            "ru": "Правая рука"
+            "en": "Main Hand",
+            "ru": "Основная рука"
           }
         },
         {
           "id": "left_hand",
           "name": {
-            "en": "Left hand",
-            "ru": "Левая рука"
+            "en": "Off Hand",
+            "ru": "Вспомогательная рука"
           }
         },
         {
@@ -877,7 +1407,7 @@
     "player_hearing_radius_offset": 1,
     "player_vision_base_radius": 4,
     "sharp_vision_bonus_per_level": 1,
-    "soul_level_start": 1,
+    "soul_level_start": 0,
     "weapon_upgrade_chances": {
       "1": 1.0,
       "2": 0.5,
@@ -889,7 +1419,7 @@
       "wood": 2
     }
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "skills": [
     {
       "ability_id": "",
@@ -1035,18 +1565,39 @@
         20
       ],
       "description": {
-        "en": "Activates healing from regeneration (zombie base: +1)",
-        "ru": "Активирует лечение по параметру регенерации (база зомби: +1)"
+        "en": "Activates healing from the regeneration stat",
+        "ru": "Активирует лечение по параметру регенерации"
       },
       "id": "flesh_regeneration",
       "kind": "passive",
       "max_level": 1,
       "name": {
-        "en": "Regeneration",
-        "ru": "Регенерация"
+        "en": "Circulatory System",
+        "ru": "Кровеносная система"
       },
       "requires": {},
-      "stage": "zombie"
+      "stage": "ghoul"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 15,
+      "cost_step": 0,
+      "costs": [
+        15
+      ],
+      "description": {
+        "en": "+2 effective Agility",
+        "ru": "+2 к эффективной Ловкости"
+      },
+      "id": "flexible_joints",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Flexible Joints",
+        "ru": "Гибкие суставы"
+      },
+      "requires": {},
+      "stage": "skeleton"
     },
     {
       "ability_id": "",
@@ -1066,10 +1617,8 @@
         "en": "Develop Fundamentals",
         "ru": "Развитие основ"
       },
-      "requires": {
-        "strong_bones": 1
-      },
-      "stage": "skeleton"
+      "requires": {},
+      "stage": "almost_human"
     },
     {
       "ability_id": "",
@@ -1168,25 +1717,67 @@
     },
     {
       "ability_id": "",
-      "base_cost": 80,
-      "cost_step": 40,
+      "base_cost": 20,
+      "cost_step": 10,
       "costs": [
-        80,
-        120
+        20,
+        30
       ],
       "description": {
-        "en": "+1 vision cell per level",
-        "ru": "+1 клетка обзора за уровень"
+        "en": "+1 effective Strength per level",
+        "ru": "+1 к эффективной Силе за уровень"
+      },
+      "id": "muscle_fibers",
+      "kind": "passive",
+      "max_level": 2,
+      "name": {
+        "en": "Muscle Fibers",
+        "ru": "Мышечные волокна"
+      },
+      "requires": {},
+      "stage": "zombie"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 80,
+      "cost_step": 0,
+      "costs": [
+        80
+      ],
+      "description": {
+        "en": "Unlocks the camp Rested status",
+        "ru": "Открывает лагерный статус «Отдых»"
+      },
+      "id": "nervous_system",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Nervous System",
+        "ru": "Нервная система"
+      },
+      "requires": {},
+      "stage": "revenant"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 80,
+      "cost_step": 0,
+      "costs": [
+        80
+      ],
+      "description": {
+        "en": "+1 vision cell",
+        "ru": "+1 клетка обзора"
       },
       "id": "sharp_vision",
       "kind": "passive",
-      "max_level": 2,
+      "max_level": 1,
       "name": {
         "en": "Sharp Vision",
         "ru": "Острое зрение"
       },
       "requires": {},
-      "stage": "revenant"
+      "stage": "zombie"
     },
     {
       "ability_id": "",
@@ -1218,12 +1809,7 @@
         10,
         15,
         20,
-        25,
-        30,
-        35,
-        40,
-        45,
-        50
+        25
       ],
       "description": {
         "en": "+3 maximum HP per level",
@@ -1231,10 +1817,31 @@
       },
       "id": "strong_bones",
       "kind": "passive",
-      "max_level": 10,
+      "max_level": 5,
       "name": {
         "en": "Sturdy Bones",
         "ru": "Крепкие кости"
+      },
+      "requires": {},
+      "stage": "skeleton"
+    },
+    {
+      "ability_id": "",
+      "base_cost": 20,
+      "cost_step": 0,
+      "costs": [
+        20
+      ],
+      "description": {
+        "en": "+1 effective Vitality",
+        "ru": "+1 к эффективной Живучести"
+      },
+      "id": "strong_spine",
+      "kind": "passive",
+      "max_level": 1,
+      "name": {
+        "en": "Strong Spine",
+        "ru": "Крепкий позвоночник"
       },
       "requires": {},
       "stage": "skeleton"
@@ -1253,7 +1860,7 @@
       },
       "icon": "rested_ember",
       "id": "rested",
-      "max_duration": 500,
+      "max_duration": 800,
       "modifiers": {
         "damage": 1,
         "ranged_damage": 1
@@ -1274,7 +1881,7 @@
       },
       "icon": "satiated_meal",
       "id": "satiated",
-      "max_duration": 400,
+      "max_duration": 700,
       "modifiers": {
         "regeneration": 1
       },

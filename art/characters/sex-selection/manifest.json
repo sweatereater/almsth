@@ -1,0 +1,249 @@
+{
+  "sources": {
+    "male": {
+      "path": "art/characters/male/sources/five-stages-approved.png",
+      "sha256": "74ed2961886fe021c6c63b305d17ea403d6f74d15c655e2f3690bf241c1bab04"
+    },
+    "female_four": {
+      "path": "art/characters/female/sources/four-stages-approved.png",
+      "sha256": "8b371aa8a586956933e8a8c0a9fdd1a6288c740cd4172b3bd26d550d1a143b15"
+    },
+    "female_human": {
+      "path": "art/characters/female/sources/almost-human-original.png",
+      "sha256": "d20a535161689e23ba1a973bf9c3a3aeb860aec02fbce6f5e823c204bb8f0479"
+    }
+  },
+  "bodies": [
+    {
+      "path": "assets/ui/character-fullbody/female/form-skeleton.png",
+      "source": "female_four",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        42,
+        257,
+        222,
+        696
+      ],
+      "scale": 0.5149774378856444,
+      "eye_to_foot_target": 410.4370179948586,
+      "paste_xy": [
+        42,
+        257
+      ],
+      "sha256": "b5ead841022281f7ac1dea1e45561301a9bf0e78ccd326488acd9c580c6c1c98"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-zombie.png",
+      "source": "female_four",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        45,
+        255,
+        214,
+        696
+      ],
+      "scale": 0.5127258188567877,
+      "eye_to_foot_target": 410.4370179948586,
+      "paste_xy": [
+        45,
+        255
+      ],
+      "sha256": "be6f015ef3f5fb100f2dcd2ce429562567f6a21ee25b564c1b80221a3dd0d84c"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-ghoul.png",
+      "source": "female_four",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        26,
+        252,
+        221,
+        696
+      ],
+      "scale": 0.5067123678948872,
+      "eye_to_foot_target": 410.4370179948586,
+      "paste_xy": [
+        26,
+        252
+      ],
+      "sha256": "b0caeb4b7707e0504e64d2e6d07b9e2aaa0695a1225f2375b1b6e2f203714c59"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-revenant.png",
+      "source": "female_four",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        29,
+        254,
+        223,
+        696
+      ],
+      "scale": 0.49931510704970633,
+      "eye_to_foot_target": 410.4370179948586,
+      "paste_xy": [
+        29,
+        254
+      ],
+      "sha256": "c32a6993660aac0bcfda8270dda839452761d2ef8bfd190d8e34ed2f36bb806b"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-almost-human.png",
+      "source": "female_human",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        12,
+        252,
+        227,
+        696
+      ],
+      "scale": 0.30848329048843187,
+      "eye_to_foot_target": 410.4370179948586,
+      "paste_xy": [
+        12,
+        252
+      ],
+      "sha256": "fda0f44e4f5370cbd2e4b98873ec9b47d777e3f140daf536212029b065daf4ee"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-skeleton.png",
+      "source": "male",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        46,
+        192,
+        219,
+        696
+      ],
+      "scale": 0.6302385557704706,
+      "eye_to_foot_target": 473.93939393939394,
+      "paste_xy": [
+        46,
+        192
+      ],
+      "sha256": "092f9df5f9ef4cb8665c98f1b77614671466c6372662bee53f63976af3c4895c"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-zombie.png",
+      "source": "male",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        45,
+        183,
+        217,
+        696
+      ],
+      "scale": 0.6187198354300182,
+      "eye_to_foot_target": 473.93939393939394,
+      "paste_xy": [
+        45,
+        183
+      ],
+      "sha256": "768b119baf7bfef09bf6ebb91bdce0c90127dd91307dfdb8ca1023c7bba6ba1a"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-ghoul.png",
+      "source": "male",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        44,
+        179,
+        213,
+        696
+      ],
+      "scale": 0.6107466416744767,
+      "eye_to_foot_target": 473.93939393939394,
+      "paste_xy": [
+        44,
+        179
+      ],
+      "sha256": "2fe78d6272f1c07316dd1739f2337406d2aa965d08d1d8378dbfd5219d41bff2"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-revenant.png",
+      "source": "male",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        48,
+        177,
+        214,
+        696
+      ],
+      "scale": 0.6131169391195265,
+      "eye_to_foot_target": 473.93939393939394,
+      "paste_xy": [
+        48,
+        177
+      ],
+      "sha256": "f6e9ee77dbb2b12030c93b38653120b0bd7cf20b5d8c2494be8fb5567d3c721a"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-almost-human.png",
+      "source": "male",
+      "size": [
+        264,
+        704
+      ],
+      "alpha_bounds": [
+        26,
+        182,
+        252,
+        696
+      ],
+      "scale": 0.6060606060606061,
+      "eye_to_foot_target": 473.93939393939394,
+      "paste_xy": [
+        26,
+        182
+      ],
+      "sha256": "4f740d4bc992c4490b72927c54ae7fecc063d88e50d67027d767e22823de8db1"
+    }
+  ],
+  "heads": [
+    {
+      "path": "assets/portraits/male/form-almost-human.png",
+      "size": [
+        264,
+        264
+      ],
+      "alpha_bounds": [
+        47,
+        21,
+        199,
+        192
+      ],
+      "eye": [
+        115,
+        105
+      ],
+      "eye_to_chin": 56,
+      "sha256": "ab469505bd53c9dbad3d17a1d18248eac005bd4deceb917939b0489473994fcd"
+    }
+  ]
+}

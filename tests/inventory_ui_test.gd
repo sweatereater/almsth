@@ -573,6 +573,26 @@ func _test_character_focus_and_close(main, tree: SceneTree) -> void:
 	main._show_character()
 	main._select_character_panel("inventory")
 	await tree.process_frame
+	var offhand_button: Button = main.character_equipment_buttons["left_hand"]
+	var offhand_ghost: TextureRect = main.character_equipment_ghosts["left_hand"]
+	var state_before_ghost_redirect: Dictionary = main.state.to_save_data()
+	_expect(
+		offhand_ghost.visible
+		and offhand_ghost.texture != null
+		and is_equal_approx(offhand_ghost.modulate.a, 0.40)
+		and is_equal_approx(offhand_button.modulate.a, 1.0)
+		and offhand_button.icon == null
+		and offhand_button.tooltip_text.contains(Loc.text("WEAPON_GHOST_TOOLTIP"))
+		and offhand_button.accessibility_name.contains(Loc.text("WEAPON_GHOST_TOOLTIP")),
+		"Two-handed Off Hand must use only a 40% icon layer while frame, focus, hit rect and accessible explanation stay full strength",
+	)
+	offhand_button.pressed.emit()
+	await tree.process_frame
+	_expect(
+		main.inventory_panel.selected_destination_slot() == "right_hand"
+		and main.state.to_save_data() == state_before_ghost_redirect,
+		"Selecting the UI-only Off Hand ghost must redirect to real Main Hand without model/save mutation",
+	)
 	main.character_equipment_buttons["right_hand"].grab_focus()
 	await _push_action(main, tree, "ui_accept")
 	_expect(
@@ -657,9 +677,10 @@ func _test_service_close_matrix(main, tree: SceneTree) -> void:
 				and not main.inventory_panel.visible
 				and not main.main_menu_open
 				and main.screen == main.Screen.BASE
-				and main.start_button.visible and main.upgrade_button.visible
-				and main.build_crusher_button.visible and main.build_whetstone_button.visible
-				and main.build_ritual_table_button.visible and main.character_button.visible
+				and main.start_button.visible and main.camp_build_button.visible
+				and not main.upgrade_button.visible
+				and not main.build_crusher_button.visible and not main.build_whetstone_button.visible
+				and not main.build_ritual_table_button.visible and main.character_button.visible
 				and main.menu_button.visible and main.camp_upgrades_label.visible
 				and main.hint_label.visible and main.message_label.visible
 				and main.crusher_object_button.visible

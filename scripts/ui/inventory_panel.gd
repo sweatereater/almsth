@@ -383,7 +383,7 @@ static func primary_stats(item_key: String) -> PackedStringArray:
 	var level := Rules.item_upgrade_level(item_key) if Rules.is_weapon(item_key) else 0
 	match category:
 		"weapon":
-			if Rules.weapon_type(item_key) == "ranged":
+			if Rules.weapon_attack_type(item_key) == "ranged":
 				return PackedStringArray([
 					"%s %d" % [Loc.text("PARAM_RANGED_DAMAGE"), int(rules.get("ranged_damage", 0)) + level],
 					"%s %d" % [Loc.text("PARAM_ACCURACY"), int(rules.get("accuracy", 0)) + level],
@@ -425,6 +425,10 @@ static func full_details(item_key: String, count: int, source: String, equipped_
 		lines.append(Loc.text("INVENTORY_COUNT", [count]))
 	if Rules.is_item_bound(item_key):
 		lines.append(Loc.text("INVENTORY_BOUND_STATUS"))
+	if Rules.is_weapon(item_key):
+		lines.append(Loc.text("INVENTORY_WEAPON_CLASS", [
+			Loc.text(_weapon_class_key(item_key)),
+		]))
 	if Rules.is_item_permanent(item_key):
 		var description_key := String(rules.get("description", ""))
 		if not description_key.is_empty():
@@ -471,15 +475,23 @@ static func _all_nonzero_stats(item_key: String) -> PackedStringArray:
 		var value := int(rules.get(field, 0))
 		if field == "accuracy":
 			value += weapon_level
-		elif field == "damage" and Rules.weapon_type(item_key) == "melee":
+		elif field == "damage" and Rules.weapon_attack_type(item_key) == "melee":
 			value += weapon_level
-		elif field == "ranged_damage" and Rules.weapon_type(item_key) == "ranged":
+		elif field == "ranged_damage" and Rules.weapon_attack_type(item_key) == "ranged":
 			value += weapon_level
 		if value != 0:
 			result.append("%s: %s%d" % [_stat_name(field), "+" if value > 0 else "", value])
-	if Rules.weapon_type(item_key) == "ranged":
+	if Rules.weapon_attack_type(item_key) == "ranged":
 		result.append("%s: %d" % [Loc.text("PARAM_RANGED_RANGE"), Rules.weapon_range(item_key)])
 	return result
+
+
+static func _weapon_class_key(item_key: String) -> String:
+	if Rules.weapon_attack_type(item_key) == "ranged" and Rules.weapon_grip(item_key) == "two_handed":
+		return "WEAPON_CLASS_RANGED_TWO_HANDED"
+	if Rules.weapon_grip(item_key) == "two_handed":
+		return "WEAPON_CLASS_TWO_HANDED"
+	return "WEAPON_CLASS_ONE_HANDED"
 
 
 static func _stat_name(field: String) -> String:

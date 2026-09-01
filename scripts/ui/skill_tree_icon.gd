@@ -5,6 +5,8 @@ extends Button
 ## gameplay action of its own: its owner decides whether activation selects or
 ## purchases the represented entry.
 
+const GameRules := preload("res://scripts/game/game_rules.gd")
+
 const COLOR_TEXT := Color("e6e2d8")
 const COLOR_MUTED := Color("8d98aa")
 const COLOR_SOUL := Color("72d7cf")
@@ -14,6 +16,11 @@ const COLOR_MAX := Color("e1bf71")
 const COLOR_LOCKED := Color("596274")
 const COLOR_PLACEHOLDER := Color("758093")
 const COLOR_SELECTION := Color("f2e6b6")
+const COST_BADGE_RADIUS := 8.0
+const COST_BADGE_OFFSET := Vector2(-46.0, -20.0)
+const COMPACT_COST_BADGE_OFFSET := Vector2(-20.0, -20.0)
+
+static var _texture_cache: Dictionary = {}
 
 var node_id := ""
 var display_name := ""
@@ -22,10 +29,12 @@ var visual_state := "available"
 var selected := false
 var purchasable := false
 var compact := false
+var skill_texture: Texture2D = null
 
 
 func _ready() -> void:
 	flat = true
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	focus_mode = Control.FOCUS_ALL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state_name in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
@@ -54,9 +63,28 @@ func set_presentation(
 	selected = selected_value
 	purchasable = purchasable_value
 	compact = compact_value
+	skill_texture = load_skill_texture(node_id)
 	tooltip_text = display_name
 	accessibility_name = display_name
 	queue_redraw()
+
+
+static func load_skill_texture(skill_id: String) -> Texture2D:
+	if _texture_cache.has(skill_id):
+		return _texture_cache[skill_id]
+	var result: Texture2D = null
+	if GameRules.SKILLS.has(skill_id):
+		var icon_path := String(GameRules.SKILLS[skill_id].get("icon", ""))
+		if not icon_path.is_empty() and ResourceLoader.exists(icon_path, "Texture2D"):
+			var resource := ResourceLoader.load(icon_path, "Texture2D", ResourceLoader.CACHE_MODE_REUSE)
+			if resource is Texture2D:
+				result = resource
+	_texture_cache[skill_id] = result
+	return result
+
+
+func uses_raster_texture() -> bool:
+	return skill_texture != null
 
 
 func _draw() -> void:
@@ -72,33 +100,55 @@ func _draw() -> void:
 	elif visual_state == "placeholder":
 		fill = Color("181d27")
 
-	if selected or has_focus() or is_hovered():
-		_draw_selection_outline(center, COLOR_SELECTION if selected else COLOR_SOUL)
 	if button_pressed:
 		fill = fill.lightened(0.10)
 
+	var diamond := PackedVector2Array()
 	if node_kind == "passive" or node_kind == "intrinsic":
 		draw_circle(center, 27.0, fill)
-		draw_arc(center, 27.0, 0.0, TAU, 48, outline, 2.5, true)
 	else:
 		var half := 24.0
-		var diamond := PackedVector2Array([
+		diamond = PackedVector2Array([
 			center + Vector2(0, -half),
 			center + Vector2(half, 0),
 			center + Vector2(0, half),
 			center + Vector2(-half, 0),
 		])
 		draw_colored_polygon(diamond, fill)
+
+	if skill_texture != null:
+		_draw_raster(center)
+	else:
+		_draw_glyph(center, outline)
+
+	# Frames, focus, state and cost remain code-drawn above every raster.
+	if node_kind == "passive" or node_kind == "intrinsic":
+		draw_arc(center, 27.0, 0.0, TAU, 48, outline, 2.5, true)
+	else:
 		draw_polyline(PackedVector2Array([
 			diamond[0], diamond[1], diamond[2], diamond[3], diamond[0],
 		]), outline, 2.5, true)
 
-	_draw_glyph(center, outline)
+	if selected or has_focus() or is_hovered():
+		_draw_selection_outline(center, COLOR_SELECTION if selected else COLOR_SOUL)
 	_draw_state_badge(center, outline)
 	if purchasable:
 		_draw_cost_badge(center)
 	if not compact:
 		_draw_name()
+
+
+func _draw_raster(center: Vector2) -> void:
+	var texture_size := 64.0 if compact else 54.0
+	var modulation := Color.WHITE
+	if visual_state == "locked" or visual_state == "intrinsic_locked":
+		modulation.a = 0.46
+	draw_texture_rect(
+		skill_texture,
+		Rect2(center - Vector2.ONE * texture_size * 0.5, Vector2.ONE * texture_size),
+		false,
+		modulation,
+	)
 
 
 func _state_color() -> Color:
@@ -148,13 +198,24 @@ func _draw_state_badge(center: Vector2, color: Color) -> void:
 
 
 func _draw_cost_badge(center: Vector2) -> void:
-	var badge_center := center + Vector2(-20, -20)
+	var badge_center := center + (
+		COMPACT_COST_BADGE_OFFSET if compact else COST_BADGE_OFFSET
+	)
 	var gold := COLOR_MAX
-	draw_circle(badge_center, 8.0, Color("111720"))
-	draw_arc(badge_center, 8.0, 0.0, TAU, 20, gold, 2.0, true)
+	draw_circle(badge_center, COST_BADGE_RADIUS, Color("111720"))
+	draw_arc(badge_center, COST_BADGE_RADIUS, 0.0, TAU, 20, gold, 2.0, true)
 	draw_line(badge_center + Vector2(-3, -3), badge_center + Vector2(3, -3), gold, 1.5, true)
 	draw_line(badge_center + Vector2(-4, 0), badge_center + Vector2(4, 0), gold, 1.5, true)
 	draw_line(badge_center + Vector2(-3, 3), badge_center + Vector2(3, 3), gold, 1.5, true)
+
+
+func cost_badge_bounds() -> Rect2:
+	var center := Vector2(size.x * 0.5, 20.0 if not compact else size.y * 0.5)
+	var offset := COMPACT_COST_BADGE_OFFSET if compact else COST_BADGE_OFFSET
+	return Rect2(
+		center + offset - Vector2.ONE * COST_BADGE_RADIUS,
+		Vector2.ONE * COST_BADGE_RADIUS * 2.0,
+	)
 
 
 func _draw_glyph(center: Vector2, color: Color) -> void:
@@ -248,6 +309,26 @@ func _draw_name() -> void:
 			font_size,
 			COLOR_TEXT if visual_state != "locked" else COLOR_MUTED,
 		)
+
+
+func name_line_bounds() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	if compact:
+		return result
+	var font := get_theme_font("font")
+	var font_size := 11
+	var lines := _wrap_name(font, font_size)
+	var start_y := 68.0 if lines.size() == 1 else 64.0
+	for index in range(lines.size()):
+		var line_width := font.get_string_size(
+			lines[index], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
+		).x
+		var baseline := start_y + index * 10.0
+		result.append(Rect2(
+			Vector2((size.x - line_width) * 0.5, baseline - font_size),
+			Vector2(line_width, font_size + 2.0),
+		))
+	return result
 
 
 func _wrap_name(font: Font, font_size: int) -> PackedStringArray:

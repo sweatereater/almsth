@@ -147,10 +147,10 @@ func _test_main_integration(tree: SceneTree) -> void:
 	await tree.process_frame
 	main.auto_step_delay_override = -1.0
 	var expected_auto_delays := {
-		100: 0.275,
-		150: 0.275 / 1.5,
-		200: 0.1375,
-		225: 0.275 / 2.25,
+		100: 0.229166667,
+		150: 0.152777778,
+		200: 0.114583333,
+		225: 0.101851852,
 	}
 	for speed_percent in expected_auto_delays:
 		main.auto_movement_speed_percent = speed_percent
@@ -180,6 +180,85 @@ func _test_main_integration(tree: SceneTree) -> void:
 	main._apply_dungeon_layout(true)
 	main._refresh_interface()
 	await tree.process_frame
+	main.player_map_presentation.activate("male", "skeleton")
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
+	main._reset_resume_transients()
+	_expect(
+		not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Load/resume transient reset must snap unfinished map presentation without a turn",
+	)
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
+	main.state.current_form_id = "zombie"
+	main._player_map_visual()
+	_expect(
+		not main.player_map_presentation.moving
+		and main.player_map_presentation.active_form == "zombie",
+		"A real form change must reset the active map presentation set",
+	)
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
+	main.state.display_form_id = "skeleton"
+	main._player_map_visual()
+	_expect(
+		not main.player_map_presentation.moving
+		and main.player_map_presentation.active_form == "skeleton",
+		"A cosmetic form change must reset the active map presentation set",
+	)
+	main.state.display_form_id = ""
+
+	# Exercise the real Main movement/round/presentation path, not only the
+	# PlayerMapPresentation value object.  This deterministic empty four-cell loop
+	# has exactly one legal logical cell and turn per command, no RNG consumer and
+	# no survival mutation beyond total_turns.  The expected serialized state is
+	# advanced deliberately instead of incorrectly asserting an untouched object.
+	main.state = RunState.new()
+	main.state.configure_character("Main presentation loop", GameRules.default_attributes())
+	main.floor_data = _floor_fixture(7, 7)
+	main.player_pos = Vector2i(3, 3)
+	_reveal_floor(main)
+	main.rng.seed = 440041
+	var integration_rng_before: int = main.rng.state
+	var integration_snapshot: Dictionary = main.state.to_snapshot_data()
+	var expected_position: Vector2i = main.player_pos
+	var integration_ok := true
+	var loop_directions := [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]
+	for step_index in range(1000):
+		var direction: Vector2i = loop_directions[step_index % loop_directions.size()]
+		expected_position += direction
+		var action_ok: bool = main._attempt_player_action(direction)
+		var expected_snapshot := integration_snapshot.duplicate(true)
+		expected_snapshot["total_turns"] = step_index + 1
+		var snapshot_after_action: Dictionary = main.state.to_snapshot_data()
+		if (
+			not action_ok
+			or main.player_pos != expected_position
+			or main.state.total_turns != step_index + 1
+			or main.rng.state != integration_rng_before
+			or snapshot_after_action != expected_snapshot
+		):
+			integration_ok = false
+			break
+		main.player_map_presentation.update(0.11)
+		if (
+			main.player_map_presentation.moving
+			or main.player_map_presentation.visual().offset_cells != Vector2.ZERO
+			or main.player_pos != expected_position
+			or main.state.total_turns != step_index + 1
+			or main.rng.state != integration_rng_before
+			or main.state.to_snapshot_data() != snapshot_after_action
+		):
+			integration_ok = false
+			break
+	_expect(
+		integration_ok
+		and main.player_pos == Vector2i(3, 3)
+		and main.state.total_turns == 1000,
+		"One thousand real Main steps must preserve exact cell/turn/RNG/save cadence and finish every transient without drift",
+	)
+	main.floor_data = _floor_fixture(20, 14)
+	main.player_pos = Vector2i(10, 7)
+	_reveal_floor(main)
+	main._refresh_interface()
 	_expect(main.dungeon_viewport.visible and main.dungeon_viewport.clip_contents, "Dungeon screen must use a visible clipping Control")
 	_expect(main.dungeon_viewport.camera == Vector2(165, 165), "Integrated camera must use the player-centered transform")
 	_expect(main.dungeon_viewport.world_canvas.position == -Vector2(165, 165), "Large-map canvas origin must be padding minus camera")
@@ -263,11 +342,14 @@ func _test_main_integration(tree: SceneTree) -> void:
 
 	# Loading a generated floor derives camera bounds from floor width/height, not explored cells.
 	main.rng.seed = 77123
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
 	main._load_floor(88)
 	_expect(
 		main.dungeon_viewport.map_size == Vector2i(main.floor_data["width"], main.floor_data["height"])
-		and main.dungeon_viewport.camera == DungeonView.camera_for(main.dungeon_viewport.map_size, main.player_pos),
-		"Floor load must refresh camera from rectangular floor dimensions",
+		and main.dungeon_viewport.camera == DungeonView.camera_for(main.dungeon_viewport.map_size, main.player_pos)
+		and not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Floor transition must snap presentation and refresh camera from rectangular dimensions",
 	)
 
 	main.floor_data = _floor_fixture(20, 14)
@@ -436,9 +518,12 @@ func _test_main_integration(tree: SceneTree) -> void:
 			main.equipment_label.visible, Rect2(main.title_label.position, main.title_label.size),
 		],
 	)
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
 	main._show_base("")
 	_expect(
 		not main.dungeon_viewport.visible
+		and not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO
 		and main.soul_icon.visible
 		and Rect2(main.soul_icon.position, main.soul_icon.size) == main.BASE_SOUL_ICON_RECT
 		and Rect2(main.souls_label.position, main.souls_label.size) == main.BASE_SOULS_RECT
@@ -452,6 +537,13 @@ func _test_main_integration(tree: SceneTree) -> void:
 		and Rect2(main.hint_label.position, main.hint_label.size) == BaseLayout.HINT_RECT
 		and Rect2(main.message_label.position, main.message_label.size) == BaseLayout.MESSAGE_RECT,
 		"Leaving Dungeon must restore the base layout and its compact resource strip",
+	)
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
+	main._handle_death()
+	_expect(
+		not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Death must snap unfinished map presentation before showing its scene",
 	)
 	main.queue_free()
 	await tree.process_frame

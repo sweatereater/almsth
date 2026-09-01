@@ -37,24 +37,24 @@ const STAGE_NAME_KEYS := {
 }
 const STAGE_BRANCHES := {
 	"skeleton": [
-		{"label": "SKILL_BRANCH_BONES", "nodes": ["strong_bones", "fundamentals", "skeleton_soon_1", "skeleton_soon_2"]},
+		{"label": "SKILL_BRANCH_BODY_BONES", "nodes": ["strong_bones", "flexible_joints", "strong_spine"]},
 		{"label": "SKILL_BRANCH_MAGIC", "nodes": ["magic_awakening", "magic_missile", "magic_missile_range", "magic_ricochet"]},
 	],
 	"zombie": [
-		{"label": "SKILL_BRANCH_FLESH", "nodes": ["flesh_regeneration", "zombie_soon_1", "zombie_soon_2", "zombie_soon_3"]},
+		{"label": "SKILL_BRANCH_BODY_FLESH", "nodes": ["sharp_vision", "muscle_fibers"]},
 	],
 	"ghoul": [
-		{"label": "SKILL_BRANCH_MANEUVER", "nodes": ["dash", "ghoul_maneuver_soon"]},
-		{"label": "SKILL_BRANCH_COMBAT", "nodes": ["double_attack", "ghoul_combat_soon"]},
-		{"label": "SKILL_BRANCH_BODY", "nodes": ["stomach", "ears", "nervous_system"]},
+		{"label": "SKILL_BRANCH_BODY_GUT", "nodes": ["stomach", "flesh_regeneration", "ears"]},
+		{"label": "SKILL_BRANCH_MANEUVER", "nodes": ["dash"]},
+		{"label": "SKILL_BRANCH_COMBAT", "nodes": ["double_attack"]},
 	],
 	"revenant": [
-		{"label": "SKILL_BRANCH_SENSES", "nodes": ["sharp_vision", "revenant_soon_1", "revenant_soon_2", "revenant_soon_3"]},
+		{"label": "SKILL_BRANCH_BODY_CNS", "nodes": ["nervous_system"]},
 	],
 	"almost_human": [
+		{"label": "SKILL_BRANCH_BODY_APPEARANCE", "nodes": ["choose_appearance", "fundamentals"]},
 		{"label": "SKILL_BRANCH_BASIC_ATTACK", "nodes": ["almost_double_strike"]},
 		{"label": "SKILL_BRANCH_ABILITY", "nodes": ["circular_attack"]},
-		{"label": "SKILL_BRANCH_APPEARANCE", "nodes": ["choose_appearance", "almost_soon_2"]},
 	],
 }
 
@@ -344,21 +344,8 @@ func _refresh_details() -> void:
 
 
 func _node_presentation(node_id: String) -> Dictionary:
-	if _is_placeholder(node_id):
-		return {
-			"name": Loc.text("SKILL_PLACEHOLDER_NAME"),
-			"kind": "active",
-			"state": "placeholder",
-		}
-	if node_id == "nervous_system":
-		var owned := _intrinsic_owned()
-		return {
-			"name": Loc.text("FEATURE_NERVOUS_SYSTEM"),
-			"kind": "intrinsic",
-			"state": "intrinsic_owned" if owned else "intrinsic_locked",
-		}
 	if not GameRules.SKILLS.has(node_id):
-		return {"name": node_id, "kind": "active", "state": "placeholder"}
+		return {"name": node_id, "kind": "passive", "state": "locked"}
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var level := _skill_level(node_id)
 	var max_level := int(rules["max_level"])
@@ -377,10 +364,6 @@ func _node_presentation(node_id: String) -> Dictionary:
 
 
 func _detail_meta(node_id: String) -> String:
-	if _is_placeholder(node_id):
-		return "%s   ·   %s" % [Loc.text("SKILL_DETAIL_TYPE_PLACEHOLDER"), Loc.text("SKILL_DETAIL_LEVEL_NONE")]
-	if node_id == "nervous_system":
-		return "%s   ·   %s" % [Loc.text("SKILL_DETAIL_TYPE_INTRINSIC"), Loc.text("SKILL_DETAIL_LEVEL_INTRINSIC")]
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var type_key := "SKILL_DETAIL_TYPE_ACTIVE" if rules.get("kind", "passive") == "active" else "SKILL_DETAIL_TYPE_PASSIVE"
 	return "%s   ·   %s" % [
@@ -390,10 +373,6 @@ func _detail_meta(node_id: String) -> String:
 
 
 func _detail_description(node_id: String) -> String:
-	if _is_placeholder(node_id):
-		return Loc.text("SKILL_PLACEHOLDER_DESC")
-	if node_id == "nervous_system":
-		return Loc.text("FEATURE_NERVOUS_SYSTEM_DESC")
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var description := Loc.text("%s_DETAIL" % String(rules["name"]))
 	var effect := Loc.text(String(rules["description"]))
@@ -404,12 +383,6 @@ func _detail_description(node_id: String) -> String:
 
 
 func _detail_stats(node_id: String) -> String:
-	if _is_placeholder(node_id) or node_id == "nervous_system":
-		return "%s\n%s\n%s" % [
-			Loc.text("SKILL_DETAIL_MANA", [0]),
-			Loc.text("SKILL_DETAIL_COOLDOWN", [0]),
-			Loc.text("SKILL_DETAIL_REQUIREMENT", [_requirement_text(node_id)]),
-		]
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var ability_id := String(rules.get("ability_id", ""))
 	var mana := GameRules.MAGIC_MISSILE_MANA_COST if node_id == "magic_missile" else int(AbilitySystem.ability(ability_id).get("mana_cost", 0))
@@ -425,10 +398,6 @@ func _detail_stats(node_id: String) -> String:
 
 
 func _requirement_text(node_id: String) -> String:
-	if _is_placeholder(node_id):
-		return Loc.text("SKILL_DETAIL_NOT_APPLICABLE")
-	if node_id == "nervous_system":
-		return Loc.text("FEATURE_OWNED") if _intrinsic_owned() else Loc.text("FEATURE_FORM_LOCKED")
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var requirements: Dictionary = rules["requires"]
 	if requirements.is_empty():
@@ -443,10 +412,6 @@ func _requirement_text(node_id: String) -> String:
 
 
 func _node_status(node_id: String) -> String:
-	if _is_placeholder(node_id):
-		return Loc.text("SKILL_STATUS_PLACEHOLDER")
-	if node_id == "nervous_system":
-		return Loc.text("FEATURE_OWNED") if _intrinsic_owned() else Loc.text("FEATURE_FORM_LOCKED")
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var level := _skill_level(node_id)
 	if not _stage_unlocked(String(rules["stage"])):
@@ -462,8 +427,6 @@ func _node_status(node_id: String) -> String:
 
 
 func _action_text(node_id: String) -> String:
-	if _is_placeholder(node_id) or node_id == "nervous_system":
-		return Loc.text("SKILL_ACTION_UNAVAILABLE")
 	var rules: Dictionary = GameRules.SKILLS[node_id]
 	var level := _skill_level(node_id)
 	if level >= int(rules["max_level"]):
@@ -498,10 +461,6 @@ func _prerequisites_met(skill_id: String) -> bool:
 	return true
 
 
-func _intrinsic_owned() -> bool:
-	return state != null and GameRules.has_intrinsic_feature(state.current_form_id, "nervous_system")
-
-
 func _stage_unlocked(stage_id: String) -> bool:
 	return state == null or state.is_stage_unlocked(stage_id)
 
@@ -516,10 +475,6 @@ func _total_souls() -> int:
 
 func _free_stats() -> int:
 	return 0 if state == null else int(state.unspent_attribute_points)
-
-
-func _is_placeholder(node_id: String) -> bool:
-	return node_id.contains("soon")
 
 
 func _node_belongs_to_selected_stage(node_id: String) -> bool:
@@ -597,10 +552,10 @@ func _draw_connectors() -> void:
 
 
 static func connector_style_for_states(source_state: String, target_state: String) -> String:
-	if target_state in ["placeholder", "locked", "intrinsic_locked"]:
+	if target_state == "locked":
 		return "locked"
-	if source_state in ["learned", "max", "intrinsic_owned"]:
+	if source_state in ["learned", "max"]:
 		return "learned"
-	if source_state in ["locked", "intrinsic_locked", "placeholder"]:
+	if source_state == "locked":
 		return "locked"
 	return "neutral"

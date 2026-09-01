@@ -13,6 +13,7 @@ func run(tree: SceneTree) -> Array[String]:
 	failures.clear()
 	_test_bound_item_model()
 	_test_death_and_campfire()
+	_test_build_registry_and_prerequisites()
 	await _test_ritual_interface(tree)
 	Loc.set_locale("ru")
 	return failures
@@ -137,6 +138,47 @@ func _test_death_and_campfire() -> void:
 	)
 
 
+func _test_build_registry_and_prerequisites() -> void:
+	var expected_ids := [
+		"campfire", "kettle", "bunk", "crusher", "whetstone", "ritual_table", "mural",
+		"workbench", "writing_set", "textile_area", "rocking_chair", "record_player",
+	]
+	var actual_ids := GameRules.CAMP_UPGRADES.keys()
+	actual_ids.sort()
+	expected_ids.sort()
+	_expect(actual_ids == expected_ids, "Camp registry must contain exactly the 12 stable IDs")
+	var state := RunState.new()
+	var before := state.to_snapshot_data()
+	_expect(
+		state.build_camp_upgrade("kettle").get("reason", "") == "prerequisite"
+		and state.to_snapshot_data() == before,
+		"Kettle must require Campfire before any resource mutation",
+	)
+	_expect(
+		state.build_camp_upgrade("writing_set").get("reason", "") == "prerequisite",
+		"Writing Set must require Workbench",
+	)
+	_expect(bool(state.build_camp_upgrade("workbench").get("ok", false)), "Workbench must be free")
+	_expect(bool(state.build_camp_upgrade("writing_set").get("ok", false)), "Writing Set must become free after Workbench")
+	_expect(bool(state.build_camp_upgrade("textile_area").get("ok", false)), "Textile Area must be free")
+	_expect(bool(state.build_camp_upgrade("record_player").get("ok", false)), "Record Player must be free")
+	_expect(state.resources == {"wood": 0, "stone": 0, "cloth": 0}, "Free modules must spend no resources")
+	state.resources.wood = 29
+	before = state.to_snapshot_data()
+	_expect(
+		not bool(state.build_camp_upgrade("rocking_chair").get("ok", false))
+		and state.to_snapshot_data() == before,
+		"Rocking Chair must reject at 29 wood without mutation",
+	)
+	state.resources.wood = 30
+	_expect(
+		bool(state.build_camp_upgrade("rocking_chair").get("ok", false))
+		and state.resources.wood == 0 and state.soul_level == 1,
+		"Rocking Chair must spend exactly 30 wood and grant raw Soul +1 once",
+	)
+	_expect(not state.is_camp_upgrade_revealed("mural"), "Mural must be completely hidden until the tail")
+
+
 func _test_ritual_interface(tree: SceneTree) -> void:
 	for locale in Loc.SUPPORTED_LOCALES:
 		for key in [
@@ -163,12 +205,13 @@ func _test_ritual_interface(tree: SceneTree) -> void:
 	main.state.add_item("bone_bow", 2)
 	main.state.loadout["right_hand"] = "bone_knife@1"
 	main._on_build_camp_upgrade("ritual_table")
-	main._on_upgrade_pressed()
+	main._on_build_camp_upgrade("campfire")
 	_expect(
 		main.ritual_table_object_button.visible
 		and bool(main.state.camp_upgrades["campfire"])
-		and main.upgrade_button.disabled,
-		"Built Ritual Table must become interactive and Campfire construction must disable itself",
+		and main.camp_build_button.visible
+		and not main.upgrade_button.visible,
+		"Built Ritual Table must become interactive while construction stays in the single modal button",
 	)
 	_expect(
 		not Rect2(main.ritual_table_object_button.position, main.ritual_table_object_button.size).intersects(
@@ -404,17 +447,13 @@ func _test_base_resource_strip(main) -> void:
 
 func _test_base_relayout(main) -> void:
 	var image_rect: Rect2 = BaseLayout.IMAGE_RECT
-	var old_image_rect: Rect2 = BaseLayout.OLD_IMAGE_RECT
 	var sidebar_rect: Rect2 = BaseLayout.SIDEBAR_RECT
-	var area_ratio := image_rect.get_area() / old_image_rect.get_area()
 	_expect(
 		image_rect == Rect2(28, 78, 818, 480)
-		and is_equal_approx(area_ratio, 1.099092)
-		and absf(area_ratio - 1.10) <= 0.002
 		and image_rect.end.x == 846
 		and sidebar_rect.position.x == 858
 		and sidebar_rect.position.x - image_rect.end.x == 12,
-		"Base image must grow to the exact 1.10-area target with a 12px sidebar gap",
+		"Base image must use the exact 818x480 runtime target with a 12px sidebar gap",
 	)
 	_expect(
 		main.BASE_IMAGE_RECT == image_rect
@@ -431,10 +470,7 @@ func _test_base_relayout(main) -> void:
 		[main.sidebar_progress_label, BaseLayout.PROGRESS_RECT],
 		[main.camp_upgrades_label, BaseLayout.CAMP_UPGRADES_RECT],
 		[main.start_button, BaseLayout.START_RECT],
-		[main.build_crusher_button, BaseLayout.BUILD_CRUSHER_RECT],
-		[main.build_whetstone_button, BaseLayout.BUILD_WHETSTONE_RECT],
-		[main.build_ritual_table_button, BaseLayout.BUILD_RITUAL_TABLE_RECT],
-		[main.upgrade_button, BaseLayout.BUILD_CAMPFIRE_RECT],
+		[main.camp_build_button, BaseLayout.BUILD_RECT],
 	]
 	for contract in sidebar_contracts:
 		var control: Control = contract[0]
@@ -447,9 +483,7 @@ func _test_base_relayout(main) -> void:
 	var ordered_sidebar_rects := [
 		BaseLayout.STATS_RECT, BaseLayout.HP_RECT, BaseLayout.MANA_RECT,
 		BaseLayout.STATUS_RECT, BaseLayout.PROGRESS_RECT, BaseLayout.CAMP_UPGRADES_RECT,
-		BaseLayout.START_RECT, BaseLayout.BUILD_CRUSHER_RECT,
-		BaseLayout.BUILD_WHETSTONE_RECT, BaseLayout.BUILD_RITUAL_TABLE_RECT,
-		BaseLayout.BUILD_CAMPFIRE_RECT,
+		BaseLayout.START_RECT, BaseLayout.BUILD_RECT,
 	]
 	for first_index in range(ordered_sidebar_rects.size()):
 		for second_index in range(first_index + 1, ordered_sidebar_rects.size()):
@@ -472,51 +506,30 @@ func _test_base_relayout(main) -> void:
 		"Base header, hint and message must remain inside the canvas without sidebar overlap",
 	)
 
-	for station_id in BaseLayout.STATION_OVERLAY_SOURCE_RECTS:
-		var source_overlay: Rect2 = BaseLayout.STATION_OVERLAY_SOURCE_RECTS[station_id]
-		var mapped_overlay := BaseLayout.station_overlay_rect(station_id)
+	for module_id in GameRules.CAMP_DRAW_ORDER:
+		var local_rect: Rect2 = BaseLayout.CAMP_LAYER_LOCAL_RECTS[module_id]
+		var mapped_overlay := BaseLayout.camp_layer_rect(module_id)
 		_expect(
-			_rect_approx(
-				BaseLayout.normalized_rect(source_overlay, old_image_rect),
-				BaseLayout.normalized_rect(mapped_overlay, image_rect),
-			)
+			mapped_overlay == Rect2(image_rect.position + local_rect.position, local_rect.size)
 			and image_rect.encloses(mapped_overlay),
-			"Every station overlay must preserve its old normalized image placement",
+			"Every camp layer must use its exact documented local draw rect: %s" % module_id,
 		)
 	var station_buttons := {
 		"crusher": main.crusher_object_button,
 		"whetstone": main.whetstone_object_button,
 		"ritual_table": main.ritual_table_object_button,
+		"kettle": main.stage1_object_buttons["kettle"],
 	}
 	for station_id in station_buttons:
-		var source_hitbox: Rect2 = BaseLayout.STATION_HITBOX_SOURCE_RECTS[station_id]
 		var mapped_hitbox := BaseLayout.station_hitbox_rect(station_id)
 		var actual_button: Button = station_buttons[station_id]
 		var actual_rect := Rect2(actual_button.position, actual_button.size)
 		_expect(
 			_rect_approx(actual_rect, mapped_hitbox)
-			and _rect_approx(
-				BaseLayout.normalized_rect(source_hitbox, old_image_rect),
-				BaseLayout.normalized_rect(mapped_hitbox, image_rect),
-			)
 			and image_rect.encloses(mapped_hitbox)
-			and mapped_hitbox.intersects(BaseLayout.station_overlay_rect(station_id))
+			and mapped_hitbox.intersects(BaseLayout.camp_layer_rect(station_id))
 			and actual_rect.has_point(actual_rect.get_center()),
-			"Station %s art/hitbox mapping mismatch: exact=%s normalized=%s enclosed=%s intersects=%s center=%s actual=%s mapped=%s source_norm=%s mapped_norm=%s overlay=%s" % [
-				station_id,
-				actual_rect == mapped_hitbox,
-				_rect_approx(
-					BaseLayout.normalized_rect(source_hitbox, old_image_rect),
-					BaseLayout.normalized_rect(mapped_hitbox, image_rect),
-				),
-				image_rect.encloses(mapped_hitbox),
-				mapped_hitbox.intersects(BaseLayout.station_overlay_rect(station_id)),
-				actual_rect.has_point(actual_rect.get_center()),
-				actual_rect, mapped_hitbox,
-				BaseLayout.normalized_rect(source_hitbox, old_image_rect),
-				BaseLayout.normalized_rect(mapped_hitbox, image_rect),
-				BaseLayout.station_overlay_rect(station_id),
-			],
+			"Station %s must use its exact new-art hitbox inside the owning layer" % station_id,
 		)
 
 	main.state.active_statuses = {
@@ -585,24 +598,55 @@ func _test_base_upgrade_list_absence(main) -> void:
 					"Removing the list must not change installed station visibility",
 				)
 			_expect(
-				main.upgrade_button.text == Loc.text(
-					"CAMP_BUILT_CAMPFIRE"
-					if bool(upgrade_state.get("campfire", false))
-					else "CAMP_BUILD_CAMPFIRE"
-				)
-				and (
-					not bool(upgrade_state.get("campfire", false))
-					or main.upgrade_button.disabled
-				),
-				"Removing the list must not change built/unbuilt Campfire presentation",
+				main.camp_build_button.text == Loc.text("CAMP_BUILD_BUTTON")
+				and main.camp_build_button.visible
+				and not main.upgrade_button.visible
+				and not main.build_crusher_button.visible
+				and not main.build_whetstone_button.visible
+				and not main.build_ritual_table_button.visible,
+				"Base must expose exactly one permanent Build entry point below Start",
 			)
 	for upgrade_id in GameRules.CAMP_UPGRADES:
 		main.state.camp_upgrades[upgrade_id] = false
+	main.state.trophies.minotaur_tail = 0
+	main._open_camp_build_panel()
+	_expect(
+		main.camp_build_panel.visible
+		and main.camp_build_panel.rows.size() == 11
+		and not main.camp_build_panel.rows.has("mural")
+		and main.camp_build_panel.rows.has("record_player")
+		and main.camp_build_panel.rows["writing_set"].button.disabled
+		and main.camp_build_panel.rows["record_player"].panel.get_index()
+			== main.camp_build_panel.rows_box.get_child_count() - 1,
+		"Blocking Build modal must list all revealed rows, hide Mural and keep the last row scroll-reachable",
+	)
+	main.state.trophies.minotaur_tail = 1
+	main.camp_build_panel.refresh()
+	_expect(main.camp_build_panel.rows.has("mural"), "Mural row must appear immediately after tail reveal")
+	main.camp_build_panel.close()
 	Loc.set_locale("ru")
 	main._apply_locale()
 
 
 func _test_base_transitions(main, tree: SceneTree) -> void:
+	main.camp_build_button.grab_focus()
+	main._open_camp_build_panel()
+	await tree.process_frame
+	_expect(
+		main.camp_build_panel.visible
+		and not main.start_button.visible
+		and main.camp_build_panel.mouse_filter == Control.MOUSE_FILTER_STOP,
+		"Build modal must block and cover the underlying Base controls",
+	)
+	main.camp_build_panel.close()
+	await tree.process_frame
+	_expect(
+		not main.camp_build_panel.visible
+		and main.start_button.visible
+		and main.camp_build_button.visible
+		and tree.root.get_viewport().gui_get_focus_owner() == main.camp_build_button,
+		"Closing Build with Esc/B/close semantics must restore focus to the Build button",
+	)
 	var station_modes := {
 		"crusher": PanelClass.Mode.CRUSHER,
 		"whetstone": PanelClass.Mode.WHETSTONE,

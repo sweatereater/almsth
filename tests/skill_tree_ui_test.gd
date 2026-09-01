@@ -4,6 +4,7 @@ extends RefCounted
 const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
 const PanelClass := preload("res://scripts/ui/skill_tree_panel.gd")
+const IconClass := preload("res://scripts/ui/skill_tree_icon.gd")
 const Layout := preload("res://scripts/ui/character_sheet_layout.gd")
 const SaveSystem := preload("res://scripts/system/persistence.gd")
 
@@ -22,13 +23,18 @@ func run(tree: SceneTree) -> Array[String]:
 func _test_static_contracts() -> void:
 	var expected := {
 		"skeleton": [
-			["strong_bones", "fundamentals", "skeleton_soon_1", "skeleton_soon_2"],
+			["strong_bones", "flexible_joints", "strong_spine"],
 			["magic_awakening", "magic_missile", "magic_missile_range", "magic_ricochet"],
 		],
-		"zombie": [["flesh_regeneration", "zombie_soon_1", "zombie_soon_2", "zombie_soon_3"]],
-		"ghoul": [["dash", "ghoul_maneuver_soon"], ["double_attack", "ghoul_combat_soon"], ["stomach", "ears", "nervous_system"]],
-		"revenant": [["sharp_vision", "revenant_soon_1", "revenant_soon_2", "revenant_soon_3"]],
-		"almost_human": [["almost_double_strike"], ["circular_attack"], ["choose_appearance", "almost_soon_2"]],
+		"zombie": [["sharp_vision", "muscle_fibers"]],
+		"ghoul": [["stomach", "flesh_regeneration", "ears"], ["dash"], ["double_attack"]],
+		"revenant": [["nervous_system"]],
+		"almost_human": [["choose_appearance", "fundamentals"], ["almost_double_strike"], ["circular_attack"]],
+	}
+	var expected_branch_keys := {
+		"skeleton": "SKILL_BRANCH_BODY_BONES", "zombie": "SKILL_BRANCH_BODY_FLESH",
+		"ghoul": "SKILL_BRANCH_BODY_GUT", "revenant": "SKILL_BRANCH_BODY_CNS",
+		"almost_human": "SKILL_BRANCH_BODY_APPEARANCE",
 	}
 	for stage_id in expected:
 		var actual_branches: Array = PanelClass.STAGE_BRANCHES[stage_id]
@@ -36,6 +42,30 @@ func _test_static_contracts() -> void:
 		_expect(actual_branches.size() == expected[stage_id].size(), "%s branch count must match the approved topology" % stage_id)
 		for index in range(mini(actual_branches.size(), expected[stage_id].size())):
 			_expect(actual_branches[index]["nodes"] == expected[stage_id][index], "%s branch %d node order must match the approved topology" % [stage_id, index])
+		_expect(actual_branches[0]["label"] == expected_branch_keys[stage_id], "%s body branch must be first" % stage_id)
+		for branch in actual_branches:
+			for node_id in branch["nodes"]:
+				_expect(not String(node_id).contains("soon") and node_id != "spinal_cord", "Soon and spinal-cord nodes must be absent from topology")
+	_expect(Rules.SKILLS.size() == 19 and Rules.BODY_SKILL_IDS.size() == 11, "The clean registry must contain exactly 19 skills, including 11 body skills")
+	var body_rules := {
+		"strong_bones": ["skeleton", 5, 5, 5], "flexible_joints": ["skeleton", 1, 15, 0],
+		"strong_spine": ["skeleton", 1, 20, 0], "sharp_vision": ["zombie", 1, 80, 0],
+		"muscle_fibers": ["zombie", 2, 20, 10], "stomach": ["ghoul", 1, 20, 0],
+		"flesh_regeneration": ["ghoul", 1, 20, 0], "ears": ["ghoul", 1, 20, 0],
+		"nervous_system": ["revenant", 1, 80, 0], "choose_appearance": ["almost_human", 1, 100, 0],
+		"fundamentals": ["almost_human", 1, 25, 0],
+	}
+	for skill_id in body_rules:
+		var rules: Dictionary = Rules.SKILLS.get(skill_id, {})
+		var contract: Array = body_rules[skill_id]
+		_expect(
+			rules.get("stage") == contract[0] and int(rules.get("max_level", 0)) == contract[1]
+			and int(rules.get("base_cost", -1)) == contract[2] and int(rules.get("cost_step", -1)) == contract[3]
+			and (rules.get("requires", {}) as Dictionary).is_empty()
+			and String(rules.get("icon", "")) == "res://assets/ui/skill-icons/body/%s.png" % skill_id,
+			"Body skill %s must keep its approved stage, levels, price, empty dependencies and stable icon path" % skill_id,
+		)
+	_test_icon_assets()
 	var stomach: Dictionary = Rules.SKILLS.get("stomach", {})
 	_expect(
 		stomach.get("stage") == "ghoul" and stomach.get("kind") == "passive"
@@ -57,7 +87,12 @@ func _test_static_contracts() -> void:
 		and Layout.SKILLS_TAB_RECT == Rect2(588, 16, 172, 44),
 		"Character top tabs must be visually ordered Inventory then Skills",
 	)
-	_expect(SaveSystem.STATE_ONLY_VERSION >= 13 and SaveSystem.SAVE_VERSION >= 14, "State-only saves must retain v13 skills while exact gameplay snapshots use v14 or newer")
+	_expect(
+		SaveSystem.STATE_ONLY_VERSION == 17
+		and SaveSystem.SAVE_VERSION == 17
+		and SaveSystem.MIN_SUPPORTED_SAVE_VERSION == 17,
+		"State-only and exact gameplay snapshots must share the strict v17 boundary",
+	)
 	_expect(
 		ProjectSettings.get_setting("display/window/size/viewport_width") == 1280
 		and ProjectSettings.get_setting("display/window/size/viewport_height") == 720
@@ -67,14 +102,55 @@ func _test_static_contracts() -> void:
 	)
 	for locale in Loc.SUPPORTED_LOCALES:
 		for key in [
-			"SKILL_BRANCH_BONES", "SKILL_BRANCH_MANEUVER", "SKILL_BRANCH_APPEARANCE",
+			"SKILL_BRANCH_BODY_BONES", "SKILL_BRANCH_BODY_FLESH", "SKILL_BRANCH_BODY_GUT",
+			"SKILL_BRANCH_BODY_CNS", "SKILL_BRANCH_BODY_APPEARANCE", "SKILL_BRANCH_MANEUVER",
 			"SKILL_DETAIL_EFFECT", "SKILL_DETAIL_MANA", "SKILL_DETAIL_COOLDOWN",
 			"SKILL_DETAIL_REQUIREMENT", "SKILL_ACTION_LEARN", "SKILL_ACTION_UPGRADE",
-			"SKILL_STATUS_PLACEHOLDER",
-			"SKILL_STOMACH", "SKILL_STOMACH_DESC", "SKILL_STOMACH_DETAIL",
-			"SKILL_EARS", "SKILL_EARS_DESC", "SKILL_EARS_DETAIL",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Skill tree localization %s missing in %s" % [key, locale])
+		for skill_id in Rules.BODY_SKILL_IDS:
+			var name_key := String(Rules.SKILLS[skill_id]["name"])
+			_expect(
+				Loc.STRINGS[locale].has(name_key)
+				and Loc.STRINGS[locale].has(String(Rules.SKILLS[skill_id]["description"]))
+				and Loc.STRINGS[locale].has(name_key + "_DETAIL"),
+				"Body skill localization %s must include name, short effect and detail in %s" % [skill_id, locale],
+			)
+
+
+func _test_icon_assets() -> void:
+	for skill_id in Rules.BODY_SKILL_IDS:
+		var icon_path := String(Rules.SKILLS[skill_id]["icon"])
+		var image := Image.load_from_file(ProjectSettings.globalize_path(icon_path))
+		var texture := IconClass.load_skill_texture(skill_id)
+		_expect(
+			image != null and image.get_size() == Vector2i(128, 128)
+			and image.get_format() == Image.FORMAT_RGBA8,
+			"Body icon %s must be a 128x128 RGBA8 runtime PNG" % skill_id,
+		)
+		_expect(
+			texture != null and texture.get_size() == Vector2(128, 128),
+			"Body icon %s must load safely through the stable registry path" % skill_id,
+		)
+		var import_text := FileAccess.get_file_as_string(ProjectSettings.globalize_path(icon_path + ".import"))
+		_expect(
+			import_text.contains("compress/mode=0")
+			and import_text.contains("mipmaps/generate=false")
+			and import_text.contains("process/fix_alpha_border=true"),
+			"Body icon %s must use lossless import with mipmaps off and alpha-border repair" % skill_id,
+		)
+	var body_icon := IconClass.new()
+	body_icon.set_presentation("strong_bones", "Body", "passive", "available", false)
+	_expect(body_icon.uses_raster_texture(), "Body skills must use the registered raster texture")
+	var glyph_icon := IconClass.new()
+	glyph_icon.set_presentation("magic_awakening", "Magic", "passive", "available", false)
+	_expect(not glyph_icon.uses_raster_texture(), "Non-body skills must retain their code-drawn glyph")
+	var missing_icon := IconClass.new()
+	missing_icon.set_presentation("missing_skill", "Fallback", "passive", "available", false)
+	_expect(not missing_icon.uses_raster_texture(), "A missing texture mapping must safely fall back to the current glyph")
+	body_icon.free()
+	glyph_icon.free()
+	missing_icon.free()
 
 
 func _test_panel_states(tree: SceneTree) -> void:
@@ -98,7 +174,8 @@ func _test_panel_states(tree: SceneTree) -> void:
 	)
 	_expect(
 		panel.node_buttons["strong_bones"].position == Vector2(150, 214)
-		and panel.node_buttons["fundamentals"].position == Vector2(350, 214)
+		and panel.node_buttons["flexible_joints"].position == Vector2(350, 214)
+		and panel.node_buttons["strong_spine"].position == Vector2(550, 214)
 		and panel.node_buttons["magic_awakening"].position == Vector2(150, 294),
 		"Skill nodes must follow the approved branch tracks and 200-pixel chain spacing",
 	)
@@ -107,14 +184,13 @@ func _test_panel_states(tree: SceneTree) -> void:
 		and panel.node_buttons["strong_bones"].purchasable,
 		"Branch labels must point toward the chain and every purchasable node must carry its gold cost badge",
 	)
-	panel.select_node("fundamentals")
+	panel.select_node("strong_spine")
 	_expect(
-		panel.selected_node_id == "fundamentals"
-		and not panel.node_buttons["fundamentals"].disabled
-		and panel.node_buttons["fundamentals"].visual_state == "locked"
-		and panel.action_button.disabled
-		and panel.status_label.text == Loc.text("SKILL_NEEDS_PREVIOUS"),
-		"Prerequisite-locked nodes must remain selectable while their purchase action stays unavailable",
+		panel.selected_node_id == "strong_spine"
+		and not panel.node_buttons["strong_spine"].disabled
+		and panel.node_buttons["strong_spine"].visual_state == "available"
+		and not panel.action_button.disabled,
+		"Independent body nodes must remain selectable and purchasable without implicit prerequisites",
 	)
 	state.banked_souls = 0
 	panel.select_node("strong_bones")
@@ -124,16 +200,7 @@ func _test_panel_states(tree: SceneTree) -> void:
 		"A selected affordable-stage skill must explain insufficient souls without purchasing",
 	)
 	state.banked_souls = 500
-	panel.select_node("skeleton_soon_1")
-	_expect(
-		panel.selected_node_id == "skeleton_soon_1"
-		and not panel.node_buttons["skeleton_soon_1"].disabled
-		and panel.node_buttons["skeleton_soon_1"].visual_state == "placeholder"
-		and panel.detail_title_label.text == Loc.text("SKILL_PLACEHOLDER_NAME")
-		and panel.action_button.disabled,
-		"Placeholder diamonds must be selectable and update the persistent detail panel",
-	)
-	state.skill_levels["strong_bones"] = 10
+	state.skill_levels["strong_bones"] = 5
 	panel.select_node("strong_bones")
 	_expect(
 		panel.node_buttons["strong_bones"].visual_state == "max"
@@ -142,30 +209,56 @@ func _test_panel_states(tree: SceneTree) -> void:
 		and panel.status_label.text == Loc.text("SKILL_ALREADY_MAX"),
 		"Maxed passive circles must stay selectable and show a distinct max state",
 	)
-	state.skill_levels["fundamentals"] = 1
+	state.skill_levels["flexible_joints"] = 1
 	panel.refresh()
 	_expect(
 		PanelClass.connector_style_for_states(
-			panel._node_presentation("fundamentals")["state"],
-			panel._node_presentation("skeleton_soon_1")["state"],
-		) == "locked",
-		"A maxed Fundamentals source must still lead to its placeholder with a locked dashed connector",
+			panel._node_presentation("strong_bones")["state"],
+			panel._node_presentation("flexible_joints")["state"],
+		) == "learned",
+		"A maxed body node must keep the learned connector treatment",
 	)
 	state.skill_levels["choose_appearance"] = 1
 	panel.set_context(state, "almost_human")
 	_expect(
 		PanelClass.connector_style_for_states(
 			panel._node_presentation("choose_appearance")["state"],
-			panel._node_presentation("almost_soon_2")["state"],
-		) == "locked",
-		"A learned/max node in another branch must also use a dashed connector into a placeholder",
+			panel._node_presentation("fundamentals")["state"],
+		) == "learned",
+		"The appearance body branch must preserve learned connector state",
+	)
+	Loc.set_locale("en")
+	panel.apply_locale()
+	var appearance_node = panel.node_buttons["choose_appearance"]
+	var followup_node = panel.node_buttons["almost_double_strike"]
+	var followup_badge_local: Rect2 = followup_node.cost_badge_bounds()
+	var followup_badge := Rect2(
+		followup_node.position + followup_badge_local.position,
+		followup_badge_local.size,
+	)
+	var appearance_lines: Array[Rect2] = appearance_node.name_line_bounds()
+	var geometry_clear := appearance_lines.size() == 2
+	for scale in [1.0, 0.75]:
+		var scaled_badge := Rect2(
+			followup_badge.position * scale,
+			followup_badge.size * scale,
+		)
+		for local_line in appearance_lines:
+			var line := Rect2(
+				(appearance_node.position + local_line.position) * scale,
+				local_line.size * scale,
+			)
+			geometry_clear = geometry_clear and not line.intersects(scaled_badge)
+	_expect(
+		geometry_clear,
+		"Two-line Choose Appearance must not overlap the Follow-up Strike cost badge at 1280x720 or 960x540",
 	)
 	state.highest_unlocked_form_index = 0
 	panel.set_context(state, "zombie")
-	panel.select_node("flesh_regeneration")
+	panel.select_node("sharp_vision")
 	_expect(
-		panel.node_buttons["flesh_regeneration"].visual_state == "locked"
-		and not panel.node_buttons["flesh_regeneration"].disabled
+		panel.node_buttons["sharp_vision"].visual_state == "locked"
+		and not panel.node_buttons["sharp_vision"].disabled
 		and panel.status_label.text == Loc.text("SKILL_STAGE_LOCKED")
 		and panel.action_button.disabled,
 		"Stage-locked skill details must remain inspectable without enabling purchase",
@@ -174,27 +267,31 @@ func _test_panel_states(tree: SceneTree) -> void:
 	panel.set_context(state, "ghoul")
 	panel.select_node("stomach")
 	_expect(
-		panel.node_buttons["stomach"].position == Vector2(150, 374)
-		and panel.node_buttons["ears"].position == Vector2(350, 374)
-		and panel.node_buttons["nervous_system"].position == Vector2(550, 374)
+		panel.node_buttons["stomach"].position == Vector2(150, 214)
+		and panel.node_buttons["flesh_regeneration"].position == Vector2(350, 214)
+		and panel.node_buttons["ears"].position == Vector2(550, 214)
 		and panel.node_buttons["stomach"].visual_state == "available"
 		and panel.node_buttons["ears"].visual_state == "available"
 		and panel.node_buttons["stomach"].purchasable
 		and panel.action_button.text.contains("20"),
 		"Stomach must lead the Ghoul Body branch as a visible purchasable passive",
 	)
+	panel.set_context(state, "revenant")
 	panel.select_node("nervous_system")
 	_expect(
-		panel.node_buttons["nervous_system"].visual_state == "intrinsic_owned"
+		panel.node_buttons["nervous_system"].visual_state == "available"
 		and not panel.node_buttons["nervous_system"].disabled
-		and panel.action_button.disabled,
-		"Intrinsic body features must remain selectable but never purchasable",
+		and not panel.action_button.disabled
+		and panel.action_button.text.contains("80"),
+		"Nervous System must be a normal purchasable Revenant passive",
 	)
+	panel.set_context(state, "ghoul")
 	var controls := panel.focusable_controls()
 	_expect(
 		controls.has(panel.node_buttons["stomach"])
 		and controls.has(panel.node_buttons["ears"])
-		and controls.has(panel.node_buttons["nervous_system"])
+		and controls.has(panel.node_buttons["flesh_regeneration"])
+		and not controls.has(panel.node_buttons["nervous_system"])
 		and controls.has(panel.loadout_buttons["attack"]),
 		"Visible nodes and loadout controls must remain keyboard/gamepad focusable",
 	)
@@ -215,7 +312,7 @@ func _test_panel_states(tree: SceneTree) -> void:
 		)
 		panel.select_node("nervous_system")
 		_expect(
-			panel.detail_title_label.text == Loc.text("FEATURE_NERVOUS_SYSTEM")
+			panel.detail_title_label.text == Loc.text("SKILL_NERVOUS_SYSTEM")
 			and panel.detail_stats_label.text.contains(Loc.text("SKILL_DETAIL_MANA", [0])),
 			"Persistent skill details must refresh fully in %s" % locale,
 		)
@@ -251,6 +348,8 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 		"One Learn activation must perform exactly one existing RunState purchase",
 	)
 	main.state.banked_souls = 200
+	main.state.highest_unlocked_form_index = Rules.FORM_ORDER.find("almost_human")
+	main._select_skill_stage("almost_human")
 	main._on_skill_pressed("fundamentals")
 	main.skill_tree_panel.action_button.grab_focus()
 	main.skill_tree_panel.action_button.pressed.emit()
@@ -300,7 +399,7 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 		stomach_restored.restore_save_data(main.state.to_save_data())
 		and stomach_restored.get_skill_level("stomach") == 1
 		and stomach_restored.uses_hunger() and not stomach_restored.has_status("satiated"),
-		"Learned Stomach must round-trip additively in save version 13",
+		"Learned Stomach must round-trip in the current v17 state schema",
 	)
 	await _test_remapped_interact_dispatch(tree, main)
 	_expect(
@@ -342,11 +441,11 @@ func _test_remapped_interact_dispatch(tree: SceneTree, main) -> void:
 	_expect(main.state.get_slotted_ability("active_1") != loadout_before, "A physically remapped interact key must activate focused descendant loadout buttons")
 
 	main.state.banked_souls = 300
-	main._select_skill_stage("revenant")
-	main._on_skill_pressed("sharp_vision")
+	main._select_skill_stage("zombie")
+	main._on_skill_pressed("muscle_fibers")
 	main.skill_tree_panel.action_button.grab_focus()
 	main._unhandled_input(event)
-	_expect(main.state.get_skill_level("sharp_vision") == 1, "One remapped interact press on the focused purchase action must buy exactly one level")
+	_expect(main.state.get_skill_level("muscle_fibers") == 1, "One remapped interact press on the focused purchase action must buy exactly one level")
 
 	InputMap.action_erase_events("interact")
 	for original_event in original_events:
@@ -357,7 +456,7 @@ func _test_remapped_interact_dispatch(tree: SceneTree, main) -> void:
 	enter.keycode = KEY_ENTER
 	enter.pressed = true
 	main._unhandled_input(enter)
-	_expect(main.state.get_skill_level("sharp_vision") == 2, "Default Enter/A overlap between interact and ui_accept must still dispatch only one purchase")
+	_expect(main.state.get_skill_level("muscle_fibers") == 2, "Default Enter/A overlap between interact and ui_accept must still dispatch only one purchase")
 	await tree.process_frame
 
 

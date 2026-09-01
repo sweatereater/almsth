@@ -90,6 +90,8 @@ static func create() -> Dictionary:
 			"dodge": int(boss_rules["dodge"]),
 			"vision": int(boss_rules["vision"]),
 			"souls": int(boss_rules["souls"]),
+			"attack_type": String(boss_rules.get("attack_type", "melee")),
+			"range": int(boss_rules.get("range", 1)),
 			"abilities": boss_rules.get("abilities", []).duplicate(),
 		}],
 		"items": [

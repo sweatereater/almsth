@@ -1,0 +1,5 @@
+Use case: background-extraction. Technical transparent cutout export, no artwork redesign.
+Image 1: KEEP its one full character unchanged.
+Image 2: KEEP ONLY its RIGHT-HAND full character unchanged, the one with front boot raised and rear boot grounded.
+Arrange these TWO retained characters side by side, same visible height and same baseline, with a clear gap. REMOVE ALL grey/white checkerboard background from both source images, including the gaps between limbs and coat. Return an actual RGBA PNG with transparent alpha outside the figures. The checkerboard in the inputs is unwanted background, it must NOT remain in output pixels. Do not paint a replacement solid background. Use genuine transparency, not a visual depiction of transparency.
+Preserve every limb pose, clothing shape, hair, facial identity and colors exactly. Do not redraw or invent any limb, do not mirror. No floor shadow, no text or labels.

@@ -415,18 +415,16 @@ func _test_full_state_persistence() -> void:
 		"campfire": true,
 		"kettle": false, "bunk": false, "mural": false,
 	}
-	original.skill_levels = {
-		"strong_bones": 4,
-		"fundamentals": 1,
-		"magic_awakening": 1,
-		"magic_missile": 3,
-		"magic_missile_range": 1,
-		"magic_ricochet": 4,
-		"flesh_regeneration": 1,
-		"stomach": 1,
-		"ears": 1,
-		"sharp_vision": 2,
-	}
+	original.skill_levels = GameRules.default_skill_levels()
+	for skill_level in [
+		["strong_bones", 4], ["flexible_joints", 1], ["strong_spine", 1],
+		["fundamentals", 1], ["magic_awakening", 1], ["magic_missile", 3],
+		["magic_missile_range", 1], ["magic_ricochet", 4], ["sharp_vision", 1],
+		["muscle_fibers", 2], ["flesh_regeneration", 1], ["stomach", 1],
+		["ears", 1], ["dash", 1], ["double_attack", 1], ["nervous_system", 1],
+		["choose_appearance", 1],
+	]:
+		original.skill_levels[skill_level[0]] = skill_level[1]
 	original.unspent_attribute_points = 3
 	original.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
 	original.food = 6
@@ -510,22 +508,29 @@ func _test_malformed_and_versioned_saves() -> void:
 			"Old test schema v%d must be excluded without migration" % legacy_version,
 		)
 
+	var setup_defaults := RunState.new().to_save_data().merged({
+		"character_name": "Legacy",
+		"attributes": {"strength": 3},
+	}, true)
 	_expect(_write_json(MALFORMED_SAVE_PATH, {
 		"version": SaveSystem.MIN_SUPPORTED_SAVE_VERSION,
 		"kind": "state_only",
-		"state": RunState.new().to_save_data().merged({
-			"character_name": "Legacy",
-			"attributes": {"strength": 3},
-		}, true),
+		"state": setup_defaults,
 	}) == OK, "Old supported-save fixture must be writable")
+	var strict_partial_bytes := FileAccess.get_file_as_bytes(MALFORMED_SAVE_PATH)
+	_expect(
+		SaveSystem.load_game(MALFORMED_SAVE_PATH).is_empty()
+		and FileAccess.get_file_as_bytes(MALFORMED_SAVE_PATH) == strict_partial_bytes,
+		"Current v17 disk validation must reject a sparse setup payload without mutation",
+	)
 	var legacy := RunState.new()
 	_expect(
-		legacy.restore_save_data(SaveSystem.load_game(MALFORMED_SAVE_PATH))
+		legacy.restore_save_data(setup_defaults)
 		and legacy.character_name == "Legacy"
 		and legacy.attributes["strength"] == 3
 		and legacy.attributes["agility"] == GameRules.STARTING_ATTRIBUTE_VALUE
 		and legacy.current_form_id == "skeleton",
-		"Explicit current state-only helper may use setup defaults",
+		"The explicit direct restore helper may still use setup defaults",
 	)
 	_expect(
 		SaveSystem.delete_game(MALFORMED_SAVE_PATH) == OK
@@ -540,6 +545,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 	legacy_source.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
 	legacy_source.current_form_id = "ghoul"
 	legacy_source.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	legacy_source.soul_level = 1
 	legacy_source.active_statuses = {
 		"rested": {"remaining_turns": 123, "temporary_hp": 4},
 	}
@@ -553,7 +559,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		_write_json(SAVE_PATH, {"version": 12, "state": legacy_data}) == OK,
 		"A true v12 fixture without the additive v13 ids must be writable",
 	)
-	_expect(SaveSystem.load_game(SAVE_PATH).is_empty(), "Old v12 test files are deliberately excluded by v15")
+	_expect(SaveSystem.load_game(SAVE_PATH).is_empty(), "Old v12 test files are deliberately excluded by strict v17")
 	var migrated := RunState.new()
 	_expect(
 		migrated.restore_save_data(legacy_data)
@@ -566,9 +572,23 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and migrated.status_remaining("rested") == 123,
 		"The direct setup helper still accepts partial data with safe defaults",
 	)
+	var unsupported_bytes := FileAccess.get_file_as_bytes(SAVE_PATH)
+	_expect(
+		SaveSystem.save_game(migrated, SAVE_PATH) == ERR_FILE_CORRUPT
+		and FileAccess.get_file_as_bytes(SAVE_PATH) == unsupported_bytes
+		and not FileAccess.file_exists(SAVE_PATH + ".tmp"),
+		"Current save preflight must preserve an occupied unsupported family byte-for-byte",
+	)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	# The direct setup helper is intentionally tolerant, while a durable v17 file
+	# must still satisfy current progression semantics before publication.
+	migrated.active_statuses.clear()
+	migrated.lifetime_souls_earned = (
+		migrated.absorbed_souls + migrated.carried_souls + migrated.banked_souls
+	)
 	_expect(
 		SaveSystem.save_game(migrated, SAVE_PATH) == OK,
-		"An explicitly constructed setup state publishes as the current schema",
+		"A semantically valid explicitly constructed setup state publishes as v17",
 	)
 	var migrated_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var migrated_roundtrip := RunState.new()
@@ -580,7 +600,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and migrated_roundtrip.get_skill_level("stomach") == 0
 		and migrated_roundtrip.get_skill_level("ears") == 0
 		and not migrated_roundtrip.has_status("satiated"),
-		"A v15 state-only helper must round-trip without inventing new progression",
+		"A current v17 state-only helper must round-trip without inventing new progression",
 	)
 
 	var current := RunState.new()
@@ -588,12 +608,14 @@ func _test_v12_to_v13_additive_ids() -> void:
 	current.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
 	current.current_form_id = "ghoul"
 	current.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	current.soul_level = 1
+	current.lifetime_souls_earned = int(GameRules.FORMS["ghoul"]["threshold"])
 	current.skill_levels["stomach"] = 1
 	current.skill_levels["ears"] = 1
 	current.add_or_refresh_status("satiated", 222, 3)
 	_expect(
 		SaveSystem.save_game(current, SAVE_PATH) == OK,
-		"A compatible v13 state-only save with additive ids must be writable",
+		"A current v17 state-only save with additive ids must be writable",
 	)
 	var current_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var current_roundtrip := RunState.new()
@@ -608,7 +630,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and current_roundtrip.has_status("satiated")
 		and current_roundtrip.status_remaining("satiated") == 222
 		and int(current_roundtrip.active_statuses["satiated"].get("temporary_hp", 0)) == 3,
-		"A compatible v13 state-only save must preserve learned Stomach/Ears and Satiated exactly",
+		"A current v17 state-only save must preserve learned Stomach/Ears and Satiated exactly",
 	)
 	_expect(
 		SaveSystem.delete_game(SAVE_PATH) == OK
@@ -660,7 +682,7 @@ func _test_evolution_and_skill_boundaries() -> void:
 	skills.banked_souls = 500
 	var starting_hp := skills.get_max_hp()
 	var total_strong_bones_cost := 0
-	for level in range(10):
+	for level in range(5):
 		var expected_cost := GameRules.skill_cost("strong_bones", level)
 		var result := skills.purchase_skill("strong_bones")
 		total_strong_bones_cost += expected_cost
@@ -670,12 +692,13 @@ func _test_evolution_and_skill_boundaries() -> void:
 		)
 	var souls_at_maximum := skills.get_total_souls()
 	_expect(
-		total_strong_bones_cost == 275
-		and skills.get_max_hp() == starting_hp + 30
+		total_strong_bones_cost == 75
+		and skills.get_max_hp() == starting_hp + 15
 		and not skills.purchase_skill("strong_bones")["ok"]
 		and skills.get_total_souls() == souls_at_maximum,
 		"A maxed skill must grant its complete bonus and reject extra purchases for free",
 	)
+	skills.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
 	var fundamentals := skills.purchase_skill("fundamentals")
 	var souls_after_fundamentals := skills.get_total_souls()
 	_expect(
@@ -754,9 +777,9 @@ func _test_inventory_failure_and_upgrade_boundaries() -> void:
 
 func _test_survival_accumulators() -> void:
 	var regeneration := RunState.new()
-	regeneration.current_form_id = "zombie"
-	regeneration.absorbed_souls = 10
-	regeneration.highest_unlocked_form_index = GameRules.FORM_ORDER.find("zombie")
+	regeneration.current_form_id = "ghoul"
+	regeneration.absorbed_souls = 24
+	regeneration.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
 	regeneration.skill_levels["flesh_regeneration"] = 1
 	regeneration.attributes["vitality"] = 490
 	regeneration.hp = regeneration.get_max_hp() - 2

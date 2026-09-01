@@ -7,13 +7,25 @@ const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
 const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
 const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
+const CharacterArtwork := preload("res://scripts/ui/character_artwork.gd")
 const BaseLayout := preload("res://scripts/ui/base_layout.gd")
 
-const CAMP_ART: Texture2D = preload("res://assets/art/camp-base-expanded.png")
-const CAMP_CRUSHER_ART: Texture2D = preload("res://assets/art/camp-crusher.png")
-const CAMP_WHETSTONE_ART: Texture2D = preload("res://assets/art/camp-whetstone.png")
-const CAMP_RITUAL_TABLE_ART: Texture2D = preload("res://assets/art/camp-ritual-table.png")
-const CAMP_CAMPFIRE_ART: Texture2D = preload("res://assets/art/camp-campfire.png")
+const CAMP_ART: Texture2D = preload("res://assets/art/camp-2026-09-01/camp-base.png")
+const DEATH_CAMP_BACKGROUND_ART: Texture2D = preload("res://assets/art/death-camp-background.png")
+const CAMP_LAYER_ART := {
+	"mural": preload("res://assets/art/camp-2026-09-01/camp-mural.png"),
+	"bunk": preload("res://assets/art/camp-2026-09-01/camp-bunk.png"),
+	"textile_area": preload("res://assets/art/camp-2026-09-01/camp-textile-area.png"),
+	"workbench": preload("res://assets/art/camp-2026-09-01/camp-workbench.png"),
+	"writing_set": preload("res://assets/art/camp-2026-09-01/camp-writing-set.png"),
+	"ritual_table": preload("res://assets/art/camp-2026-09-01/camp-ritual-table.png"),
+	"crusher": preload("res://assets/art/camp-2026-09-01/camp-crusher.png"),
+	"whetstone": preload("res://assets/art/camp-2026-09-01/camp-whetstone.png"),
+	"campfire": preload("res://assets/art/camp-2026-09-01/camp-campfire.png"),
+	"kettle": preload("res://assets/art/camp-2026-09-01/camp-kettle.png"),
+	"rocking_chair": preload("res://assets/art/camp-2026-09-01/camp-rocking-chair.png"),
+	"record_player": preload("res://assets/art/camp-2026-09-01/camp-record-player.png"),
+}
 const DEATH_BONES_OVERLAY: Texture2D = preload("res://assets/art/death-bones-overlay.png")
 const INTRO_ART: Array[Texture2D] = [
 	preload("res://assets/art/intro-01-wandering.png"),
@@ -239,12 +251,10 @@ static func draw_resource_bar(
 
 
 static func draw_name_creation(canvas: CanvasItem) -> void:
-	var card := Rect2(Vector2(300, 180), Vector2(680, 300))
+	var card := Rect2(Vector2(300, 140), Vector2(680, 482))
 	canvas.draw_rect(Rect2(card.position + Vector2(0, 6), card.size), COLOR_PANEL_SHADOW)
 	canvas.draw_rect(card, COLOR_PANEL)
 	canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
-	canvas.draw_circle(Vector2(640, 165), 42, Color("314c50"))
-	canvas.draw_circle(Vector2(640, 165), 52, Color(COLOR_SOUL, 0.45), false, 3.0, true)
 
 
 static func draw_stat_creation(canvas: CanvasItem) -> void:
@@ -267,7 +277,7 @@ static func draw_story(
 	story_index: int,
 ) -> void:
 	if story_kind == "death":
-		canvas.draw_texture_rect(CAMP_ART, Rect2(Vector2.ZERO, viewport_size), false)
+		canvas.draw_texture_rect(DEATH_CAMP_BACKGROUND_ART, Rect2(Vector2.ZERO, viewport_size), false)
 		canvas.draw_texture_rect(
 			DEATH_BONES_OVERLAY,
 			Rect2(Vector2(260, 330), Vector2(760, 360)),
@@ -295,8 +305,9 @@ static func draw_character_sheet(
 			canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
 		var figure_rect: Rect2 = CharacterSheetLayout.FIGURE_RECT
 		canvas.draw_rect(figure_rect, Color("121720"))
-		var visual_form_id := player_visual_form_id(state)
-		var fullbody: Texture2D = FORM_FULLBODY.get(visual_form_id)
+		var fullbody: Texture2D = CharacterArtwork.body(state)
+		if fullbody == null:
+			fullbody = FORM_FULLBODY.get(player_visual_form_id(state))
 		if fullbody != null:
 			canvas.draw_texture_rect_region(
 				fullbody,
@@ -351,6 +362,7 @@ static func draw_dungeon(
 	player_hit_flash_remaining := 0.0,
 	lethal_hit_afterimages: Array[Dictionary] = [],
 	hearing_contact_cells: Array[Vector2i] = [],
+	player_visual: Dictionary = {},
 ) -> void:
 	var tiles: Dictionary = floor_data["tiles"]
 	var boss_door: Vector2i = floor_data.get("boss_door", Vector2i(-1, -1))
@@ -511,20 +523,29 @@ static func draw_dungeon(
 		var inspection_color := COLOR_GOLD if manual_inspection else COLOR_SOUL
 		canvas.draw_rect(cell_rect(inspection_cell).grow(-2), inspection_color, false, SELECTION_BORDER_WIDTH)
 
-	var visual_form_id := player_visual_form_id(state)
+	# Main supplies the active sex×form gait frame here; the static form texture is
+	# only a defensive fallback when that runtime set cannot be loaded.
+	var player_offset: Vector2 = player_visual.get("offset_cells", Vector2.ZERO)
 	var player_cell_rect := cell_rect(player_pos)
+	player_cell_rect.position += player_offset * runtime_cell_size
 	_draw_ellipse(
 		canvas,
 		player_cell_rect.position + Vector2(runtime_cell_size * 0.5, runtime_cell_size * 0.90),
 		Vector2(runtime_cell_size, runtime_cell_size) * PLAYER_FOOT_GLOW_FOOTPRINT * 0.5,
 		Color(COLOR_PLAYER_RING, PLAYER_FOOT_GLOW_ALPHA),
 	)
-	var player_texture: Texture2D = PLAYER_SPRITES.get(visual_form_id)
+	var player_texture := player_visual_texture(state, player_visual)
 	if player_texture != null:
 		_draw_entity_sprite(
 			canvas, player_texture, player_pos, Vector2.ONE,
 			_hit_flash_modulate(player_hit_flash_remaining),
+			player_offset, bool(player_visual.get("flip_h", false)),
 		)
+
+
+static func player_visual_texture(state: RunState, visual: Dictionary = {}) -> Texture2D:
+	var texture: Texture2D = visual.get("texture")
+	return texture if texture != null else PLAYER_SPRITES.get(player_visual_form_id(state))
 
 
 static func player_visual_form_id(state: RunState) -> String:
@@ -608,37 +629,14 @@ static func _clip_segment_to_rect(from: Vector2, to: Vector2, rect: Rect2) -> Pa
 static func draw_base(canvas: CanvasItem, state: RunState = null) -> void:
 	var area := BaseLayout.IMAGE_RECT
 	canvas.draw_texture_rect(CAMP_ART, area, false)
-	canvas.draw_rect(area, Color(0.02, 0.025, 0.035, 0.10))
 	if state != null:
-		for station in ["kettle", "bunk", "mural"]:
-			if bool(state.camp_upgrades.get(station, false)):
-				var texture := _stage1_texture("res://assets/art/camp-%s.png" % station)
-				if texture != null:
-					canvas.draw_texture_rect(texture, BaseLayout.station_overlay_rect(station), false)
-	if state != null and bool(state.camp_upgrades.get("crusher", false)):
-		canvas.draw_texture_rect(
-			CAMP_CRUSHER_ART,
-			BaseLayout.station_overlay_rect("crusher"),
-			false,
-		)
-	if state != null and bool(state.camp_upgrades.get("whetstone", false)):
-		canvas.draw_texture_rect(
-			CAMP_WHETSTONE_ART,
-			BaseLayout.station_overlay_rect("whetstone"),
-			false,
-		)
-	if state != null and bool(state.camp_upgrades.get("ritual_table", false)):
-		canvas.draw_texture_rect(
-			CAMP_RITUAL_TABLE_ART,
-			BaseLayout.station_overlay_rect("ritual_table"),
-			false,
-		)
-	if state != null and bool(state.camp_upgrades.get("campfire", false)):
-		canvas.draw_texture_rect(
-			CAMP_CAMPFIRE_ART,
-			BaseLayout.station_overlay_rect("campfire"),
-			false,
-		)
+		for module_id in Rules.CAMP_DRAW_ORDER:
+			if bool(state.camp_upgrades.get(module_id, false)):
+				canvas.draw_texture_rect(
+					CAMP_LAYER_ART[module_id],
+					BaseLayout.camp_layer_rect(module_id),
+					false,
+				)
 	canvas.draw_rect(area, COLOR_PANEL_BORDER, false, 2.0)
 
 
@@ -736,6 +734,8 @@ static func _draw_entity_sprite(
 	cell: Vector2i,
 	visual_footprint := Vector2.ONE,
 	modulate := Color.WHITE,
+	offset_cells := Vector2.ZERO,
+	flip_h := false,
 ) -> void:
 	var source_size := texture.get_size()
 	if source_size.x <= 0.0 or source_size.y <= 0.0:
@@ -756,6 +756,9 @@ static func _draw_entity_sprite(
 		logical_rect.end.y - draw_size.y - 2.0,
 	)
 	var draw_rect := Rect2(draw_position, draw_size)
+	draw_rect.position += offset_cells * runtime_cell_size
+	if flip_h:
+		draw_rect.size.x = -draw_rect.size.x
 	canvas.draw_texture_rect(texture, draw_rect, false, modulate)
 
 

@@ -1,0 +1,528 @@
+{
+  "schema": 1,
+  "canonical_female_art_approved": "2026-08-31",
+  "runtime_connected": false,
+  "generated_this_delivery": false,
+  "recipe": {
+    "path": "art/characters/female/recipe.json",
+    "sha256": "6d8f6c16320837fb9c46c1752d1a4c7e6c383eababa91fa307e8d3f5d9ec56de"
+  },
+  "sources": [
+    {
+      "id": "human",
+      "original_filename": "exec-fa09f9e9-dad3-4f42-b601-1cb02613d69d.png",
+      "path": "art/characters/female/sources/almost-human-original.png",
+      "sha256": "d20a535161689e23ba1a973bf9c3a3aeb860aec02fbce6f5e823c204bb8f0479",
+      "size": [
+        1024,
+        1536
+      ],
+      "mode": "RGB"
+    },
+    {
+      "id": "four",
+      "original_filename": "exec-162b3aa2-7621-4a9f-87e8-dbecdc6c4c24.png",
+      "path": "art/characters/female/sources/four-stages-approved.png",
+      "sha256": "8b371aa8a586956933e8a8c0a9fdd1a6288c740cd4172b3bd26d550d1a143b15",
+      "size": [
+        1536,
+        1024
+      ],
+      "mode": "RGB"
+    }
+  ],
+  "stages": [
+    {
+      "id": "skeleton",
+      "label_ru": "Скелет",
+      "label_en": "Skeleton",
+      "source_id": "four",
+      "head_crop_xyxy": [
+        157,
+        72,
+        256,
+        204
+      ],
+      "fullbody_crop_xyxy": [
+        12,
+        66,
+        372,
+        942
+      ],
+      "fullbody_transform": "Unscaled rectangular RGB source crop; reference only, not a runtime sprite",
+      "native_head_transform": "Exact unscaled source RGB; reviewed antialiased alpha mask only",
+      "native_head": {
+        "path": "art/characters/female/heads/form-skeleton.png",
+        "sha256": "c0ed16cb10ab9e7365808676c99804c62407b6d70394fc954ffc5789570853ab",
+        "size": [
+          99,
+          132
+        ],
+        "mode": "RGBA"
+      },
+      "mask": {
+        "path": "art/characters/female/masks/form-skeleton.png",
+        "sha256": "48e33fcc03e86565af67e540769e9ccaf2885e549cc925ac7ba7b5c4c7b9d9a7",
+        "size": [
+          99,
+          132
+        ],
+        "mode": "L"
+      },
+      "fullbody_reference": {
+        "path": "art/characters/female/fullbody/form-skeleton.png",
+        "sha256": "148e6206771cc239d4291fd02225eed2531ddc5f132cd5c0c331a461c78b55a6",
+        "size": [
+          360,
+          876
+        ],
+        "mode": "RGB"
+      },
+      "icon": {
+        "path": "assets/portraits/female/form-skeleton.png",
+        "sha256": "5caa6e95335887eb7f30f84cd0871dc167f296d4fdf3f7555b698e239bfc9fa7",
+        "size": [
+          264,
+          264
+        ],
+        "mode": "RGBA"
+      },
+      "icon_transform": {
+        "uniform_scale": 1.0769230769230769,
+        "target_eye_midpoint_xy": [
+          115,
+          105
+        ],
+        "target_eye_to_chin_px": 56,
+        "resampling": "Pillow BICUBIC affine in premultiplied alpha"
+      },
+      "icon_alpha_bbox": [
+        85,
+        45,
+        182,
+        178
+      ]
+    },
+    {
+      "id": "zombie",
+      "label_ru": "Зомби",
+      "label_en": "Zombie",
+      "source_id": "four",
+      "head_crop_xyxy": [
+        474,
+        63,
+        608,
+        205
+      ],
+      "fullbody_crop_xyxy": [
+        380,
+        60,
+        716,
+        942
+      ],
+      "fullbody_transform": "Unscaled rectangular RGB source crop; reference only, not a runtime sprite",
+      "native_head_transform": "Exact unscaled source RGB; reviewed antialiased alpha mask only",
+      "native_head": {
+        "path": "art/characters/female/heads/form-zombie.png",
+        "sha256": "9c334d1a065ff607bfdef244c32915f704cd76511b44482e05e0969fa66dfef2",
+        "size": [
+          134,
+          142
+        ],
+        "mode": "RGBA"
+      },
+      "mask": {
+        "path": "art/characters/female/masks/form-zombie.png",
+        "sha256": "9542b118cd8f753e7f063cb198439c01f302320000be2ec38b819b7dfaf988b7",
+        "size": [
+          134,
+          142
+        ],
+        "mode": "L"
+      },
+      "fullbody_reference": {
+        "path": "art/characters/female/fullbody/form-zombie.png",
+        "sha256": "2e1f3a33e5fc28900e86b5b5e95f98c31960d02e8053e6fd5dc625d68ba14feb",
+        "size": [
+          336,
+          882
+        ],
+        "mode": "RGB"
+      },
+      "icon": {
+        "path": "assets/portraits/female/form-zombie.png",
+        "sha256": "10fe33fb47393508c4322ef513c34805ab84396e4d57723b3cf07dcf042650f9",
+        "size": [
+          264,
+          264
+        ],
+        "mode": "RGBA"
+      },
+      "icon_transform": {
+        "uniform_scale": 1.2307692307692308,
+        "target_eye_midpoint_xy": [
+          115,
+          105
+        ],
+        "target_eye_to_chin_px": 56,
+        "resampling": "Pillow BICUBIC affine in premultiplied alpha"
+      },
+      "icon_alpha_bbox": [
+        60,
+        30,
+        211,
+        189
+      ]
+    },
+    {
+      "id": "ghoul",
+      "label_ru": "Гуль",
+      "label_en": "Ghoul",
+      "source_id": "four",
+      "head_crop_xyxy": [
+        833,
+        60,
+        999,
+        251
+      ],
+      "fullbody_crop_xyxy": [
+        722,
+        54,
+        1110,
+        948
+      ],
+      "fullbody_transform": "Unscaled rectangular RGB source crop; reference only, not a runtime sprite",
+      "native_head_transform": "Exact unscaled source RGB; reviewed antialiased alpha mask only",
+      "native_head": {
+        "path": "art/characters/female/heads/form-ghoul.png",
+        "sha256": "14920a4770febcaef465dda127e838b69e5ccfa097321cfe2ac2057bffed5683",
+        "size": [
+          166,
+          191
+        ],
+        "mode": "RGBA"
+      },
+      "mask": {
+        "path": "art/characters/female/masks/form-ghoul.png",
+        "sha256": "72180043728f9f7bbc5e6f28b2bc9f9d757b2451df5a1a4151e0172b2cd09211",
+        "size": [
+          166,
+          191
+        ],
+        "mode": "L"
+      },
+      "fullbody_reference": {
+        "path": "art/characters/female/fullbody/form-ghoul.png",
+        "sha256": "6ddbdc82a6d199414a58382042746eeb5ce87a97cf7ea950b4a5c1f730df9c76",
+        "size": [
+          388,
+          894
+        ],
+        "mode": "RGB"
+      },
+      "icon": {
+        "path": "assets/portraits/female/form-ghoul.png",
+        "sha256": "fd2e8f0047bdcdfae2403308ac294dd99f0658f3b46b22e12c47aa322e1315dd",
+        "size": [
+          264,
+          264
+        ],
+        "mode": "RGBA"
+      },
+      "icon_transform": {
+        "uniform_scale": 1.3333333333333333,
+        "target_eye_midpoint_xy": [
+          115,
+          105
+        ],
+        "target_eye_to_chin_px": 56,
+        "resampling": "Pillow BICUBIC affine in premultiplied alpha"
+      },
+      "icon_alpha_bbox": [
+        31,
+        16,
+        240,
+        259
+      ]
+    },
+    {
+      "id": "revenant",
+      "label_ru": "Ревенант",
+      "label_en": "Revenant",
+      "source_id": "four",
+      "head_crop_xyxy": [
+        1212,
+        54,
+        1387,
+        240
+      ],
+      "fullbody_crop_xyxy": [
+        1112,
+        53,
+        1508,
+        949
+      ],
+      "fullbody_transform": "Unscaled rectangular RGB source crop; reference only, not a runtime sprite",
+      "native_head_transform": "Exact unscaled source RGB; reviewed antialiased alpha mask only",
+      "native_head": {
+        "path": "art/characters/female/heads/form-revenant.png",
+        "sha256": "f0d685ecf2b031b0f22031438eded29031d807323bfc66131f3792af8b585115",
+        "size": [
+          175,
+          186
+        ],
+        "mode": "RGBA"
+      },
+      "mask": {
+        "path": "art/characters/female/masks/form-revenant.png",
+        "sha256": "95032490b7abb44c2d71277e0e4eb25c65d3bf7c748ddbc65dc7038ef830f895",
+        "size": [
+          175,
+          186
+        ],
+        "mode": "L"
+      },
+      "fullbody_reference": {
+        "path": "art/characters/female/fullbody/form-revenant.png",
+        "sha256": "e036ba3247b13a03a52c3c96fe76bc1346fb8e5b220d83e5f5f1b39b7b48373f",
+        "size": [
+          396,
+          896
+        ],
+        "mode": "RGB"
+      },
+      "icon": {
+        "path": "assets/portraits/female/form-revenant.png",
+        "sha256": "dc9d2af9c6ad584b8374c8753ca5b95fc1d8e76d85a985d0130f13ddad87c55d",
+        "size": [
+          264,
+          264
+        ],
+        "mode": "RGBA"
+      },
+      "icon_transform": {
+        "uniform_scale": 1.1428571428571428,
+        "target_eye_midpoint_xy": [
+          115,
+          105
+        ],
+        "target_eye_to_chin_px": 56,
+        "resampling": "Pillow BICUBIC affine in premultiplied alpha"
+      },
+      "icon_alpha_bbox": [
+        48,
+        32,
+        229,
+        230
+      ]
+    },
+    {
+      "id": "almost_human",
+      "label_ru": "Почти человек",
+      "label_en": "Almost human",
+      "source_id": "human",
+      "head_crop_xyxy": [
+        379,
+        62,
+        665,
+        341
+      ],
+      "fullbody_crop_xyxy": [
+        128,
+        61,
+        877,
+        1513
+      ],
+      "fullbody_transform": "Unscaled rectangular RGB source crop; reference only, not a runtime sprite",
+      "native_head_transform": "Exact unscaled source RGB; reviewed antialiased alpha mask only",
+      "native_head": {
+        "path": "art/characters/female/heads/form-almost-human.png",
+        "sha256": "562d0a4bb6ce96fca41632db6baa5687c29d27a4250f0dbc88666dfe4347514f",
+        "size": [
+          286,
+          279
+        ],
+        "mode": "RGBA"
+      },
+      "mask": {
+        "path": "art/characters/female/masks/form-almost-human.png",
+        "sha256": "ea5d90ada8331717356a80001a7b2825716735f0c27244b16d367b2c46489165",
+        "size": [
+          286,
+          279
+        ],
+        "mode": "L"
+      },
+      "fullbody_reference": {
+        "path": "art/characters/female/fullbody/form-almost-human.png",
+        "sha256": "885d78d644f89d248de1710841f7fa9afbe4a2f3698a026f9ff771eed947d33f",
+        "size": [
+          749,
+          1452
+        ],
+        "mode": "RGB"
+      },
+      "icon": {
+        "path": "assets/portraits/female/form-almost-human.png",
+        "sha256": "3124dfea67be86b5512287711b2b80483575ee169459bd6188bc2933cd44fb11",
+        "size": [
+          264,
+          264
+        ],
+        "mode": "RGBA"
+      },
+      "icon_transform": {
+        "uniform_scale": 0.7619047619047619,
+        "target_eye_midpoint_xy": [
+          115,
+          105
+        ],
+        "target_eye_to_chin_px": 56,
+        "resampling": "Pillow BICUBIC affine in premultiplied alpha"
+      },
+      "icon_alpha_bbox": [
+        42,
+        24,
+        240,
+        227
+      ]
+    }
+  ],
+  "previews": [
+    {
+      "path": "art/characters/female/previews/heads-264-dark.png",
+      "sha256": "d0ea03a772cabc5fbe0f9f233e69100595f3780c49974feb51644ae46b501bfa",
+      "size": [
+        1464,
+        334
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-dark.png",
+      "sha256": "dfe302eb28c61e0adc7885d6e407f7744438570b888ef53053df7e4e0439627f",
+      "size": [
+        584,
+        158
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-dark.png",
+      "sha256": "e6bd6c893fa7b70e1d6a81f35d590a641f928f2829cc323b63c76256176235d6",
+      "size": [
+        474,
+        136
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-dark.png",
+      "sha256": "e22a40f0aa650f0d14a00affcd9e70a97edf224ac1c7e93657213e8293e16a45",
+      "size": [
+        364,
+        114
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-dark.png",
+      "sha256": "e2991ab53a12a926c0ea27decc5e920954fa41808bb7e63b6e102df9fbd902cf",
+      "size": [
+        1464,
+        344
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-264-light.png",
+      "sha256": "52db40043949d91862adb3b1c3f348b1fe952fa1c6771326ac0c66ec92aa5dba",
+      "size": [
+        1464,
+        334
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-light.png",
+      "sha256": "ce6db869895fd4ba145e7a7f896a203e6cebd015c38927b61f0c6da3f202e04d",
+      "size": [
+        584,
+        158
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-light.png",
+      "sha256": "338c75708a1476a44d6fd77251850696e9dbf0d58ab3835ef1b76af31748a216",
+      "size": [
+        474,
+        136
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-light.png",
+      "sha256": "3e5035a2a349034be77494f79666b82a50c9df84cb16429695900d9959c517a3",
+      "size": [
+        364,
+        114
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-light.png",
+      "sha256": "3dc989965c52c7ed62f695e65d8a7acecf902858d6f2cac21486b3b828b9e3b8",
+      "size": [
+        1464,
+        344
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-264-checker.png",
+      "sha256": "b26affe050a960e3923632b88f4c6c519ca4d51ba4e908f71eb336a4031cb09d",
+      "size": [
+        1464,
+        334
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-checker.png",
+      "sha256": "a046fd8794787bc4b70d35827bbb39f56f729e5af232092624897e5cf8b9ea0d",
+      "size": [
+        584,
+        158
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-checker.png",
+      "sha256": "5122ca9ef146ee736873844817235251a7ec4cca9adf730040ca9a1029af9ced",
+      "size": [
+        474,
+        136
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-checker.png",
+      "sha256": "b7c3b94a635cac208c391f3b117702ef76a2b6451f37f2dfa9082ed1cd625d0e",
+      "size": [
+        364,
+        114
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-checker.png",
+      "sha256": "8aec795343567cc62ef02290051ca66ba8e0038a705462c3b319e75bd0324336",
+      "size": [
+        1464,
+        344
+      ],
+      "mode": "RGB"
+    }
+  ]
+}

@@ -5,8 +5,10 @@ extends RefCounted
 ## rules instead of hard-coding thresholds, equipment slots or enemy stats.
 
 const FORM_ORDER := ["skeleton", "zombie", "ghoul", "revenant", "almost_human"]
-const SOUL_LEVEL_START := 1
+const SOUL_LEVEL_START := 0
 const CAMPFIRE_SOUL_LEVEL_BONUS := 1
+const MURAL_SOUL_LEVEL_BONUS := 1
+const ROCKING_CHAIR_SOUL_LEVEL_BONUS := 1
 const CRADLE_BASE_CHANCE := 0.05
 const CRADLE_MISS_BONUS := 0.05
 const PLAYER_VISION_BASE_RADIUS := 4
@@ -38,10 +40,15 @@ const CRYPT_CHANCE := 0.35
 const WEAVING_CRYPTS_MIN_FLOOR := 80
 const WEAVING_CRYPTS_MAX_FLOOR := 89
 const WEAVING_CRYPTS_THEMATIC_CHANCE := 0.6
+const CAMP_DRAW_ORDER: Array[String] = [
+	"mural", "bunk", "textile_area", "workbench", "writing_set", "ritual_table",
+	"crusher", "whetstone", "campfire", "kettle", "rocking_chair", "record_player",
+]
 const CAMP_UPGRADES := {
 	"kettle": {
 		"name": "CAMP_KETTLE",
 		"cost": {"wood": 6, "stone": 8, "cloth": 2},
+		"requires": ["campfire"],
 	},
 	"bunk": {
 		"name": "CAMP_BUNK",
@@ -69,16 +76,30 @@ const CAMP_UPGRADES := {
 		"name": "CAMP_CAMPFIRE",
 		"cost": {"wood": 3, "stone": 3, "cloth": 0},
 	},
-}
-
-const INTRINSIC_FEATURES := {
-	"nervous_system": {
-		"name": "FEATURE_NERVOUS_SYSTEM",
-		"description": "FEATURE_NERVOUS_SYSTEM_DESC",
-		"stage": "ghoul",
-		"kind": "passive",
+	"workbench": {
+		"name": "CAMP_WORKBENCH",
+		"cost": {},
+	},
+	"writing_set": {
+		"name": "CAMP_WRITING_SET",
+		"cost": {},
+		"requires": ["workbench"],
+	},
+	"textile_area": {
+		"name": "CAMP_TEXTILE_AREA",
+		"cost": {},
+	},
+	"rocking_chair": {
+		"name": "CAMP_ROCKING_CHAIR",
+		"cost": {"wood": 30},
+	},
+	"record_player": {
+		"name": "CAMP_RECORD_PLAYER",
+		"cost": {},
 	},
 }
+
+const INTRINSIC_FEATURES := {}
 
 
 static func has_intrinsic_feature(form_id: String, feature_id: String) -> bool:
@@ -216,6 +237,8 @@ const EQUIPMENT := {
 		"slots": ["right_hand"],
 		"icon": "res://assets/items/item-rusty-sabre.png",
 		"damage": 1,
+		"attack_type": "melee",
+		"grip": "one_handed",
 		"accuracy": 2,
 		"min_depth": 5,
 		"salvage": {"stone": 1, "wood": 1},
@@ -226,7 +249,8 @@ const EQUIPMENT := {
 		"tags": ["weapon"],
 		"slots": ["right_hand"],
 		"icon": "res://assets/items/item-short-crossbow.png",
-		"weapon_type": "ranged",
+		"attack_type": "ranged",
+		"grip": "two_handed",
 		"ranged_damage": 3,
 		"range": 4,
 		"accuracy": -1,
@@ -378,6 +402,8 @@ const EQUIPMENT := {
 		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
 		"icon": "res://assets/items/item-bone-knife.png",
 		"damage": 1,
+		"attack_type": "melee",
+		"grip": "one_handed",
 		"max_hp": 0,
 		"soul_bonus": 0,
 		"accuracy": 1,
@@ -389,6 +415,8 @@ const EQUIPMENT := {
 		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
 		"icon": "res://assets/items/item-grave-mace.png",
 		"damage": 2,
+		"attack_type": "melee",
+		"grip": "one_handed",
 		"max_hp": 0,
 		"soul_bonus": 0,
 		"accuracy": -1,
@@ -399,7 +427,8 @@ const EQUIPMENT := {
 		"name": "ITEM_BONE_BOW",
 		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
 		"icon": "res://assets/items/item-bone-bow.png",
-		"weapon_type": "ranged",
+		"attack_type": "ranged",
+		"grip": "two_handed",
 		"range": 5,
 		"damage": 0,
 		"ranged_damage": 1,
@@ -408,6 +437,18 @@ const EQUIPMENT := {
 		"accuracy": 0,
 		"min_depth": 0,
 		"salvage": {"wood": 2, "cloth": 1},
+	},
+	"old_claymore": {
+		"name": "ITEM_OLD_CLAYMORE",
+		"description": "ITEM_OLD_CLAYMORE_DESC",
+		"category": "weapon", "tags": ["weapon"], "slots": ["right_hand"],
+		"icon": "res://assets/items/item-old-claymore.png",
+		"attack_type": "melee",
+		"grip": "two_handed",
+		"damage": 3,
+		"accuracy": 2,
+		"min_depth": 14,
+		"salvage": {"wood": 1, "stone": 3},
 	},
 	"soul_locket": {
 		"name": "ITEM_SOUL_LOCKET",
@@ -601,26 +642,57 @@ const ENEMIES := {
 	},
 }
 
+const BODY_SKILL_IDS: Array[String] = [
+	"strong_bones", "flexible_joints", "strong_spine",
+	"sharp_vision", "muscle_fibers",
+	"stomach", "flesh_regeneration", "ears",
+	"nervous_system", "choose_appearance", "fundamentals",
+]
+
 const SKILLS := {
 	"strong_bones": {
 		"name": "SKILL_STRONG_BONES",
 		"description": "SKILL_STRONG_BONES_DESC",
 		"stage": "skeleton",
-		"max_level": 10,
+		"max_level": 5,
 		"base_cost": 5,
 		"cost_step": 5,
 		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/strong_bones.png",
+	},
+	"flexible_joints": {
+		"name": "SKILL_FLEXIBLE_JOINTS",
+		"description": "SKILL_FLEXIBLE_JOINTS_DESC",
+		"stage": "skeleton",
+		"max_level": 1,
+		"base_cost": 15,
+		"cost_step": 0,
+		"requires": {},
+		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/flexible_joints.png",
+	},
+	"strong_spine": {
+		"name": "SKILL_STRONG_SPINE",
+		"description": "SKILL_STRONG_SPINE_DESC",
+		"stage": "skeleton",
+		"max_level": 1,
+		"base_cost": 20,
+		"cost_step": 0,
+		"requires": {},
+		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/strong_spine.png",
 	},
 	"fundamentals": {
 		"name": "SKILL_FUNDAMENTALS",
 		"description": "SKILL_FUNDAMENTALS_DESC",
-		"stage": "skeleton",
+		"stage": "almost_human",
 		"max_level": 1,
 		"base_cost": 25,
 		"cost_step": 0,
-		"requires": {"strong_bones": 1},
+		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/fundamentals.png",
 	},
 	"magic_awakening": {
 		"name": "SKILL_MAGIC_AWAKENING",
@@ -666,12 +738,35 @@ const SKILLS := {
 	"flesh_regeneration": {
 		"name": "SKILL_FLESH_REGENERATION",
 		"description": "SKILL_FLESH_REGENERATION_DESC",
-		"stage": "zombie",
+		"stage": "ghoul",
 		"max_level": 1,
 		"base_cost": 20,
 		"cost_step": 0,
 		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/flesh_regeneration.png",
+	},
+	"sharp_vision": {
+		"name": "SKILL_SHARP_VISION",
+		"description": "SKILL_SHARP_VISION_DESC",
+		"stage": "zombie",
+		"max_level": 1,
+		"base_cost": 80,
+		"cost_step": 0,
+		"requires": {},
+		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/sharp_vision.png",
+	},
+	"muscle_fibers": {
+		"name": "SKILL_MUSCLE_FIBERS",
+		"description": "SKILL_MUSCLE_FIBERS_DESC",
+		"stage": "zombie",
+		"max_level": 2,
+		"base_cost": 20,
+		"cost_step": 10,
+		"requires": {},
+		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/muscle_fibers.png",
 	},
 	"stomach": {
 		"name": "SKILL_STOMACH",
@@ -682,6 +777,7 @@ const SKILLS := {
 		"cost_step": 0,
 		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/stomach.png",
 	},
 	"ears": {
 		"name": "SKILL_EARS",
@@ -692,6 +788,7 @@ const SKILLS := {
 		"cost_step": 0,
 		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/ears.png",
 	},
 	"dash": {
 		"name": "SKILL_DASH",
@@ -715,15 +812,16 @@ const SKILLS := {
 		"kind": "active",
 		"ability_id": "double_attack",
 	},
-	"sharp_vision": {
-		"name": "SKILL_SHARP_VISION",
-		"description": "SKILL_SHARP_VISION_DESC",
+	"nervous_system": {
+		"name": "SKILL_NERVOUS_SYSTEM",
+		"description": "SKILL_NERVOUS_SYSTEM_DESC",
 		"stage": "revenant",
-		"max_level": 2,
+		"max_level": 1,
 		"base_cost": 80,
-		"cost_step": 40,
+		"cost_step": 0,
 		"requires": {},
 		"kind": "passive",
+		"icon": "res://assets/ui/skill-icons/body/nervous_system.png",
 	},
 	"almost_double_strike": {
 		"name": "SKILL_ALMOST_DOUBLE_STRIKE",
@@ -756,6 +854,7 @@ const SKILLS := {
 		"requires": {},
 		"kind": "active",
 		"ability_id": "choose_appearance",
+		"icon": "res://assets/ui/skill-icons/body/choose_appearance.png",
 	},
 }
 
@@ -939,7 +1038,7 @@ static func _equipment_bonus(loadout: Dictionary, parameter: String) -> float:
 		result += float(item.get(parameter, 0.0))
 		if not is_weapon(String(item_key)):
 			continue
-		var type := String(item.get("weapon_type", "melee"))
+		var type := String(item.get("attack_type", item.get("weapon_type", "melee")))
 		if (
 			parameter == "accuracy"
 			or (parameter == "damage" and type == "melee")
@@ -950,14 +1049,30 @@ static func _equipment_bonus(loadout: Dictionary, parameter: String) -> float:
 
 
 static func weapon_type(item_key: String) -> String:
+	# Compatibility adapter for callers and old tests. New data and UI use the two
+	# independent dimensions exposed by weapon_attack_type() and weapon_grip().
+	return weapon_attack_type(item_key)
+
+
+static func weapon_attack_type(item_key: String) -> String:
 	var item := item_rules(item_key)
 	if not is_weapon(item_key):
 		return ""
-	return String(item.get("weapon_type", "melee"))
+	return String(item.get("attack_type", item.get("weapon_type", "melee")))
+
+
+static func weapon_grip(item_key: String) -> String:
+	if not is_weapon(item_key):
+		return ""
+	return String(item_rules(item_key).get("grip", "one_handed"))
+
+
+static func is_two_handed_weapon(item_key: String) -> bool:
+	return weapon_grip(item_key) == "two_handed"
 
 
 static func weapon_range(item_key: String) -> int:
-	if weapon_type(item_key) != "ranged":
+	if weapon_attack_type(item_key) != "ranged":
 		return 0
 	return maxi(0, int(item_rules(item_key).get("range", 0)))
 

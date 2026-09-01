@@ -3,6 +3,8 @@ extends RefCounted
 
 const SaveSystem := preload("res://scripts/system/persistence.gd")
 const Snapshot := preload("res://scripts/system/run_snapshot.gd")
+const FloorGeneratorScript := preload("res://scripts/world/floor_generator.gd")
+const FixedFloor90Script := preload("res://scripts/world/fixed_floor_90.gd")
 const ROOT := "res://.tmp/exact-resume-regression"
 var failures: Array[String] = []
 var next_id := 0
@@ -11,6 +13,7 @@ var next_id := 0
 func run(tree: SceneTree) -> Array[String]:
 	failures.clear()
 	_cleanup(ROOT)
+	_test_strict_snapshot_schema()
 	await _test_fractional_mana(tree)
 	await _test_latest_history_publication(tree)
 	await _test_exact_roundtrip(tree)
@@ -19,6 +22,289 @@ func run(tree: SceneTree) -> Array[String]:
 	await _test_corruption_and_legacy(tree)
 	_cleanup(ROOT)
 	return failures
+
+
+func _test_strict_snapshot_schema() -> void:
+	var state := RunState.new()
+	state.configure_character("Strict snapshot", GameRules.default_attributes())
+	state.current_floor = 99
+	var random := RandomNumberGenerator.new()
+	random.seed = 160099
+	var floor: Dictionary = FloorGeneratorScript.new().generate(99, 160099, 0.0)
+	var hearing := {"attack_memories": {}, "event_revision": 0}
+	var snapshot := Snapshot.capture("dungeon", floor, floor.start, random, hearing)
+	var state_data := state.to_snapshot_data()
+	_expect(
+		not Snapshot.restore(snapshot, state_data).is_empty(),
+		"Canonical procedural v17 snapshot must validate",
+	)
+
+	var extra_state := state_data.duplicate(true)
+	extra_state["intruder"] = true
+	_expect(
+		not RunState.is_snapshot_data_valid(extra_state)
+		and Snapshot.restore(snapshot, extra_state).is_empty(),
+		"Current v17 state must reject unknown top-level fields",
+	)
+	var extra_envelope := snapshot.duplicate(true)
+	extra_envelope["intruder"] = true
+	_expect(
+		Snapshot.restore(extra_envelope, state_data).is_empty(),
+		"Current v17 snapshot envelope must reject unknown fields",
+	)
+	var missing_rooms := floor.duplicate(true)
+	missing_rooms.erase("rooms")
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", missing_rooms, missing_rooms.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"Procedural v17 floors must require the generated rooms collection",
+	)
+	var empty_rooms := floor.duplicate(true)
+	empty_rooms.rooms = []
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", empty_rooms, empty_rooms.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"Procedural v17 floors must retain the generator's two or three rooms",
+	)
+	var fixed_bypass := missing_rooms.duplicate(true)
+	fixed_bypass.fixed_layout = true
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", fixed_bypass, fixed_bypass.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"An ordinary floor cannot claim fixed_layout to bypass procedural rooms",
+	)
+	var collapsed_landmarks := floor.duplicate(true)
+	collapsed_landmarks.exit = collapsed_landmarks.base_gate
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", collapsed_landmarks, collapsed_landmarks.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Procedural landmarks must remain unique",
+	)
+	var duplicate_rooms := floor.duplicate(true)
+	duplicate_rooms.rooms[1] = duplicate_rooms.rooms[0].duplicate(true)
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", duplicate_rooms, duplicate_rooms.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"Procedural room records and doors must remain distinct",
+	)
+	var empty_room_cells := floor.duplicate(true)
+	empty_room_cells.rooms[0].cells = {}
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", empty_room_cells, empty_room_cells.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Procedural room cells cannot be empty",
+	)
+	var partial_room_cells := floor.duplicate(true)
+	partial_room_cells.rooms[0].cells.erase(partial_room_cells.rooms[0].cells.keys()[0])
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", partial_room_cells, partial_room_cells.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Procedural room cells must describe the complete sealed component",
+	)
+	var enemy_stats := floor.duplicate(true)
+	enemy_stats.enemies[0].damage = int(enemy_stats.enemies[0].damage) + 1
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", enemy_stats, enemy_stats.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"Generated enemy immutable stats must match its id and floor depth",
+	)
+	var enemy_capabilities := floor.duplicate(true)
+	enemy_capabilities.enemies[0].attack_type = "ranged"
+	enemy_capabilities.enemies[0].range = 100
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", enemy_capabilities, enemy_capabilities.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Generated enemy attack capabilities must match immutable rules",
+	)
+	var missing_capability := floor.duplicate(true)
+	missing_capability.enemies[0].erase("attack_type")
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", missing_capability, missing_capability.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Generated enemies must retain their canonical attack capability fields",
+	)
+	var foreign_enemy_cooldown := floor.duplicate(true)
+	foreign_enemy_cooldown.enemies[0].ability_cooldowns = {"dash": 1}
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", foreign_enemy_cooldown, foreign_enemy_cooldown.start,
+				random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Enemy cooldowns must be limited to abilities declared by that enemy id",
+	)
+	var oversized_item := floor.duplicate(true)
+	oversized_item.items[0].wood = 3
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", oversized_item, oversized_item.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"Generated chest resource rolls must remain within 0..2",
+	)
+	var item_under_player := floor.duplicate(true)
+	item_under_player.items[0].pos = item_under_player.start
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", item_under_player, item_under_player.start, random, hearing,
+			),
+			state_data,
+		).is_empty(),
+		"Items cannot share the player's or a landmark's cell",
+	)
+
+	var extra_hearing := hearing.duplicate(true)
+	extra_hearing["intruder"] = true
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, extra_hearing), state_data,
+		).is_empty(),
+		"Current hearing snapshots must reject unknown fields",
+	)
+	var enemy: Dictionary = floor.enemies[0]
+	var memory := {
+		"uid": String(enemy.uid),
+		"pos": enemy.pos,
+		"expires_after_turn": state.total_turns + 1,
+	}
+	var hearing_with_memory := {
+		"attack_memories": {String(enemy.uid): memory},
+		"event_revision": 1,
+	}
+	var hearing_state := RunState.new()
+	hearing_state.configure_character("Strict hearing", GameRules.default_attributes())
+	hearing_state.current_floor = 99
+	hearing_state.absorbed_souls = int(GameRules.FORMS.ghoul.threshold)
+	hearing_state.lifetime_souls_earned = hearing_state.absorbed_souls
+	hearing_state.current_form_id = "ghoul"
+	hearing_state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	hearing_state.soul_level = 1
+	hearing_state.skill_levels.ears = 1
+	var hearing_state_data := hearing_state.to_snapshot_data()
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, hearing_with_memory),
+			state_data,
+		).is_empty(),
+		"A state without Ears must reject nonempty hearing history",
+	)
+	_expect(
+		not Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, hearing_with_memory),
+			hearing_state_data,
+		).is_empty(),
+		"Canonical three-field hearing memory must validate",
+	)
+	var extra_memory_hearing := hearing_with_memory.duplicate(true)
+	extra_memory_hearing.attack_memories[String(enemy.uid)]["intruder"] = true
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, extra_memory_hearing),
+			hearing_state_data,
+		).is_empty(),
+		"Current hearing memories must reject unknown fields",
+	)
+
+	state.current_floor = 90
+	var fixed_floor: Dictionary = FixedFloor90Script.create()
+	_expect(not fixed_floor.has("rooms"), "Fixed-floor exception fixture must omit rooms")
+	_expect(
+		not Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", fixed_floor, fixed_floor.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			),
+			state.to_snapshot_data(),
+		).is_empty(),
+		"Canonical fixed floor 90 may omit procedural rooms",
+	)
+	var missing_boss_abilities := fixed_floor.duplicate(true)
+	missing_boss_abilities.enemies[0].erase("abilities")
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", missing_boss_abilities, missing_boss_abilities.start,
+				random, {"attack_memories": {}, "event_revision": 0},
+			),
+			state.to_snapshot_data(),
+		).is_empty(),
+		"Generated enemies with intrinsic abilities must retain the canonical ability list",
+	)
+	var missing_boss_block := fixed_floor.duplicate(true)
+	for field in ["boss_uid", "boss_defeated", "boss_door", "boss_door_open"]:
+		missing_boss_block.erase(field)
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", missing_boss_block, missing_boss_block.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			),
+			state.to_snapshot_data(),
+		).is_empty(),
+		"Fixed floor 90 must retain the complete boss/door progression block",
+	)
+	var defeated_floor := fixed_floor.duplicate(true)
+	defeated_floor.enemies.clear()
+	defeated_floor.boss_defeated = true
+	defeated_floor.boss_door_open = true
+	defeated_floor.tiles[defeated_floor.boss_door] = "floor"
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", defeated_floor, defeated_floor.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			),
+			state.to_snapshot_data(),
+		).is_empty(),
+		"A defeated boss floor cannot load before its permanent milestone and tail reward",
+	)
+	var defeated_state := RunState.new()
+	defeated_state.configure_character("Defeated boss", GameRules.default_attributes())
+	defeated_state.current_floor = 90
+	defeated_state.record_enemy_defeat("minotaur")
+	_expect(
+		not Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", defeated_floor, defeated_floor.start, random,
+				{"attack_memories": {}, "event_revision": 0},
+			),
+			defeated_state.to_snapshot_data(),
+		).is_empty(),
+		"A defeated boss floor must validate with its exact permanent milestone and tail reward",
+	)
 
 
 func _test_latest_history_publication(tree: SceneTree) -> void:
@@ -117,16 +403,42 @@ func _ghoul(main) -> void:
 	main.state.soul_level = 8
 	main.state.skill_levels.stomach = 1
 	main.state.skill_levels.ears = 1
+	main.state.skill_levels.flesh_regeneration = 1
 	main.state.skill_levels.dash = 1
 	main.state.skill_levels.double_attack = 1
 	main.state.banked_souls = 200
 	main.state.carried_souls = 200
+	main.state.lifetime_souls_earned = (
+		main.state.banked_souls + main.state.carried_souls + main.state.absorbed_souls
+	)
 	main.state.food = 3
 
 
 func _test_exact_roundtrip(tree: SceneTree) -> void:
 	var main = await _new_main(tree, "Roundtrip")
 	_ghoul(main)
+	main.state.current_form_id = "revenant"
+	main.state.absorbed_souls = GameRules.FORMS.revenant.threshold
+	main.state.skill_levels.nervous_system = 1
+	main.state.character_sex = "female"
+	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("almost_human")
+	main.state.lifetime_souls_earned = (
+		main.state.banked_souls
+		+ main.state.carried_souls
+		+ main.state.absorbed_souls
+		+ int(GameRules.FORMS.almost_human.threshold)
+	)
+	main.state.skill_levels.choose_appearance = 1
+	main.state.display_form_id = "zombie"
+	var claymore_key := GameRules.make_item_key("old_claymore", 3, true)
+	var marked_inventory_key := GameRules.make_item_key("bone_knife", 2)
+	main.state.loadout["right_hand"] = claymore_key
+	main.state.loadout.erase("left_hand")
+	main.state.equipped_marks["right_hand"] = "keep"
+	main.state.inventory[marked_inventory_key] = 1
+	main.state.inventory_marks[marked_inventory_key] = "salvage"
+	for upgrade_id in ["campfire", "kettle", "workbench", "writing_set"]:
+		main.state.camp_upgrades[upgrade_id] = true
 	main.rng.seed = 9223372036854775701
 	main._begin_expedition_at(97)
 	# A full generated map with open/closed rooms, changed loot, a removed enemy,
@@ -143,12 +455,7 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 			enemy.pos = adjacent
 			break
 	_expect(attack_direction != Vector2i.ZERO, "Combat fixture needs an adjacent floor cell")
-	enemy.max_hp = 40
-	enemy.hp = 39
-	enemy.damage = 1
-	enemy.accuracy = 100
-	enemy.vision = 10
-	enemy.attack_type = "melee"
+	enemy.hp = maxi(1, int(enemy.max_hp) - 1)
 	enemy.has_seen_player = true
 	enemy.last_seen_player = main.player_pos
 	main.floor_data.enemies[0] = enemy
@@ -157,7 +464,7 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	main.state.hunger = 57
 	main.state.hunger_turn_progress = 8
 	main.state.regeneration_progress = 2
-	main.state.mana_regeneration_progress = 73.5
+	main.state.mana_regeneration_progress = 0.735
 	main.state.total_turns = 25
 	main.state.carried_souls = 17
 	main.state.ability_cooldowns = {"dash": 7, "double_attack": 3}
@@ -173,6 +480,11 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	if not hidden.is_empty():
 		main.hearing_contacts.record_hidden_attack(hidden.uid, hidden.pos, main.state.total_turns)
 	_expect(main._save_game_at_base(), "Full generated snapshot must save: %s" % main.last_save_error)
+	var v17_saved := SaveSystem.load_slot(main.active_save_slot_id, main.save_slots_directory)
+	_expect(
+		v17_saved.get("ok", false) and int(v17_saved.get("version", 0)) == 17,
+		"Exact full-run roundtrip fixture must publish the strict v17 envelope",
+	)
 	var expected := _world(main)
 	var saved_id: String = main.active_save_slot_id
 	var fresh = await _new_main(tree, "Fresh")
@@ -184,6 +496,19 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	fresh._on_save_slot_load_requested(saved_id)
 	_expect(fresh.screen == fresh.Screen.DUNGEON, "A fresh scene must resume the dungeon, not camp")
 	_expect(_world(fresh) == expected, "File roundtrip must retain floor geometry, fog, order, loot, pursuit, HP/mana/hunger/progress/statuses/cooldowns and RNG")
+	_expect(
+		fresh.state.character_sex == "female"
+		and fresh.state.display_form_id == "zombie"
+		and fresh.state.loadout.get("right_hand", "") == claymore_key
+		and not fresh.state.loadout.has("left_hand")
+		and fresh.state.item_mark(claymore_key, "equipped", "right_hand") == "keep"
+		and fresh.state.item_mark(marked_inventory_key) == "salvage"
+		and bool(fresh.state.camp_upgrades.campfire)
+		and bool(fresh.state.camp_upgrades.kettle)
+		and bool(fresh.state.camp_upgrades.workbench)
+		and bool(fresh.state.camp_upgrades.writing_set),
+		"v17 roundtrip must retain sex/cosmetic identity, bound +3 Claymore, marks and camp dependencies",
+	)
 	_expect(not fresh.auto_travel_active and not fresh.auto_explore_active and fresh.held_direction == Vector2i.ZERO and fresh.ability_targeting_id.is_empty(), "Loading must clear automation/held input/targeting")
 	_expect(fresh.hearing_contacts.attack_memory_count() == main.hearing_contacts.attack_memory_count(), "Hidden-attack memory TTL must survive load")
 	# Resume the identical next action from independent scenes, including all RNG
@@ -193,7 +518,10 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	fresh._attempt_player_action(attack_direction)
 	_expect(_world(main) == _world(fresh), "Continuous next action must exactly equal the next action after reload")
 	_expect(main.rng.state != rng_before, "Combat equivalence must exercise actual random rolls")
-	_expect(main.state.get_temporary_hp() < 2, "Reload must not give a pursuing adjacent enemy another alert delay")
+	_expect(
+		fresh.state.get_temporary_hp() == main.state.get_temporary_hp(),
+		"Reload must preserve the pursuing enemy's exact next response without another alert delay",
+	)
 	_expect(fresh.hearing_contacts.attack_memory_count() == 0, "A saved hidden attack must expire at the same completed-round boundary")
 	var completed := SaveSystem.load_slot(fresh.active_save_slot_id, fresh.save_slots_directory)
 	_expect(completed.get("state", {}) == fresh.state.to_snapshot_data(), "Round autosave must contain post-survival and post-cooldown values")
@@ -228,7 +556,31 @@ func _test_mutations_and_lifecycle(tree: SceneTree) -> void:
 	_assert_saved(main, "No-turn food consumption")
 	_expect(main.state.total_turns == turns, "Eating must not gain or spend a turn through saving")
 	# Cradle payment and its consumed flag publish together.
-	main.floor_data.cradle = main.player_pos
+	var cradle_cell := Vector2i(-1, -1)
+	for candidate_value in main.floor_data.tiles:
+		var candidate: Vector2i = candidate_value
+		if main.floor_data.tiles[candidate] != "floor":
+			continue
+		if candidate in [
+			main.floor_data.start, main.floor_data.exit, main.floor_data.base_gate,
+		]:
+			continue
+		if main._enemy_index_at(candidate) >= 0:
+			continue
+		var in_room := false
+		for room in main.floor_data.rooms:
+			in_room = in_room or room.cells.has(candidate)
+		if in_room:
+			continue
+		var has_item := false
+		for item in main.floor_data.items:
+			has_item = has_item or item.pos == candidate
+		if not has_item:
+			cradle_cell = candidate
+			break
+	_expect(cradle_cell != Vector2i(-1, -1), "Cradle fixture needs a unique free floor cell")
+	main.floor_data.cradle = cradle_cell
+	main.player_pos = cradle_cell
 	main.floor_data.cradle_known = true
 	main.floor_data.cradle_pity_resolved = true
 	main._use_cradle()
@@ -264,6 +616,10 @@ func _test_mutations_and_lifecycle(tree: SceneTree) -> void:
 	main.state.current_form_id = "almost_human"
 	main.state.absorbed_souls = GameRules.FORMS.almost_human.threshold
 	main.state.highest_unlocked_form_index = 4
+	main.state.lifetime_souls_earned = maxi(
+		main.state.lifetime_souls_earned,
+		main.state.banked_souls + main.state.carried_souls + main.state.absorbed_souls,
+	)
 	main.state.skill_levels.choose_appearance = 1
 	_expect(main._open_appearance_choice(), "Appearance fixture must open the chooser")
 	main._confirm_appearance_choice("skeleton")
@@ -321,6 +677,14 @@ func _test_boss_and_rng(tree: SceneTree) -> void:
 	main._complete_floor_ascent()
 	fresh._complete_floor_ascent()
 	_expect(_world(fresh) == _world(main) and fresh.state.current_floor == 89, "Next generated floor and cradle roll must be deterministic across reload")
+	main._load_floor(90)
+	_expect(
+		main.last_save_error.is_empty()
+		and main.floor_data.boss_defeated
+		and main.floor_data.boss_door_open
+		and main.floor_data.enemies.is_empty(),
+		"Re-entering floor 90 after the permanent boss milestone must publish the canonical cleared arena",
+	)
 	main._load_floor(1)
 	main._complete_floor_ascent()
 	fresh._on_save_slot_load_requested(main.active_save_slot_id)
@@ -358,11 +722,11 @@ func _test_corruption_and_legacy(tree: SceneTree) -> void:
 		_write(path, malformed)
 		_write(path + ".bak", valid)
 		var recovered := SaveSystem.load_slot(id, main.save_slots_directory)
-		_expect(recovered.get("ok", false) and recovered.get("recovered_from_backup", false), "Malformed v15 snapshot must fall back before choosing primary")
+		_expect(recovered.get("ok", false) and recovered.get("recovered_from_backup", false), "Malformed current snapshot must fall back before choosing primary")
 		_write(path + ".bak", malformed)
 		var unchanged := _world(main)
 		main._on_save_slot_load_requested(id)
-		_expect(_world(main) == unchanged and not main.last_save_error.is_empty(), "Both malformed v15 copies must preserve current state, floor and RNG")
+		_expect(_world(main) == unchanged and not main.last_save_error.is_empty(), "Both malformed current copies must preserve current state, floor and RNG")
 	# No valid fallback must leave the current in-memory session untouched.
 	_write(path + ".bak", {})
 	var before := _world(main)

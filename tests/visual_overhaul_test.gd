@@ -43,6 +43,7 @@ const ICON_ASSETS := [
 	"res://assets/items/item-bone-knife.png",
 	"res://assets/items/item-grave-mace.png",
 	"res://assets/items/item-bone-bow.png",
+	"res://assets/items/item-old-claymore.png",
 	"res://assets/items/item-soul-locket.png",
 	"res://assets/items/item-rotting-mail.png",
 	"res://assets/items/item-leather-gloves.png",
@@ -222,16 +223,17 @@ func _test_legacy_migration() -> void:
 	}), "Legacy equipment fixture must restore")
 	_expect(
 		legacy.loadout.get("right_hand", "") == "bone_bow@2"
-		and legacy.loadout.get("left_hand", "") == "pilgrim_shield@0"
+		and not legacy.loadout.has("left_hand")
 		and legacy.loadout.get("talisman", "") == "soul_locket@0"
 		and legacy.loadout.get("body", "") == "rotting_mail@0"
 		and Rules.base_item_id(String(legacy.loadout.get("hands", ""))) == "leather_gloves",
-		"Legacy weapon/offhand/charm/armor/mutation slots must migrate to physical slots",
+		"Legacy physical slots must migrate without admitting an impossible two-handed loadout",
 	)
 	_expect(
-		legacy.inventory.get("hollow_lantern@0", 0) == 1
+		legacy.inventory.get("pilgrim_shield@0", 0) == 1
+		and legacy.inventory.get("hollow_lantern@0", 0) == 1
 		and legacy.inventory.get("grave_mace@0", 0) == 1,
-		"Offhand/relic conflicts and corrupt slot IDs must return valid items to inventory",
+		"Two-handed offhand, relic conflicts and corrupt slot IDs must return valid items to inventory",
 	)
 	var locked := RunState.new()
 	_expect(locked.restore_save_data({

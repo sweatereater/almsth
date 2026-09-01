@@ -1,0 +1,677 @@
+{
+  "schema_version": 2,
+  "approved_v2_lineage_only": true,
+  "empty_source": "art/concepts/camp/2026-09-01/camp-empty-v2.png",
+  "empty_source_sha256": "6AA0CB03A38B33EE64057C89ADFAA064939E63CC60F95D3C2BFC903658CBDDF3",
+  "furnished_source": "art/concepts/camp/2026-09-01/camp-furnished-v2.png",
+  "furnished_source_sha256": "C937EB0391BB29AC566E1C12A4EBED60887F9294519FD437DC32F7A9AE9D182F",
+  "mask_template": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-03.png",
+  "mask_template_sha256": "8541B849007EDB9C2D1B409040F365321DC79A64FAD2B3FD66634AE48B662F7C",
+  "mask_template_usage": "reviewed ImageGen edit supplies isolated layer RGB; deterministic local matte supplies alpha before placement into the approved v2 composition",
+  "isolation_attempts": [
+    {
+      "attempt": 1,
+      "candidate": "camp-isolation-attempt-01.png",
+      "response_item_ordinal": 2890,
+      "custom_tool_call_id": "ctc_0e02eb5ad014acac016a961b77ca8087d29efe793644c03d9d",
+      "imagegen_call_id": "call_sxbfVvHwouR3lz9HpNdqIpPq",
+      "tool_result_id": "exec-5e8511df-a4dd-489e-9ec0-e2590759a2fb",
+      "verdict": "rejected: furnishings were rearranged and overlapped",
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-01.png",
+      "sha256": "08E6A9D73044DEC90AFC727653816C57B5036F9C9FB21BFFAADDCAD85C7F9EEE",
+      "size": [
+        1640,
+        959
+      ]
+    },
+    {
+      "attempt": 2,
+      "candidate": "camp-isolation-attempt-02.png",
+      "response_item_ordinal": 3131,
+      "custom_tool_call_id": "ctc_0e02eb5ad014acac016a961e274a1887d2a83a8ab5ee6b676f",
+      "imagegen_call_id": "call_DD6ejrGvudSjzn34L7o6QYdn",
+      "tool_result_id": "exec-1eada5ca-e429-4c65-acd0-94134846771e",
+      "verdict": "rejected: exact-position retry still rearranged furnishings",
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-02.png",
+      "sha256": "978AD627CD80D60E5E81704B5B904366779563071D525EF3FA4917C0A45F9903",
+      "size": [
+        1639,
+        959
+      ]
+    },
+    {
+      "attempt": 3,
+      "candidate": "camp-isolation-attempt-03.png",
+      "response_item_ordinal": 3289,
+      "custom_tool_call_id": "ctc_0e02eb5ad014acac016a961f9ee19487d28fd8246174b12093",
+      "imagegen_call_id": "call_vdYZLrxbzmCAKF25gzZLAjKd",
+      "tool_result_id": "exec-f434ce79-a3d2-4053-b468-b957a7025523",
+      "verdict": "accepted: clean independent 4-by-3 atlas",
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-03.png",
+      "sha256": "8541B849007EDB9C2D1B409040F365321DC79A64FAD2B3FD66634AE48B662F7C",
+      "size": [
+        1448,
+        1086
+      ]
+    }
+  ],
+  "exact_prompts": "art/concepts/camp/2026-09-01/PROMPTS.md#runtime-layer-isolation-attempts",
+  "normalization": "crop x=1..1636 (one left/two right pixels removed), duplicate source row 958 as row 959, exact 0.5 resize",
+  "subtraction_used": false,
+  "base": {
+    "path": "assets/art/camp-2026-09-01/camp-base.png",
+    "sha256": "39441A7E46047593AE01783738B590F4FB8E0E1DE24C065F058EC5B7B4A5FA15",
+    "size": [
+      818,
+      480
+    ],
+    "format": "RGB8"
+  },
+  "draw_order": [
+    "mural",
+    "bunk",
+    "textile_area",
+    "workbench",
+    "writing_set",
+    "ritual_table",
+    "crusher",
+    "whetstone",
+    "campfire",
+    "kettle",
+    "rocking_chair",
+    "record_player"
+  ],
+  "layers": {
+    "mural": {
+      "path": "assets/art/camp-2026-09-01/camp-mural.png",
+      "sha256": "873A2E82C4E0C466F64390D129A90E6B305559B6D7A3F69BCB6F3373DE7EA5F8",
+      "size": [
+        101,
+        81
+      ],
+      "draw_rect_local": [
+        469,
+        94,
+        101,
+        81
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.433199,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            0,
+            0,
+            362,
+            362
+          ],
+          "target_xyxy": [
+            468,
+            90,
+            573,
+            177
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "bunk": {
+      "path": "assets/art/camp-2026-09-01/camp-bunk.png",
+      "sha256": "1ED92C680CF6C8F00A0379A7E0C6573CFF8E960B7FA18E57F8CC32F210EEC2F4",
+      "size": [
+        181,
+        152
+      ],
+      "draw_rect_local": [
+        612,
+        117,
+        181,
+        152
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.543472,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            362,
+            0,
+            724,
+            362
+          ],
+          "target_xyxy": [
+            610,
+            116,
+            793,
+            269
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "textile_area": {
+      "path": "assets/art/camp-2026-09-01/camp-textile-area.png",
+      "sha256": "FC349615115AD19B23378F3ECB0A6F17F5C3853AF50FF7E0B856B49B32E25406",
+      "size": [
+        186,
+        157
+      ],
+      "draw_rect_local": [
+        210,
+        103,
+        186,
+        157
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.635607,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            724,
+            0,
+            1086,
+            362
+          ],
+          "target_xyxy": [
+            209,
+            102,
+            397,
+            261
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "workbench": {
+      "path": "assets/art/camp-2026-09-01/camp-workbench.png",
+      "sha256": "856BAAEC3BDE125FD442C592AB61C6584B714FB8A2DBA9A98CA54AFA0278522D",
+      "size": [
+        174,
+        144
+      ],
+      "draw_rect_local": [
+        40,
+        141,
+        174,
+        144
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.650064,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            1086,
+            0,
+            1448,
+            362
+          ],
+          "target_xyxy": [
+            40,
+            140,
+            214,
+            285
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "writing_set": {
+      "path": "assets/art/camp-2026-09-01/camp-writing-set.png",
+      "sha256": "321343681B6D27C62EA76ABE3BD8B820139A748D800BB49BAC86F1560F989A0E",
+      "size": [
+        140,
+        91
+      ],
+      "draw_rect_local": [
+        70,
+        115,
+        140,
+        91
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.441915,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            0,
+            362,
+            362,
+            724
+          ],
+          "target_xyxy": [
+            70,
+            112,
+            210,
+            206
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "ritual_table": {
+      "path": "assets/art/camp-2026-09-01/camp-ritual-table.png",
+      "sha256": "00F165ADC06E245745B056C04D50B051340695188E94E3BEBF12CFE4BBC1D440",
+      "size": [
+        162,
+        129
+      ],
+      "draw_rect_local": [
+        415,
+        143,
+        162,
+        129
+      ],
+      "hitbox_local": [
+        430,
+        181,
+        132,
+        77
+      ],
+      "alpha_coverage": 0.57728,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            362,
+            362,
+            724,
+            704
+          ],
+          "target_xyxy": [
+            415,
+            143,
+            577,
+            272
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "crusher": {
+      "path": "assets/art/camp-2026-09-01/camp-crusher.png",
+      "sha256": "539579729599B0925DCEDF62BDF09CBBFB477D3A393A332956D309340E1A1E24",
+      "size": [
+        177,
+        178
+      ],
+      "draw_rect_local": [
+        39,
+        243,
+        177,
+        178
+      ],
+      "hitbox_local": [
+        54,
+        304,
+        142,
+        105
+      ],
+      "alpha_coverage": 0.521615,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            724,
+            362,
+            1086,
+            724
+          ],
+          "target_xyxy": [
+            32,
+            242,
+            222,
+            459
+          ]
+        }
+      ],
+      "component_gate": {
+        "policy": "retain_largest_8_connected_alpha_cluster",
+        "alpha_threshold": 0,
+        "source_component_count": 9,
+        "removed_component_count": 8,
+        "removed_alpha_pixel_count": 64,
+        "removed_components_xyxy": [
+          [
+            137,
+            455,
+            145,
+            460
+          ],
+          [
+            35,
+            382,
+            40,
+            387
+          ],
+          [
+            218,
+            375,
+            222,
+            378
+          ],
+          [
+            199,
+            403,
+            202,
+            406
+          ],
+          [
+            46,
+            405,
+            49,
+            408
+          ],
+          [
+            189,
+            347,
+            192,
+            350
+          ],
+          [
+            211,
+            398,
+            212,
+            399
+          ],
+          [
+            219,
+            391,
+            220,
+            392
+          ]
+        ],
+        "removed_components_above_16": [
+          {
+            "pixel_count": 11,
+            "bounds_xyxy": [
+              138,
+              456,
+              143,
+              459
+            ]
+          },
+          {
+            "pixel_count": 1,
+            "bounds_xyxy": [
+              36,
+              385,
+              37,
+              386
+            ]
+          },
+          {
+            "pixel_count": 1,
+            "bounds_xyxy": [
+              47,
+              406,
+              48,
+              407
+            ]
+          },
+          {
+            "pixel_count": 1,
+            "bounds_xyxy": [
+              219,
+              376,
+              220,
+              377
+            ]
+          }
+        ],
+        "output_component_count": 1,
+        "output_component_bounds_xyxy": [
+          [
+            0,
+            0,
+            177,
+            178
+          ]
+        ]
+      },
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "whetstone": {
+      "path": "assets/art/camp-2026-09-01/camp-whetstone.png",
+      "sha256": "E0EBFBA632EA769130420F310CBC93DF46315E47C44AC4CD89F1858C945BBBA5",
+      "size": [
+        131,
+        96
+      ],
+      "draw_rect_local": [
+        217,
+        274,
+        131,
+        96
+      ],
+      "hitbox_local": [
+        237,
+        298,
+        93,
+        91
+      ],
+      "alpha_coverage": 0.636291,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            1086,
+            362,
+            1448,
+            724
+          ],
+          "target_xyxy": [
+            216,
+            273,
+            349,
+            414
+          ]
+        }
+      ],
+      "component_gate": {
+        "policy": "retain_largest_8_connected_alpha_cluster",
+        "alpha_threshold": 0,
+        "source_component_count": 2,
+        "removed_component_count": 1,
+        "removed_alpha_pixel_count": 659,
+        "removed_components_xyxy": [
+          [
+            257,
+            398,
+            311,
+            415
+          ]
+        ],
+        "removed_components_above_16": [
+          {
+            "pixel_count": 541,
+            "bounds_xyxy": [
+              259,
+              399,
+              310,
+              414
+            ]
+          }
+        ],
+        "output_component_count": 1,
+        "output_component_bounds_xyxy": [
+          [
+            0,
+            0,
+            131,
+            96
+          ]
+        ]
+      },
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "campfire": {
+      "path": "assets/art/camp-2026-09-01/camp-campfire.png",
+      "sha256": "1B87DEC63BE53DE77AF808AB52E5EE836A10EED69818FF7525F054884F8E1AD1",
+      "size": [
+        179,
+        131
+      ],
+      "draw_rect_local": [
+        339,
+        296,
+        179,
+        131
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.648727,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            0,
+            724,
+            362,
+            1086
+          ],
+          "target_xyxy": [
+            336,
+            293,
+            522,
+            431
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "kettle": {
+      "path": "assets/art/camp-2026-09-01/camp-kettle.png",
+      "sha256": "DF117AD4C36079F6B72E89896700CF88915BD2DC9DFFFC1143A81C7170CBB84C",
+      "size": [
+        132,
+        127
+      ],
+      "draw_rect_local": [
+        367,
+        241,
+        132,
+        127
+      ],
+      "hitbox_local": [
+        397,
+        268,
+        72,
+        66
+      ],
+      "alpha_coverage": 0.354868,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            400,
+            704,
+            660,
+            1010
+          ],
+          "target_xyxy": [
+            365,
+            235,
+            500,
+            368
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "rocking_chair": {
+      "path": "assets/art/camp-2026-09-01/camp-rocking-chair.png",
+      "sha256": "F6B00201118422480E0A4FAFBDC071FF64FBB4AEC11041034F8F721CD3CC91E1",
+      "size": [
+        177,
+        205
+      ],
+      "draw_rect_local": [
+        516,
+        239,
+        177,
+        205
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.486482,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            724,
+            724,
+            1086,
+            1086
+          ],
+          "target_xyxy": [
+            516,
+            239,
+            693,
+            445
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    },
+    "record_player": {
+      "path": "assets/art/camp-2026-09-01/camp-record-player.png",
+      "sha256": "A75599C37967D5DD64D886D066C44AFC29E47E8428A2E5B288C2F2F9CD554737",
+      "size": [
+        159,
+        242
+      ],
+      "draw_rect_local": [
+        656,
+        227,
+        159,
+        242
+      ],
+      "hitbox_local": null,
+      "alpha_coverage": 0.640288,
+      "mask_components": [
+        {
+          "source_xyxy": [
+            1086,
+            724,
+            1448,
+            1086
+          ],
+          "target_xyxy": [
+            655,
+            227,
+            815,
+            469
+          ]
+        }
+      ],
+      "component_gate": null,
+      "owns": "only this module's props, contact shadow and local light"
+    }
+  },
+  "interactive_hitboxes": {
+    "crusher": [
+      54,
+      304,
+      142,
+      105
+    ],
+    "whetstone": [
+      237,
+      298,
+      93,
+      91
+    ],
+    "ritual_table": [
+      430,
+      181,
+      132,
+      77
+    ],
+    "kettle": [
+      397,
+      268,
+      72,
+      66
+    ]
+  }
+}

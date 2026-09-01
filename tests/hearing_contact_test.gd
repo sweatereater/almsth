@@ -4,6 +4,9 @@ extends RefCounted
 const HearingContacts := preload("res://scripts/game/hearing_contact_system.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
 const Renderer := preload("res://scripts/ui/game_renderer.gd")
+const Snapshot := preload("res://scripts/system/run_snapshot.gd")
+const FloorGeneratorScript := preload("res://scripts/world/floor_generator.gd")
+const GridNavigationScript := preload("res://scripts/world/grid_navigation.gd")
 
 var failures: Array[String] = []
 
@@ -13,10 +16,166 @@ func run(_tree: SceneTree) -> Array[String]:
 	_test_proximity_without_los_or_fog_writes()
 	_test_attack_memory_ttl_and_priority()
 	_test_pruning_and_deduplication()
+	_test_snapshot_acceptance_matches_restore()
 	_test_renderer_contracts()
 	await _test_locked_and_purchase_contract(_tree)
 	await _test_main_turn_input_and_automation(_tree)
 	return failures
+
+
+func _test_snapshot_acceptance_matches_restore() -> void:
+	var state := RunState.new()
+	state.configure_character("Hearing snapshot", GameRules.default_attributes())
+	state.current_floor = 99
+	state.absorbed_souls = int(GameRules.FORMS.ghoul.threshold)
+	state.lifetime_souls_earned = state.absorbed_souls
+	state.current_form_id = "ghoul"
+	state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	state.soul_level = 1
+	state.skill_levels.ears = 1
+	var state_data := state.to_snapshot_data()
+	var random := RandomNumberGenerator.new()
+	random.seed = 299099
+	var floor: Dictionary = FloorGeneratorScript.new().generate(99, 299099, 0.0)
+	var hidden_enemy := {}
+	var second_hidden_enemy := {}
+	var sealed_enemy := {}
+	for value in floor.enemies:
+		var enemy: Dictionary = value
+		if GridNavigationScript.is_in_sealed_room(floor, enemy.pos):
+			if sealed_enemy.is_empty():
+				sealed_enemy = enemy
+		elif hidden_enemy.is_empty():
+			hidden_enemy = enemy
+		elif second_hidden_enemy.is_empty():
+			second_hidden_enemy = enemy
+	_expect(
+		not hidden_enemy.is_empty() and not sealed_enemy.is_empty(),
+		"Hearing snapshot fixture must include ordinary and sealed-room enemies",
+	)
+	if hidden_enemy.is_empty() or sealed_enemy.is_empty():
+		return
+	var memory := {
+		"uid": String(hidden_enemy.uid),
+		"pos": hidden_enemy.pos,
+		"expires_after_turn": 1,
+	}
+	var hearing := {"attack_memories": {String(hidden_enemy.uid): memory}, "event_revision": 1}
+	var canonical := Snapshot.capture("dungeon", floor, floor.start, random, hearing)
+	var decoded: Dictionary = Snapshot.restore(canonical, state_data)
+	var restored_contacts := HearingContacts.new()
+	if not decoded.is_empty():
+		restored_contacts.restore_snapshot_data(
+			decoded.hearing, decoded.floor_data.enemies, decoded.player_pos,
+			state.get_hearing_radius(), decoded.floor_data.visible_cells, decoded.floor_data,
+		)
+	_expect(
+		not decoded.is_empty()
+		and restored_contacts.to_snapshot_data().attack_memories == hearing.attack_memories,
+		"Every accepted hidden hearing memory must survive immediate runtime synchronization",
+	)
+	var long_ttl := hearing.duplicate(true)
+	long_ttl.attack_memories[String(hidden_enemy.uid)].expires_after_turn = 5
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, long_ttl), state_data,
+		).is_empty(),
+		"A hidden-attack memory TTL must be exactly the next completed turn",
+	)
+	var displaced_cell := Vector2i(-1, -1)
+	for cell_value in floor.tiles:
+		var cell: Vector2i = cell_value
+		if (
+			floor.tiles[cell] == "floor"
+			and cell != hidden_enemy.pos
+			and not bool(floor.visible_cells.get(cell, false))
+			and not GridNavigationScript.is_in_sealed_room(floor, cell)
+		):
+			displaced_cell = cell
+			break
+	var displaced := hearing.duplicate(true)
+	displaced.attack_memories[String(hidden_enemy.uid)].pos = displaced_cell
+	_expect(
+		displaced_cell != Vector2i(-1, -1)
+		and Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, displaced), state_data,
+		).is_empty(),
+		"A hidden-attack memory origin must equal the persisted enemy position",
+	)
+	var zero_revision := hearing.duplicate(true)
+	zero_revision.event_revision = 0
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, zero_revision), state_data,
+		).is_empty(),
+		"Nonempty hearing memory requires a positive event revision",
+	)
+	if not second_hidden_enemy.is_empty():
+		var undersized_revision := hearing.duplicate(true)
+		undersized_revision.attack_memories[String(second_hidden_enemy.uid)] = {
+			"uid": String(second_hidden_enemy.uid),
+			"pos": second_hidden_enemy.pos,
+			"expires_after_turn": 1,
+		}
+		_expect(
+			Snapshot.restore(
+				Snapshot.capture(
+					"dungeon", floor, floor.start, random, undersized_revision,
+				),
+				state_data,
+			).is_empty(),
+			"Hearing revision must cover every persisted attack-memory event",
+		)
+
+	var without_ears := state.to_snapshot_data()
+	without_ears.skill_levels.ears = 0
+	_expect(
+		Snapshot.restore(canonical, without_ears).is_empty(),
+		"Nonempty hearing history requires the current state to have Ears",
+	)
+	var visible_floor := floor.duplicate(true)
+	visible_floor.visible_cells[hidden_enemy.pos] = true
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", visible_floor, visible_floor.start, random, hearing),
+			state_data,
+		).is_empty(),
+		"A visible enemy memory must reject instead of being accepted then pruned",
+	)
+	var wall_cell := Vector2i(-1, -1)
+	for cell in floor.tiles:
+		if floor.tiles[cell] == "wall":
+			wall_cell = cell
+			break
+	var nonwalkable_hearing := hearing.duplicate(true)
+	nonwalkable_hearing.attack_memories[String(hidden_enemy.uid)].pos = wall_cell
+	_expect(
+		wall_cell != Vector2i(-1, -1)
+		and Snapshot.restore(
+			Snapshot.capture(
+				"dungeon", floor, floor.start, random, nonwalkable_hearing,
+			),
+			state_data,
+		).is_empty(),
+		"A hearing memory origin must remain walkable",
+	)
+	var sealed_hearing := {
+		"attack_memories": {
+			String(sealed_enemy.uid): {
+				"uid": String(sealed_enemy.uid),
+				"pos": sealed_enemy.pos,
+				"expires_after_turn": 1,
+			},
+		},
+		"event_revision": 1,
+	}
+	_expect(
+		Snapshot.restore(
+			Snapshot.capture("dungeon", floor, floor.start, random, sealed_hearing),
+			state_data,
+		).is_empty(),
+		"A sealed-room memory must reject instead of being accepted then pruned",
+	)
 
 
 func _test_radius_contract() -> void:
@@ -35,10 +194,10 @@ func _test_radius_contract() -> void:
 		state.has_hearing() and state.get_hearing_radius() == 5,
 		"An actual Ghoul with Ears must hear at current vision plus one under any display form",
 	)
-	state.skill_levels["sharp_vision"] = 2
+	state.skill_levels["sharp_vision"] = 1
 	_expect(
-		state.get_hearing_radius() == state.get_vision_radius() + 1,
-		"Sharp Vision must automatically extend hearing through effective vision",
+		state.get_vision_radius() == 5 and state.get_hearing_radius() == 6,
+		"The one Sharp Vision level must automatically extend hearing through effective vision",
 	)
 	state.current_form_id = "zombie"
 	state.display_form_id = "ghoul"

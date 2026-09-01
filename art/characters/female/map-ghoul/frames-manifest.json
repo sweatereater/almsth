@@ -1,0 +1,89 @@
+{
+	"anchor": [
+		132,
+		260
+	],
+	"canvas": [
+		264,
+		264
+	],
+	"frames": [
+		{
+			"alpha_rect": "[P: (52, 12), S: (192, 246)]",
+			"frame": 0,
+			"runtime_hip": [
+				120.0,
+				116.0
+			],
+			"scale": 0.552,
+			"source_hip": [
+				187.0,
+				188.0
+			],
+			"source_rect": [
+				0,
+				0,
+				418,
+				445
+			]
+		},
+		{
+			"alpha_rect": "[P: (27, 12), S: (202, 247)]",
+			"frame": 1,
+			"runtime_hip": [
+				120.0,
+				116.0
+			],
+			"scale": 0.552,
+			"source_hip": [
+				168.0,
+				188.0
+			],
+			"source_rect": [
+				0,
+				445,
+				418,
+				450
+			]
+		},
+		{
+			"alpha_rect": "[P: (43, 12), S: (192, 247)]",
+			"frame": 2,
+			"runtime_hip": [
+				120.0,
+				116.0
+			],
+			"scale": 0.552,
+			"source_hip": [
+				190.0,
+				188.0
+			],
+			"source_rect": [
+				836,
+				445,
+				418,
+				450
+			]
+		},
+		{
+			"alpha_rect": "[P: (40, 12), S: (214, 248)]",
+			"frame": 3,
+			"runtime_hip": [
+				120.0,
+				116.0
+			],
+			"scale": 0.552,
+			"source_hip": [
+				170.0,
+				188.0
+			],
+			"source_rect": [
+				418,
+				445,
+				418,
+				450
+			]
+		}
+	],
+	"source": "res://art/characters/female/map-ghoul/walk-alpha.png"
+}

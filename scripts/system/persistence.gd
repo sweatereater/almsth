@@ -4,9 +4,9 @@ extends RefCounted
 const Presentation := preload("res://scripts/system/presentation_settings.gd")
 const Snapshot := preload("res://scripts/system/run_snapshot.gd")
 
-const SAVE_VERSION := 15
-const STATE_ONLY_VERSION := SAVE_VERSION
-const MIN_SUPPORTED_SAVE_VERSION := SAVE_VERSION
+const SAVE_VERSION := 17
+const STATE_ONLY_VERSION := 17
+const MIN_SUPPORTED_SAVE_VERSION := 17
 const SAVE_PATH := "user://savegame.json"
 const SAVES_DIR := "user://saves"
 const SETTINGS_PATH := "user://settings.cfg"
@@ -52,18 +52,51 @@ static func save_slot(
 	snapshot: Dictionary = {},
 ) -> Dictionary:
 	var resolved_timestamp := timestamp if timestamp >= 0 else int(Time.get_unix_time_from_system())
-	var resolved_id := _safe_slot_id(slot_id)
-	if resolved_id.is_empty():
-		if not slot_id.strip_edges().is_empty():
-			return {"ok": false, "error": ERR_INVALID_PARAMETER, "slot_id": ""}
-		resolved_id = _safe_slot_id(String(id_factory.call()) if id_factory.is_valid() else _generate_slot_id(resolved_timestamp))
-	if resolved_id.is_empty():
+	var explicit_id := not slot_id.strip_edges().is_empty()
+	var resolved_id := _safe_slot_id(slot_id) if explicit_id else ""
+	if explicit_id and resolved_id.is_empty():
 		return {"ok": false, "error": ERR_INVALID_PARAMETER, "slot_id": ""}
+	if not explicit_id:
+		var generated_candidates := {}
+		for attempt in range(64):
+			var raw_candidate := (
+				String(id_factory.call())
+				if id_factory.is_valid() and attempt < 8
+				else _generate_slot_id(resolved_timestamp + attempt)
+			)
+			var candidate := _safe_slot_id(raw_candidate)
+			if candidate.is_empty() or generated_candidates.has(candidate):
+				continue
+			generated_candidates[candidate] = true
+			if not _slot_family_exists(saves_dir, candidate):
+				resolved_id = candidate
+				break
+	if resolved_id.is_empty():
+		return {"ok": false, "error": ERR_ALREADY_EXISTS, "slot_id": ""}
+	var path := _slot_path(saves_dir, resolved_id)
+	if explicit_id and _slot_family_exists(saves_dir, resolved_id):
+		var family_is_safe := not FileAccess.file_exists(path + ".tmp")
+		for family_path in [path, path + ".bak"]:
+			if FileAccess.file_exists(family_path):
+				family_is_safe = (
+					family_is_safe
+					and _is_slot_envelope_valid(_read_json_dictionary(family_path), resolved_id)
+				)
+		if not family_is_safe:
+			return {
+				"ok": false,
+				"error": ERR_FILE_CORRUPT,
+				"reason": "occupied_incompatible",
+				"slot_id": resolved_id,
+			}
+	var serialized_state := (
+		state.to_save_data() if snapshot.is_empty() else state.to_snapshot_data()
+	)
 	var metadata := {
 		"slot_id": resolved_id,
 		"updated_at": resolved_timestamp,
-		"character_name": state.character_name,
-		"lifetime_souls_earned": state.lifetime_souls_earned,
+		"character_name": serialized_state.character_name,
+		"lifetime_souls_earned": serialized_state.lifetime_souls_earned,
 		"save_policy": "history" if save_policy == "history" else "overwrite",
 	}
 	for key in extra_metadata:
@@ -76,11 +109,10 @@ static func save_slot(
 		"version": SAVE_VERSION,
 		"kind": "state_only" if snapshot.is_empty() else "full_run",
 		"metadata": metadata,
-		"state": state.to_save_data() if snapshot.is_empty() else Snapshot.encode(state.to_snapshot_data()),
+		"state": serialized_state if snapshot.is_empty() else Snapshot.encode(serialized_state),
 	}
 	if not snapshot.is_empty():
 		envelope["snapshot"] = snapshot.duplicate(true)
-	var path := _slot_path(saves_dir, resolved_id)
 	var error := _atomic_write_json(envelope, path, fault_injector)
 	if error != OK:
 		return {"ok": false, "error": error, "slot_id": resolved_id}
@@ -93,9 +125,15 @@ static func load_slot(slot_id: String, saves_dir := SAVES_DIR) -> Dictionary:
 		return {"ok": false, "error": ERR_INVALID_PARAMETER}
 	var path := _slot_path(saves_dir, resolved_id)
 	var envelope := _read_json_dictionary(path)
+	var primary_exists := FileAccess.file_exists(path)
+	var primary_valid := _is_slot_envelope_valid(envelope, resolved_id)
+	var backup_path := path + ".bak"
+	var backup_exists := FileAccess.file_exists(backup_path)
+	var backup_envelope := _read_json_dictionary(backup_path) if backup_exists else {}
+	var backup_valid := backup_exists and _is_slot_envelope_valid(backup_envelope, resolved_id)
 	var recovered_from_backup := false
-	if not _is_slot_envelope_valid(envelope, resolved_id):
-		envelope = _read_json_dictionary(path + ".bak")
+	if not primary_valid:
+		envelope = backup_envelope
 		recovered_from_backup = true
 	if not _is_slot_envelope_valid(envelope, resolved_id):
 		return {"ok": false, "error": ERR_FILE_CORRUPT}
@@ -109,6 +147,11 @@ static func load_slot(slot_id: String, saves_dir := SAVES_DIR) -> Dictionary:
 		"snapshot": Snapshot.restore(envelope.get("snapshot"), envelope["state"]) if envelope.get("kind") == "full_run" else {},
 		"version": int(envelope["version"]),
 		"recovered_from_backup": recovered_from_backup,
+		"write_locked": (
+			(recovered_from_backup and primary_exists)
+			or (backup_exists and not backup_valid)
+			or FileAccess.file_exists(path + ".tmp")
+		),
 	}
 
 
@@ -138,7 +181,28 @@ static func list_slots(saves_dir := SAVES_DIR) -> Array[Dictionary]:
 			var row: Dictionary = (loaded["metadata"] as Dictionary).duplicate(true)
 			row["slot_id"] = slot_id
 			row["recovered_from_backup"] = bool(loaded.get("recovered_from_backup", false))
+			row["write_locked"] = bool(loaded.get("write_locked", false))
+			row["compatible"] = true
+			row["locked"] = false
 			result.append(row)
+			continue
+		var raw := _read_raw_json_dictionary(_slot_path(saves_dir, slot_id))
+		if raw.is_empty():
+			raw = _read_raw_json_dictionary(_slot_path(saves_dir, slot_id) + ".bak")
+		var raw_metadata: Dictionary = raw.get("metadata", {}) if raw.get("metadata") is Dictionary else {}
+		var raw_state: Dictionary = raw.get("state", {}) if raw.get("state") is Dictionary else {}
+		result.append({
+			"slot_id": slot_id,
+			"updated_at": int(raw_metadata.get("updated_at", 0)),
+			"character_name": String(raw_metadata.get("character_name", raw_state.get("character_name", ""))),
+			"lifetime_souls_earned": int(raw_metadata.get("lifetime_souls_earned", 0)),
+			"save_policy": String(raw_metadata.get("save_policy", "overwrite")),
+			"compatible": false,
+			"locked": true,
+			"write_locked": true,
+			"incompatible_version": int(raw.get("version", 0)),
+			"corrupt": raw.is_empty(),
+		})
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var a_time := int(a.get("updated_at", 0))
 		var b_time := int(b.get("updated_at", 0))
@@ -156,7 +220,10 @@ static func list_slots(saves_dir := SAVES_DIR) -> Array[Dictionary]:
 
 static func latest_slot(saves_dir := SAVES_DIR) -> Dictionary:
 	var slots := list_slots(saves_dir)
-	return slots[0].duplicate(true) if not slots.is_empty() else {}
+	for slot in slots:
+		if bool(slot.get("compatible", true)) and not bool(slot.get("locked", false)):
+			return slot.duplicate(true)
+	return {}
 
 
 static func delete_slot(
@@ -251,9 +318,8 @@ static func import_legacy_once(
 	var legacy_state := RunState.new()
 	if not legacy_state.restore_save_data(legacy_data):
 		return {"ok": false, "imported": false, "error": ERR_FILE_CORRUPT}
-	var generated_id := String(id_factory.call()) if id_factory.is_valid() else _generate_slot_id(timestamp)
 	var save_result := save_slot(
-		legacy_state, generated_id, "overwrite", saves_dir, timestamp, Callable(),
+		legacy_state, "", "overwrite", saves_dir, timestamp, id_factory,
 		{"legacy_import": true},
 	)
 	if not bool(save_result.get("ok", false)):
@@ -265,9 +331,19 @@ static func import_legacy_once(
 
 
 static func _is_legacy_envelope_valid(parsed: Dictionary) -> bool:
-	if not parsed is Dictionary:
+	if (
+		not parsed is Dictionary
+		or parsed.size() != 3
+		or not parsed.has("version")
+		or not parsed.has("kind")
+		or not parsed.has("state")
+		or parsed.get("kind") != "state_only"
+	):
 		return false
-	var version := int(parsed.get("version", 0))
+	var raw_version: Variant = parsed.get("version", null)
+	if not _is_exact_json_integer(raw_version):
+		return false
+	var version := int(raw_version)
 	if version < MIN_SUPPORTED_SAVE_VERSION or version > SAVE_VERSION:
 		return false
 	if not parsed.get("state", null) is Dictionary:
@@ -276,9 +352,13 @@ static func _is_legacy_envelope_valid(parsed: Dictionary) -> bool:
 
 
 static func _is_slot_envelope_valid(envelope: Dictionary, expected_slot_id := "") -> bool:
-	if int(envelope.get("envelope_version", 0)) != SLOT_ENVELOPE_VERSION:
+	var raw_envelope_version: Variant = envelope.get("envelope_version", null)
+	if not _is_exact_json_integer(raw_envelope_version) or int(raw_envelope_version) != SLOT_ENVELOPE_VERSION:
 		return false
-	var version := int(envelope.get("version", 0))
+	var raw_version: Variant = envelope.get("version", null)
+	if not _is_exact_json_integer(raw_version):
+		return false
+	var version := int(raw_version)
 	if version < MIN_SUPPORTED_SAVE_VERSION or version > SAVE_VERSION:
 		return false
 	if not envelope.get("metadata", null) is Dictionary or not envelope.get("state", null) is Dictionary:
@@ -286,18 +366,55 @@ static func _is_slot_envelope_valid(envelope: Dictionary, expected_slot_id := ""
 	if not _valid_save_kind(envelope):
 		return false
 	var metadata: Dictionary = envelope["metadata"]
-	if metadata.has("publication_order"):
-		var order: Variant = metadata["publication_order"]
-		if not order is String or not order.is_valid_int() or str(int(order)) != order or int(order) <= 0:
+	for field in [
+		"slot_id", "updated_at", "character_name", "lifetime_souls_earned", "save_policy",
+	]:
+		if not metadata.has(field):
 			return false
-	return (
-		not String(metadata.get("slot_id", "")).is_empty()
-		and (expected_slot_id.is_empty() or String(metadata.get("slot_id", "")) == expected_slot_id)
-		and not String(metadata.get("character_name", "")).strip_edges().is_empty()
-	)
+	var metadata_slot_id: Variant = metadata.slot_id
+	var metadata_name: Variant = metadata.character_name
+	var metadata_policy: Variant = metadata.save_policy
+	var state: Dictionary = envelope.state
+	if (
+		not metadata_slot_id is String
+		or _safe_slot_id(metadata_slot_id) != metadata_slot_id
+		or (not expected_slot_id.is_empty() and metadata_slot_id != expected_slot_id)
+		or not metadata_name is String
+		or metadata_name != state.get("character_name")
+		or not metadata_policy is String
+		or metadata_policy not in ["overwrite", "history"]
+		or not _is_exact_json_integer(metadata.updated_at)
+		or int(metadata.updated_at) < 0
+		or not _is_exact_json_integer(metadata.lifetime_souls_earned)
+		or int(metadata.lifetime_souls_earned) < 0
+		or int(metadata.lifetime_souls_earned) != int(state.get("lifetime_souls_earned", -1))
+	):
+		return false
+	if envelope.kind == "full_run":
+		if not metadata.has("publication_order"):
+			return false
+		var order: Variant = metadata.publication_order
+		if (
+			not order is String
+			or not order.is_valid_int()
+			or str(int(order)) != order
+			or int(order) <= 0
+		):
+			return false
+	elif metadata.has("publication_order"):
+		# Reserved for exact full-run publications. Accepting it on a state-only
+		# slot would let setup records participate in resume ordering.
+		return false
+	return true
 
 
-## v15 explicitly separates setup-only helpers from complete live runs. Missing or
+static func _is_exact_json_integer(value: Variant) -> bool:
+	if value is int:
+		return true
+	return value is float and is_finite(value) and value == floorf(value)
+
+
+## v17 explicitly separates setup-only helpers from complete live runs. Missing or
 ## corrupt full snapshots never silently resume at base. Old test files/backs stay
 ## on disk untouched and are excluded, including by one-time legacy import.
 static func _valid_save_kind(envelope: Dictionary) -> bool:
@@ -315,6 +432,19 @@ static func _atomic_write_json(data: Dictionary, path: String, fault_injector :=
 		return directory_error
 	var temporary_path := path + ".tmp"
 	var backup_path := path + ".bak"
+	# Preflight happens before creating or truncating .tmp. An unsupported or corrupt
+	# primary belongs to the user and can still be explicitly deleted from the slot UI;
+	# an attempted save must never remove or replace it as a side effect.
+	if FileAccess.file_exists(temporary_path):
+		return ERR_ALREADY_EXISTS
+	if FileAccess.file_exists(path):
+		var existing_primary := _read_json_dictionary(path)
+		if not _payload_matches_schema(existing_primary, data):
+			return ERR_FILE_CORRUPT
+	if FileAccess.file_exists(backup_path):
+		var existing_backup := _read_json_dictionary(backup_path)
+		if not _payload_matches_schema(existing_backup, data):
+			return ERR_FILE_CORRUPT
 	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
 	if file == null:
 		return FileAccess.get_open_error()
@@ -336,23 +466,15 @@ static func _atomic_write_json(data: Dictionary, path: String, fault_injector :=
 	var absolute_temporary := ProjectSettings.globalize_path(temporary_path)
 	var had_primary := FileAccess.file_exists(path)
 	if had_primary:
-		var existing_primary := _read_json_dictionary(path)
-		if _payload_matches_schema(existing_primary, data):
-			if FileAccess.file_exists(backup_path):
-				var remove_backup_error := DirAccess.remove_absolute(absolute_backup)
-				if remove_backup_error != OK:
-					_remove_if_exists(temporary_path)
-					return remove_backup_error
-			var backup_error := DirAccess.rename_absolute(absolute_path, absolute_backup)
-			if backup_error != OK:
+		if FileAccess.file_exists(backup_path):
+			var remove_backup_error := DirAccess.remove_absolute(absolute_backup)
+			if remove_backup_error != OK:
 				_remove_if_exists(temporary_path)
-				return backup_error
-		else:
-			var remove_primary_error := DirAccess.remove_absolute(absolute_path)
-			if remove_primary_error != OK:
-				_remove_if_exists(temporary_path)
-				return remove_primary_error
-			had_primary = false
+				return remove_backup_error
+		var backup_error := DirAccess.rename_absolute(absolute_path, absolute_backup)
+		if backup_error != OK:
+			_remove_if_exists(temporary_path)
+			return backup_error
 	if fault_injector.is_valid() and bool(fault_injector.call("after_primary_backup")):
 		if had_primary and FileAccess.file_exists(backup_path):
 			DirAccess.rename_absolute(absolute_backup, absolute_path)
@@ -379,16 +501,11 @@ static func _payload_matches_schema(candidate: Dictionary, template: Dictionary)
 
 
 static func _read_json_dictionary(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
+	var data := _read_raw_json_dictionary(path)
+	if data.is_empty():
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return {}
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK or not json.data is Dictionary:
-		return {}
-	var data: Dictionary = (json.data as Dictionary).duplicate(true)
-	if data.get("version") == SAVE_VERSION and data.get("state") is Dictionary:
+	var raw_version: Variant = data.get("version", null)
+	if _is_exact_json_integer(raw_version) and int(raw_version) == SAVE_VERSION and data.get("state") is Dictionary:
 		var errors: Array = []
 		var decoded: Variant = Snapshot.decode(data["state"], errors)
 		if not errors.is_empty() or not decoded is Dictionary:
@@ -397,8 +514,29 @@ static func _read_json_dictionary(path: String) -> Dictionary:
 	return data
 
 
+static func _read_raw_json_dictionary(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var json := JSON.new()
+	if json.parse(file.get_as_text()) != OK or not json.data is Dictionary:
+		return {}
+	return (json.data as Dictionary).duplicate(true)
+
+
 static func _slot_path(saves_dir: String, slot_id: String) -> String:
 	return saves_dir.path_join(slot_id + ".json")
+
+
+static func _slot_family_exists(saves_dir: String, slot_id: String) -> bool:
+	var path := _slot_path(saves_dir, slot_id)
+	return (
+		FileAccess.file_exists(path)
+		or FileAccess.file_exists(path + ".bak")
+		or FileAccess.file_exists(path + ".tmp")
+	)
 
 
 static func _safe_slot_id(value: String) -> String:

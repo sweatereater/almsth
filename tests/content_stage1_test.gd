@@ -114,7 +114,9 @@ func _test_preparation() -> void:
 	var state := _state()
 	state.current_form_id = "revenant"
 	state.skill_levels.stomach = 1
+	state.skill_levels.nervous_system = 1
 	state.equip("expedition_backpack", "back")
+	state.camp_upgrades.campfire = true
 	state.camp_upgrades.kettle = true
 	state.camp_upgrades.bunk = true
 	state.food = 2
@@ -145,11 +147,11 @@ func _test_preparation() -> void:
 	state.die()
 	check(not state.camp_preparation.pending and state.active_statuses.is_empty(), "Death clears preparation and timed effects")
 	var late_stomach := _state()
-	late_stomach.current_form_id = "zombie"
+	late_stomach.current_form_id = "ghoul"
 	late_stomach.safe_return()
 	late_stomach.skill_levels.stomach = 1
 	late_stomach.begin_expedition()
-	check(not late_stomach.has_status("satiated"), "Buying Stomach after return cannot invent preparation")
+	check(not late_stomach.has_status("satiated"), "Buying Stomach after a Ghoul return cannot invent preparation")
 
 
 func _test_milestones() -> void:
@@ -164,6 +166,7 @@ func _test_milestones() -> void:
 	state.carried_souls = 100
 	check(not state.build_camp_upgrade("mural").ok and state.resources.wood == 12, "Mural cannot substitute carried souls or partly charge")
 	state.banked_souls = 60
+	state.lifetime_souls_earned = state.banked_souls + state.carried_souls
 	var previous_level := state.soul_level
 	check(state.build_camp_upgrade("mural").ok, "Mural builds with exact cost")
 	check(state.banked_souls == 0 and state.resources.wood == 0 and state.trophies.minotaur_tail == 0 and state.soul_level == previous_level + 1, "Mural consumes exact materials/souls/tail, grants one level")
@@ -220,7 +223,7 @@ func _main(tree: SceneTree):
 	await tree.process_frame
 	main.state = _state()
 	main._show_base("")
-	main._begin_expedition_at(99)
+	main._begin_expedition_at(80)
 	main.state.attributes.vitality = 100
 	main.state.hp = main.state.get_max_hp()
 	main.player_pos = Vector2i(4, 4)
@@ -228,9 +231,34 @@ func _main(tree: SceneTree):
 	var visible := {}
 	for y in range(10):
 		for x in range(12):
-			tiles[Vector2i(x, y)] = "floor"
-			visible[Vector2i(x, y)] = true
-	main.floor_data = {"width": 12, "height": 10, "tiles": tiles, "enemies": [], "items": [], "rooms": [], "start": Vector2i(1, 1), "exit": Vector2i(10, 8), "base_gate": Vector2i(1, 8), "cradle": Vector2i(-1, -1), "visible_cells": visible, "observed_cells": visible.duplicate(), "explored_cells": visible.duplicate(), "exit_known": false, "cradle_known": false, "cradle_used": false, "cradle_pity_resolved": false, "cradle_roll_chance": 0.0, "seed": 123}
+			var cell := Vector2i(x, y)
+			tiles[cell] = (
+				"wall" if x == 0 or x == 11 or y == 0 or y == 9 else "floor"
+			)
+			visible[cell] = true
+	tiles[Vector2i(1, 2)] = "wall"
+	tiles[Vector2i(10, 7)] = "wall"
+	main.floor_data = {
+		"width": 12, "height": 10, "tiles": tiles, "enemies": [], "items": [],
+		"rooms": [
+			{
+				"door": Vector2i(2, 1), "outward": Vector2i.RIGHT,
+				"cells": {Vector2i(1, 1): true},
+				"reserved": {Vector2i(1, 1): true, Vector2i(2, 1): true},
+			},
+			{
+				"door": Vector2i(9, 8), "outward": Vector2i.LEFT,
+				"cells": {Vector2i(10, 8): true},
+				"reserved": {Vector2i(10, 8): true, Vector2i(9, 8): true},
+			},
+		],
+		"start": Vector2i(2, 2), "exit": Vector2i(9, 7),
+		"base_gate": Vector2i(1, 7), "cradle": Vector2i(-1, -1),
+		"visible_cells": visible, "observed_cells": visible.duplicate(),
+		"explored_cells": visible.duplicate(), "exit_known": false,
+		"cradle_known": false, "cradle_used": false, "cradle_pity_resolved": false,
+		"cradle_roll_chance": 0.0, "seed": 123,
+	}
 	# Synthetic combat fixture explicitly supplies the current-format records;
 	# production restore never supplies missing decoration defaults for us.
 	main.floor_data.merge({"biome": "", "initial_enemy_kinds": [], "decorations": {}})
@@ -242,7 +270,25 @@ func _enemy(id: String, position: Vector2i) -> Dictionary:
 	enemy.id = id
 	enemy.uid = "test_" + id
 	enemy.pos = position
+	var depth := 20
+	enemy.max_hp = int(enemy.max_hp) + FloorGenerator.enemy_stat_bonus_for_depth(
+		depth, FloorGenerator.ENEMY_HP_DEPTH_INTERVAL,
+	)
 	enemy.hp = enemy.max_hp
+	enemy.damage = int(enemy.damage) + FloorGenerator.enemy_stat_bonus_for_depth(
+		depth, FloorGenerator.ENEMY_DAMAGE_DEPTH_INTERVAL,
+	)
+	enemy.accuracy = int(enemy.accuracy) + FloorGenerator.enemy_stat_bonus_for_depth(
+		depth, FloorGenerator.ENEMY_ACCURACY_DEPTH_INTERVAL,
+	)
+	enemy.dodge = int(enemy.dodge) + FloorGenerator.enemy_stat_bonus_for_depth(
+		depth, FloorGenerator.ENEMY_DODGE_DEPTH_INTERVAL,
+	)
+	enemy.souls = int(enemy.souls) + FloorGenerator.enemy_stat_bonus_for_depth(
+		depth, FloorGenerator.ENEMY_SOULS_DEPTH_INTERVAL,
+	)
+	enemy.attack_type = String(enemy.get("attack_type", "melee"))
+	enemy.range = int(enemy.get("range", 1))
 	enemy.has_seen_player = true
 	enemy.accuracy = 100
 	return enemy
@@ -262,9 +308,23 @@ func _test_enemy_preparation(tree: SceneTree) -> void:
 	main.floor_data.visible_cells[crossbow.pos] = true
 	main._enemy_turn()
 	check(crossbow.preparation.remaining == 1 and main.state.hp == health, "First full reaction turn remains safe")
+	crossbow.accuracy = int(Rules.ENEMIES.bone_crossbowman.accuracy)
 	var snapshot := preload("res://scripts/system/run_snapshot.gd").capture("dungeon", main.floor_data, main.player_pos, main.rng, main.hearing_contacts.to_snapshot_data())
 	var resume := preload("res://scripts/system/run_snapshot.gd").restore(JSON.parse_string(JSON.stringify(snapshot)), main.state.to_snapshot_data())
 	check(not resume.is_empty() and resume.floor_data.enemies[0].preparation.remaining == 1, "Active preparation round-trips at exact phase")
+	var displaced_preparation_floor: Dictionary = main.floor_data.duplicate(true)
+	displaced_preparation_floor.enemies[0].preparation.target = main.player_pos + Vector2i.RIGHT
+	var displaced_preparation := preload("res://scripts/system/run_snapshot.gd").capture(
+		"dungeon", displaced_preparation_floor, main.player_pos, main.rng,
+		main.hearing_contacts.to_snapshot_data(),
+	)
+	check(
+		preload("res://scripts/system/run_snapshot.gd").restore(
+			displaced_preparation, main.state.to_snapshot_data(),
+		).is_empty(),
+		"Persisted preparation must still target the saved player cell",
+	)
+	crossbow.accuracy = 100
 	main._enemy_turn()
 	check(main.state.hp == health - 2 and not crossbow.has("preparation") and crossbow.special_cooldown == 3, "Second reaction turn resolves one shot then cooldown3")
 	var position: Vector2i = crossbow.pos
@@ -304,10 +364,12 @@ func _test_inventory_camp_ui(tree: SceneTree) -> void:
 	var main = await _main(tree)
 	main._show_base("")
 	main._refresh_interface()
-	check(not main.stage1_build_buttons.mural.visible and main.stage1_build_buttons.mural.tooltip_text.is_empty(), "Mural offer is absent before trophy")
+	main._open_camp_build_panel()
+	check(not main.camp_build_panel.rows.has("mural"), "Mural offer is absent before trophy")
 	main.state.record_enemy_defeat("minotaur")
-	main._refresh_interface()
-	check(main.stage1_build_buttons.mural.visible, "Mural offer revealed by permanent trophy")
+	main.camp_build_panel.refresh()
+	check(main.camp_build_panel.rows.has("mural"), "Mural offer revealed by permanent trophy")
+	main.camp_build_panel.close()
 	main.state.camp_upgrades.crusher = true
 	var key: String = main.state.add_item("rusty_sabre")
 	main._open_inventory_service("crusher")
@@ -324,14 +386,17 @@ func _test_inventory_camp_ui(tree: SceneTree) -> void:
 
 func _test_exact_preparation_resume(tree: SceneTree) -> void:
 	var snapshot_system = preload("res://scripts/system/run_snapshot.gd")
-	var directory := "res://.tmp/stage1-preparation-resume"
+	var directory := "res://.tmp/nightly/stage1-preparation-resume"
 	var original = await _main(tree)
 	original.rng.seed = 570123
 	original.state.current_form_id = "revenant"
+	original.state.absorbed_souls = int(Rules.FORMS.revenant.threshold)
+	original.state.lifetime_souls_earned = original.state.absorbed_souls
 	original.state.highest_unlocked_form_index = 3
 	original.state.soul_level = 8
 	original.state.skill_levels.stomach = 1
 	original.state.equip("expedition_backpack", "back")
+	original.state.camp_upgrades.campfire = true
 	original.state.camp_upgrades.kettle = true
 	original.state.camp_upgrades.bunk = true
 	original.state.food = 3
@@ -340,7 +405,7 @@ func _test_exact_preparation_resume(tree: SceneTree) -> void:
 	original.state.set_item_mark(sabre, "keep")
 	original.state.safe_return()
 	original.state.select_kettle_preparation(true)
-	original.state.begin_expedition()
+	original.state.begin_expedition(80)
 	var enemy := _enemy("bone_crossbowman", Vector2i(8, 4))
 	enemy.accuracy = 4 # Real hit RNG must continue, not merely the visible phase.
 	original.floor_data.enemies = [enemy]
@@ -370,7 +435,7 @@ func _test_exact_preparation_resume(tree: SceneTree) -> void:
 
 
 func _test_state_only_corruption(tree: SceneTree) -> void:
-	var directory := "res://.tmp/stage1-helper-corruption"
+	var directory := "res://.tmp/nightly/stage1-helper-corruption"
 	var state := _state()
 	state.record_enemy_defeat("minotaur")
 	var key := state.add_item("rusty_sabre")

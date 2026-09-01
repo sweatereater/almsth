@@ -16,6 +16,8 @@ var absorbed_souls := 0
 ## already spent at the base, so their banked + carried + absorbed sum is a safe lower bound.
 var lifetime_souls_earned := 0
 var character_name := ""
+## Presentation identity used by creation, the character sheet and the map; never gameplay rules.
+var character_sex := "male"
 var attributes := GameRules.default_attributes()
 var current_form_id := "skeleton"
 ## Optional cosmetic override. Empty means the appearance follows current_form_id.
@@ -54,11 +56,18 @@ var resources := {
 	"cloth": 0,
 }
 var camp_upgrades := {
+	"mural": false,
+	"bunk": false,
+	"textile_area": false,
+	"workbench": false,
+	"writing_set": false,
+	"ritual_table": false,
 	"crusher": false,
 	"whetstone": false,
-	"ritual_table": false,
 	"campfire": false,
-	"kettle": false, "bunk": false, "mural": false,
+	"kettle": false,
+	"rocking_chair": false,
+	"record_player": false,
 }
 var skill_levels: Dictionary = GameRules.default_skill_levels()
 var ability_loadout: Dictionary = AbilitySystem.default_loadout()
@@ -74,13 +83,23 @@ var mana_regeneration_progress := 0.0
 var total_turns := 0
 var cradle_miss_streak := 0
 
-## Exact snapshots bypass legacy migrations, but accept only the current schema.
+## Exact snapshots bypass legacy migrations, but accept only the current v17 schema.
 const SNAPSHOT_FIELDS := [
 	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
-	"character_name", "attributes", "current_form_id", "display_form_id", "soul_level",
+	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id", "soul_level",
 	"base_level", "checkpoint_floor", "rope_floor", "current_floor", "hp", "mana",
 	"loadout", "inventory", "inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation", "resources", "camp_upgrades", "skill_levels",
 	"ability_loadout", "ability_cooldowns", "active_statuses", "unspent_attribute_points",
+	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
+	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
+]
+const STATE_ONLY_FIELDS := [
+	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
+	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id",
+	"soul_level", "base_level", "checkpoint_floor", "rope_floor", "hp", "mana",
+	"loadout", "inventory", "inventory_marks", "equipped_marks", "milestones", "trophies",
+	"camp_preparation", "resources", "camp_upgrades", "skill_levels", "ability_loadout",
+	"ability_cooldowns", "active_statuses", "unspent_attribute_points",
 	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
 	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
 ]
@@ -106,6 +125,8 @@ func restore_snapshot_data(data: Dictionary) -> bool:
 
 static func is_snapshot_data_valid(data: Dictionary) -> bool:
 	data = snapshot_data_from_json(data)
+	if data.size() != SNAPSHOT_FIELDS.size():
+		return false
 	var defaults := RunState.new()
 	for field in SNAPSHOT_FIELDS:
 		if not data.has(field):
@@ -128,17 +149,25 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 			return false
 	if String(data.character_name).strip_edges().is_empty() or String(data.character_name).length() > 24:
 		return false
+	if data.character_sex not in ["male", "female"]:
+		return false
 	if not GameRules.FORMS.has(data.current_form_id) or data.highest_unlocked_form_index >= GameRules.FORM_ORDER.size():
 		return false
 	if data.current_floor < 1 or data.current_floor > 100 or data.checkpoint_floor < 1 or data.checkpoint_floor > 100 or data.rope_floor < 1 or data.rope_floor > 100:
 		return false
 	if data.hunger > 100 or data.hunger_turn_progress > 9:
 		return false
+	if data.attributes.size() != GameRules.ATTRIBUTE_ORDER.size():
+		return false
 	for attribute in GameRules.ATTRIBUTE_ORDER:
+		if not data.attributes.has(attribute):
+			return false
 		if not _snapshot_integer(data.attributes.get(attribute)) or int(data.attributes[attribute]) < GameRules.STARTING_ATTRIBUTE_VALUE:
 			return false
-	for skill in data.skill_levels:
-		if not GameRules.SKILLS.has(skill) or not _snapshot_integer(data.skill_levels[skill]):
+	if data.skill_levels.size() != GameRules.SKILLS.size():
+		return false
+	for skill in GameRules.SKILLS:
+		if not data.skill_levels.has(skill) or not _snapshot_integer(data.skill_levels[skill]):
 			return false
 		if int(data.skill_levels[skill]) < 0 or int(data.skill_levels[skill]) > int(GameRules.SKILLS[skill].max_level):
 			return false
@@ -146,12 +175,20 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 		return false
 	if AbilitySystem.sanitize_cooldowns(data.ability_cooldowns) != data.ability_cooldowns or StatusSystem.sanitize(data.active_statuses) != data.active_statuses:
 		return false
+	if data.resources.size() != defaults.resources.size():
+		return false
 	for resource in defaults.resources:
+		if not data.resources.has(resource):
+			return false
 		if not _snapshot_integer(data.resources.get(resource)) or int(data.resources[resource]) < 0:
 			return false
+	if data.camp_upgrades.size() != defaults.camp_upgrades.size():
+		return false
 	for upgrade in defaults.camp_upgrades:
 		if not data.camp_upgrades.get(upgrade) is bool:
 			return false
+	if not _camp_upgrade_dependencies_valid(data.camp_upgrades):
+		return false
 	if data.loadout.get(GameRules.PERMANENT_JACKET_SLOT_ID) != GameRules.permanent_jacket_key():
 		return false
 	for slot in data.loadout:
@@ -160,6 +197,8 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 			return false
 		if not GameRules.is_slot_unlocked(data.current_form_id, slot) or not GameRules.item_fits_slot(key, slot):
 			return false
+	if not _hand_loadout_valid(data.loadout):
+		return false
 	for key in data.inventory:
 		if not key is String or key.is_empty() or defaults._sanitized_item_key(key) != key or not GameRules.is_item_movable(key):
 			return false
@@ -187,6 +226,10 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 	# body from souls, clamps health, or grants missing permanent items.
 	for field in SNAPSHOT_FIELDS:
 		defaults.set(field, data[field])
+	if not _strict_progression_semantics_valid(data, defaults):
+		return false
+	if data.soul_level < defaults._minimum_soul_level_for_progress():
+		return false
 	if data.hp < 1 or data.hp > defaults.get_max_hp() or data.mana > defaults.get_max_mana():
 		return false
 	if not String(data.display_form_id).is_empty():
@@ -199,10 +242,143 @@ static func _snapshot_integer(value: Variant) -> bool:
 	return value is int or (value is float and is_finite(value) and value == floor(value) and absf(value) < 9007199254740992.0)
 
 
-## The state-only setup API retains older field sanitation, but the new durable
-## records must be complete before any primary file is selected or state mutated.
+## Shared current-v17 semantic boundary. Both exact full-run snapshots and
+## state-only disk records reach this helper before any live RunState is mutated.
+static func _strict_progression_semantics_valid(data: Dictionary, candidate: RunState) -> bool:
+	var expected_form := GameRules.form_for_absorbed_souls(int(data.absorbed_souls))
+	var expected_form_index := GameRules.FORM_ORDER.find(expected_form)
+	var highest_form_index := int(data.highest_unlocked_form_index)
+	var expected_threshold := int(GameRules.FORMS[expected_form].threshold)
+	var highest_threshold := int(
+		GameRules.FORMS[GameRules.FORM_ORDER[highest_form_index]].threshold
+	)
+	# The current body's absorbed total is always one of the exact evolution
+	# thresholds.  When death has left a higher permanent unlock behind, those
+	# historical souls are distinct from the new body's absorbed progress.
+	var minimum_lifetime := (
+		int(data.banked_souls)
+		+ int(data.carried_souls)
+		+ int(data.absorbed_souls)
+		+ (highest_threshold if highest_form_index > expected_form_index else 0)
+	)
+	if (
+		data.current_form_id != expected_form
+		or int(data.absorbed_souls) != expected_threshold
+		or highest_form_index < expected_form_index
+		or int(data.lifetime_souls_earned) < minimum_lifetime
+	):
+		return false
+	for skill_id in GameRules.SKILLS:
+		if int(data.skill_levels[skill_id]) <= 0:
+			continue
+		var rules: Dictionary = GameRules.SKILLS[skill_id]
+		if (
+			int(data.highest_unlocked_form_index)
+			< GameRules.FORM_ORDER.find(String(rules.stage))
+		):
+			return false
+		for required_skill in rules.requires:
+			if (
+				int(data.skill_levels.get(required_skill, 0))
+				< int(rules.requires[required_skill])
+			):
+				return false
+	for ability_id in data.ability_cooldowns:
+		if not AbilitySystem.can_use_in_form(
+			String(ability_id), candidate.current_form_id, data.skill_levels,
+		):
+			return false
+	if (
+		int(data.regeneration_progress) >= 100
+		or (
+			int(data.regeneration_progress) != 0
+			and not candidate.has_regeneration_skill()
+		)
+	):
+		return false
+	var mana_progress := float(data.mana_regeneration_progress)
+	if (
+		mana_progress >= 1.0
+		or (
+			candidate.mana >= candidate.get_max_mana()
+			and mana_progress != 0.0
+		)
+	):
+		return false
+	if data.active_statuses.has("satiated"):
+		if (
+			not candidate.uses_hunger()
+			or int(data.hunger) != 100
+			or int(data.hunger_turn_progress) != 0
+		):
+			return false
+	if (
+		data.active_statuses.has("rested")
+		and not candidate.has_nervous_system()
+	):
+		return false
+	var preparation: Dictionary = data.camp_preparation
+	var can_prepare_food := candidate.uses_hunger()
+	var can_prepare_rest := candidate.has_nervous_system()
+	if (
+		bool(preparation.satiated) and not can_prepare_food
+		or bool(preparation.rested) and not can_prepare_rest
+		or bool(preparation.backpack_satiated) and not bool(preparation.satiated)
+		or bool(preparation.backpack_rested) and not bool(preparation.rested)
+	):
+		return false
+	if (
+		bool(preparation.kettle_selected)
+		and (
+			not bool(preparation.pending)
+			or not bool(preparation.satiated)
+			or not bool(data.camp_upgrades.kettle)
+			or int(data.food) < GameRules.CAMP_KETTLE_FOOD_COST
+		)
+	):
+		return false
+	return true
+
+
+## Durable v17 state-only records are current-schema data, not migration inputs.
+## They must contain every serialized field and pass the same type/range/semantic
+## validation as an exact snapshot before Persistence exposes them to Main.
 static func is_stage1_save_data_valid(data: Dictionary) -> bool:
+	data = snapshot_data_from_json(data)
+	if data.size() != STATE_ONLY_FIELDS.size():
+		return false
+	for field in STATE_ONLY_FIELDS:
+		if not data.has(field):
+			return false
+	var snapshot_candidate := data.duplicate(true)
+	snapshot_candidate["current_floor"] = 100
+	if not is_snapshot_data_valid(snapshot_candidate):
+		return false
 	var defaults := RunState.new()
+	if data.attributes.size() != defaults.attributes.size():
+		return false
+	for attribute in defaults.attributes:
+		if not data.attributes.has(attribute):
+			return false
+	if data.resources.size() != defaults.resources.size():
+		return false
+	for resource in defaults.resources:
+		if not data.resources.has(resource):
+			return false
+	if data.skill_levels.size() != defaults.skill_levels.size():
+		return false
+	for skill_id in defaults.skill_levels:
+		if not data.skill_levels.has(skill_id):
+			return false
+	return true
+
+
+## Direct setup/test callers retain the setup sanitation path. Persistence never
+## uses this helper; disk envelopes always go through is_stage1_save_data_valid().
+static func _stage1_extensions_valid(data: Dictionary) -> bool:
+	var defaults := RunState.new()
+	if data.get("character_sex", "") not in ["male", "female"]:
+		return false
 	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation", "inventory", "loadout", "camp_upgrades"]:
 		if not data.get(field) is Dictionary:
 			return false
@@ -212,9 +388,13 @@ static func is_stage1_save_data_valid(data: Dictionary) -> bool:
 		for key in defaults.get(field):
 			if not data[field].get(key) is bool:
 				return false
+	if data.camp_upgrades.size() != defaults.camp_upgrades.size():
+		return false
 	for upgrade in defaults.camp_upgrades:
 		if not data.camp_upgrades.get(upgrade) is bool:
 			return false
+	if not _camp_upgrade_dependencies_valid(data.camp_upgrades) or not _hand_loadout_valid(data.loadout):
+		return false
 	if data.trophies.size() != 1 or not _snapshot_integer(data.trophies.get("minotaur_tail")) or int(data.trophies.minotaur_tail) not in [0, 1]:
 		return false
 	if data.milestones.minotaur_tail_awarded != data.milestones.minotaur_defeated:
@@ -235,6 +415,24 @@ static func snapshot_data_from_json(data: Dictionary) -> Dictionary:
 	if normalized.has("mana_regeneration_progress") and (normalized.mana_regeneration_progress is int or normalized.mana_regeneration_progress is float):
 		normalized.mana_regeneration_progress = float(data.mana_regeneration_progress)
 	return normalized
+
+
+static func _camp_upgrade_dependencies_valid(upgrades: Dictionary) -> bool:
+	for upgrade_id in GameRules.CAMP_UPGRADES:
+		if not bool(upgrades.get(upgrade_id, false)):
+			continue
+		for requirement in GameRules.CAMP_UPGRADES[upgrade_id].get("requires", []):
+			if not bool(upgrades.get(String(requirement), false)):
+				return false
+	return true
+
+
+static func _hand_loadout_valid(candidate_loadout: Dictionary) -> bool:
+	var main_hand := String(candidate_loadout.get("right_hand", ""))
+	return not (
+		GameRules.is_two_handed_weapon(main_hand)
+		and not String(candidate_loadout.get("left_hand", "")).is_empty()
+	)
 
 
 static func _snapshot_json_value(value: Variant) -> Variant:
@@ -270,6 +468,7 @@ func to_save_data() -> Dictionary:
 	_enforce_satiated_satiety()
 	return {
 		"character_name": character_name,
+		"character_sex": character_sex,
 		"attributes": attributes.duplicate(true),
 		"banked_souls": banked_souls,
 		"carried_souls": carried_souls,
@@ -335,15 +534,17 @@ func _minimum_soul_level_for_progress(use_permanent_bonus := true) -> int:
 		int(GameRules.EQUIPMENT[GameRules.PERMANENT_JACKET_ITEM_ID].get("soul_level_bonus", 0))
 		if use_permanent_bonus else 0
 	)
+	var camp_bonus := (
+		(GameRules.CAMPFIRE_SOUL_LEVEL_BONUS if bool(camp_upgrades.get("campfire", false)) else 0)
+		+ (GameRules.MURAL_SOUL_LEVEL_BONUS if bool(camp_upgrades.get("mural", false)) else 0)
+		+ (GameRules.ROCKING_CHAIR_SOUL_LEVEL_BONUS if bool(camp_upgrades.get("rocking_chair", false)) else 0)
+	)
 	return maxi(
 		maxi(
 			maxi(GameRules.SOUL_LEVEL_START, GameRules.required_soul_level(current_form_id) - jacket_bonus),
 			maxi(GameRules.SOUL_LEVEL_START, GameRules.required_soul_level(highest_form_id) - jacket_bonus),
 		),
-		GameRules.SOUL_LEVEL_START + (
-			GameRules.CAMPFIRE_SOUL_LEVEL_BONUS
-			if bool(camp_upgrades.get("campfire", false)) else 0
-		),
+		GameRules.SOUL_LEVEL_START + camp_bonus,
 	)
 
 
@@ -351,7 +552,7 @@ func restore_save_data(data: Dictionary) -> bool:
 	var has_stage1_fields := false
 	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation"]:
 		has_stage1_fields = has_stage1_fields or data.has(field)
-	if has_stage1_fields and not is_stage1_save_data_valid(data):
+	if has_stage1_fields and not _stage1_extensions_valid(data):
 		return false
 	var restored_name := String(data.get("character_name", "")).strip_edges()
 	if restored_name.is_empty():
@@ -360,6 +561,7 @@ func restore_save_data(data: Dictionary) -> bool:
 		if data.get(field) is Dictionary:
 			set(field, data[field].duplicate(true))
 	character_name = restored_name.left(24)
+	character_sex = "female" if data.get("character_sex") is String and data.character_sex == "female" else "male"
 	var restored_attributes: Dictionary = GameRules.default_attributes()
 	var saved_attributes = data.get("attributes", {})
 	if saved_attributes is Dictionary:
@@ -428,13 +630,7 @@ func restore_save_data(data: Dictionary) -> bool:
 	if saved_resources is Dictionary:
 		for resource_id in resources:
 			resources[resource_id] = maxi(0, int(saved_resources.get(resource_id, 0)))
-	camp_upgrades = {
-		"crusher": false,
-		"whetstone": false,
-		"ritual_table": false,
-		"campfire": false,
-		"kettle": false, "bunk": false, "mural": false,
-	}
+	camp_upgrades = RunState.new().camp_upgrades
 	var saved_camp_upgrades = data.get("camp_upgrades", {})
 	if saved_camp_upgrades is Dictionary:
 		for upgrade_id in camp_upgrades:
@@ -491,15 +687,52 @@ func restore_save_data(data: Dictionary) -> bool:
 				loadout[destination] = item_key
 			else:
 				add_item_key(item_key)
+	# Legacy/setup dictionaries predate independent grip metadata. If such a
+	# dictionary names a real offhand beside a two-handed main weapon, retain the
+	# main weapon and return the physical offhand item to inventory without loss.
+	var restored_main_hand := String(loadout.get("right_hand", ""))
+	if GameRules.is_two_handed_weapon(restored_main_hand) and loadout.has("left_hand"):
+		var displaced_offhand := String(loadout.left_hand)
+		var displaced_mark := String(equipped_marks.get("left_hand", ""))
+		equipped_marks.erase("left_hand")
+		loadout.erase("left_hand")
+		_return_displaced_item_key(displaced_offhand, displaced_mark)
 	_ensure_permanent_jacket()
 	hp = clampi(int(data.get("hp", get_max_hp())), 1, get_max_hp())
 	mana = clampi(int(data.get("mana", get_max_mana())), 0, get_max_mana())
 	return true
 
 
+func is_skill_effect_active(skill_id: String) -> bool:
+	if get_skill_level(skill_id) <= 0 or not GameRules.SKILLS.has(skill_id):
+		return false
+	var required_stage := String(GameRules.SKILLS[skill_id].get("stage", "skeleton"))
+	return (
+		GameRules.FORM_ORDER.find(current_form_id)
+		>= GameRules.FORM_ORDER.find(required_stage)
+	)
+
+
+func get_effective_attributes() -> Dictionary:
+	var result := attributes.duplicate(true)
+	if is_skill_effect_active("flexible_joints"):
+		result["agility"] = int(result.get("agility", GameRules.STARTING_ATTRIBUTE_VALUE)) + 2
+	if is_skill_effect_active("strong_spine"):
+		result["vitality"] = int(result.get("vitality", GameRules.STARTING_ATTRIBUTE_VALUE)) + 1
+	if is_skill_effect_active("muscle_fibers"):
+		result["strength"] = (
+			int(result.get("strength", GameRules.STARTING_ATTRIBUTE_VALUE))
+			+ get_skill_level("muscle_fibers")
+		)
+	return result
+
+
 func get_derived_stats() -> Dictionary:
-	var result := GameRules.calculate_derived_stats(attributes, current_form_id, loadout, base_level)
-	result["max_hp"] += get_skill_level("strong_bones") * 3
+	var result := GameRules.calculate_derived_stats(
+		get_effective_attributes(), current_form_id, loadout, base_level,
+	)
+	if is_skill_effect_active("strong_bones"):
+		result["max_hp"] += get_skill_level("strong_bones") * 3
 	result["mana"] = maxi(0, int(result["mana"]) + get_skill_level("magic_awakening") * 5)
 	result["damage"] += StatusSystem.modifier(active_statuses, "damage")
 	result["ranged_damage"] += StatusSystem.modifier(active_statuses, "ranged_damage")
@@ -552,9 +785,13 @@ func get_accuracy() -> int:
 
 
 func get_vision_radius() -> int:
+	var vision_skill_level := (
+		get_skill_level("sharp_vision")
+		if is_skill_effect_active("sharp_vision") else 0
+	)
 	return (
 		GameRules.PLAYER_VISION_BASE_RADIUS
-		+ get_skill_level("sharp_vision") * GameRules.SHARP_VISION_BONUS_PER_LEVEL
+		+ vision_skill_level * GameRules.SHARP_VISION_BONUS_PER_LEVEL
 		+ roundi(GameRules._equipment_bonus(loadout, "vision"))
 	)
 
@@ -729,10 +966,22 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 	var slot := String(destination["slot"])
 	if not GameRules.item_fits_slot(item_key, slot):
 		return {"ok": false, "reason": "slot_locked", "slot": slot}
+	var hand_validation := _validate_hand_equip(item_key, slot)
+	if not bool(hand_validation.get("ok", false)):
+		return hand_validation
 
 	var old_max_hp := get_max_hp()
 	var old_max_mana := get_max_mana()
 	var replaced_id: String = loadout.get(slot, "")
+	var displaced_offhand := ""
+	var displaced_offhand_policy := ""
+	if slot == "right_hand" and GameRules.is_two_handed_weapon(item_key):
+		displaced_offhand = String(loadout.get("left_hand", ""))
+		if not displaced_offhand.is_empty():
+			var displaced_mark := String(equipped_marks.get("left_hand", ""))
+			equipped_marks.erase("left_hand")
+			loadout.erase("left_hand")
+			displaced_offhand_policy = _return_displaced_item_key(displaced_offhand, displaced_mark)
 	_remove_backpack_bonus(slot, replaced_id)
 	equipped_marks.erase(slot)
 	loadout[slot] = item_key
@@ -745,7 +994,24 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 		"item_name": Loc.text(String(item["name"])),
 		"slot": slot,
 		"replaced_id": replaced_id,
+		"displaced_offhand": displaced_offhand,
+		"displaced_offhand_mark_policy": displaced_offhand_policy,
 	}
+
+
+func _validate_hand_equip(item_key: String, slot: String) -> Dictionary:
+	if (
+		slot == "left_hand"
+		and GameRules.is_two_handed_weapon(String(loadout.get("right_hand", "")))
+	):
+		return {
+			"ok": false,
+			"reason": "two_handed_offhand_blocked",
+			"slot": slot,
+			"redirect_slot": "right_hand",
+			"message": Loc.text("MSG_TWO_HANDED_OFFHAND_BLOCKED"),
+		}
+	return {"ok": true}
 
 
 func add_item(item_id: String, upgrade_level := 0, count := 1) -> String:
@@ -764,6 +1030,32 @@ func add_item_key(item_key: String, count := 1, mark := "") -> String:
 	inventory[item_key] = previous_count + count
 	set_item_mark(item_key, merged_mark)
 	return item_key
+
+
+func _return_displaced_item_key(item_key: String, mark := "") -> String:
+	# A stack carries one mark. When a displaced equipped item collides with an
+	# identical stack, promote the union to the strongest explicit safe intent:
+	# keep beats salvage, salvage beats unmarked. This preserves the displaced
+	# physical item's mark instead of silently dropping it during the merge.
+	item_key = _sanitized_item_key(item_key)
+	if item_key.is_empty() or not GameRules.is_item_movable(item_key):
+		return "rejected"
+	var previous_count := int(inventory.get(item_key, 0))
+	var previous_mark := String(inventory_marks.get(item_key, ""))
+	var displaced_mark := mark if mark in ["keep", "salvage"] else ""
+	var merged_mark := displaced_mark
+	if previous_count > 0:
+		if "keep" in [previous_mark, displaced_mark]:
+			merged_mark = "keep"
+		elif "salvage" in [previous_mark, displaced_mark]:
+			merged_mark = "salvage"
+		else:
+			merged_mark = ""
+	inventory[item_key] = previous_count + 1
+	set_item_mark(item_key, merged_mark)
+	if previous_count <= 0 or previous_mark == displaced_mark:
+		return "unchanged"
+	return "promoted_%s" % (merged_mark if not merged_mark.is_empty() else "unmarked")
 
 
 func set_item_mark(item_key: String, mark: String, source := "inventory", slot := "") -> bool:
@@ -835,6 +1127,9 @@ func equip_from_inventory(item_key: String, destination_slot := "") -> Dictionar
 	var slot := String(destination["slot"])
 	if not GameRules.item_fits_slot(item_key, slot):
 		return {"ok": false, "reason": "slot_locked", "slot": slot}
+	var hand_validation := _validate_hand_equip(item_key, slot)
+	if not bool(hand_validation.get("ok", false)):
+		return hand_validation
 	var mark := item_mark(item_key)
 	var old_mark := String(equipped_marks.get(slot, ""))
 	if not remove_item(item_key):
@@ -846,7 +1141,7 @@ func equip_from_inventory(item_key: String, destination_slot := "") -> Dictionar
 		return result
 	set_item_mark(item_key, mark, "equipped", slot)
 	if not replaced_key.is_empty():
-		add_item_key(replaced_key, 1, old_mark)
+		result["replaced_mark_policy"] = _return_displaced_item_key(replaced_key, old_mark)
 	result["replaced_id"] = replaced_key
 	return result
 
@@ -883,6 +1178,9 @@ func can_build_camp_upgrade(upgrade_id: String) -> bool:
 	if not GameRules.CAMP_UPGRADES.has(upgrade_id) or bool(camp_upgrades.get(upgrade_id, false)):
 		return false
 	var upgrade: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]
+	for required_id in upgrade.get("requires", []):
+		if not bool(camp_upgrades.get(String(required_id), false)):
+			return false
 	if upgrade_id == "mural" and (int(trophies.minotaur_tail) < int(upgrade.minotaur_tail) or banked_souls < int(upgrade.banked_souls)):
 		return false
 	var cost: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]["cost"]
@@ -897,6 +1195,13 @@ func build_camp_upgrade(upgrade_id: String) -> Dictionary:
 		return {"ok": false, "reason": "unknown"}
 	if bool(camp_upgrades.get(upgrade_id, false)):
 		return {"ok": false, "reason": "built"}
+	for required_id in GameRules.CAMP_UPGRADES[upgrade_id].get("requires", []):
+		if not bool(camp_upgrades.get(String(required_id), false)):
+			return {
+				"ok": false,
+				"reason": "prerequisite",
+				"required_upgrade": String(required_id),
+			}
 	if not can_build_camp_upgrade(upgrade_id):
 		return {"ok": false, "reason": "resources"}
 	var cost: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]["cost"]
@@ -908,7 +1213,9 @@ func build_camp_upgrade(upgrade_id: String) -> Dictionary:
 	elif upgrade_id == "mural":
 		banked_souls -= int(GameRules.CAMP_UPGRADES.mural.banked_souls)
 		trophies.minotaur_tail -= int(GameRules.CAMP_UPGRADES.mural.minotaur_tail)
-		soul_level += 1
+		soul_level += GameRules.MURAL_SOUL_LEVEL_BONUS
+	elif upgrade_id == "rocking_chair":
+		soul_level += GameRules.ROCKING_CHAIR_SOUL_LEVEL_BONUS
 	return {"ok": true, "upgrade_id": upgrade_id}
 
 
@@ -1328,24 +1635,19 @@ func spend_attribute_point(attribute_id: String) -> bool:
 
 
 func uses_hunger() -> bool:
-	return (
-		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("ghoul")
-		and get_skill_level("stomach") > 0
-	)
+	return is_skill_effect_active("stomach")
 
 
 func has_hearing() -> bool:
-	return (
-		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("ghoul")
-		and get_skill_level("ears") > 0
-	)
+	return is_skill_effect_active("ears")
 
 
 func has_regeneration_skill() -> bool:
-	return (
-		GameRules.FORM_ORDER.find(current_form_id) >= GameRules.FORM_ORDER.find("zombie")
-		and get_skill_level("flesh_regeneration") > 0
-	)
+	return is_skill_effect_active("flesh_regeneration")
+
+
+func has_nervous_system() -> bool:
+	return is_skill_effect_active("nervous_system")
 
 
 func camp_and_eat() -> Dictionary:
@@ -1454,7 +1756,7 @@ func apply_camp_entry_effects() -> Dictionary:
 	# The return earns one departure. Existing timed effects are not refreshed here.
 	camp_preparation.pending = true
 	camp_preparation.satiated = uses_hunger()
-	camp_preparation.rested = GameRules.has_intrinsic_feature(current_form_id, "nervous_system")
+	camp_preparation.rested = has_nervous_system()
 	camp_preparation.kettle_selected = false
 	return result
 

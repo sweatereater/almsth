@@ -110,6 +110,11 @@ func _soak_progression_and_survival() -> void:
 		state.purchase_skill("stomach") == {"ok": true, "level": 1, "cost": 20},
 		"Progression soak could not buy the Ghoul Stomach skill",
 	)
+	state.add_souls(80)
+	_check(
+		state.purchase_skill("nervous_system") == {"ok": true, "level": 1, "cost": 80},
+		"Progression soak could not buy the Revenant Nervous System skill",
+	)
 	state.apply_camp_entry_effects()
 	_check(state.active_statuses.is_empty() and state.camp_preparation.pending, "Return must defer soak statuses until departure")
 	state.begin_expedition()

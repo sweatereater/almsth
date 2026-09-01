@@ -239,13 +239,19 @@ func _test_cooldown_boundaries() -> void:
 func _test_camp_entry_contract() -> void:
 	var skeleton := RunState.new()
 	skeleton.display_form_id = "ghoul"
+	skeleton.skill_levels["nervous_system"] = 1
 	skeleton.safe_return()
+	var unlearned_revenant := RunState.new()
+	unlearned_revenant.current_form_id = "revenant"
+	var learned_revenant := RunState.new()
+	learned_revenant.current_form_id = "revenant"
+	learned_revenant.skill_levels["nervous_system"] = 1
 	_expect(
 		not skeleton.has_status("rested") and not skeleton.has_status("satiated")
-		and not GameRules.has_intrinsic_feature("skeleton", "nervous_system")
-		and GameRules.has_intrinsic_feature("ghoul", "nervous_system")
-		and GameRules.has_intrinsic_feature("almost_human", "nervous_system"),
-		"Only the actual Ghoul+ form may own Nervous System and receive Rested; display form is cosmetic",
+		and not skeleton.has_nervous_system()
+		and not unlearned_revenant.has_nervous_system()
+		and learned_revenant.has_nervous_system(),
+		"Only a learned Nervous System on the actual Revenant+ body may enable Rested; display form is cosmetic",
 	)
 	var zombie := RunState.new()
 	zombie.current_form_id = "zombie"
@@ -271,9 +277,10 @@ func _test_camp_entry_contract() -> void:
 	)
 	var ghoul := RunState.new()
 	ghoul.configure_character("Camp Tester", GameRules.default_attributes())
-	ghoul.current_form_id = "ghoul"
-	ghoul.absorbed_souls = int(GameRules.FORMS["ghoul"]["threshold"])
-	ghoul.highest_unlocked_form_index = GameRules.FORM_ORDER.find("ghoul")
+	ghoul.current_form_id = "revenant"
+	ghoul.absorbed_souls = int(GameRules.FORMS["revenant"]["threshold"])
+	ghoul.highest_unlocked_form_index = GameRules.FORM_ORDER.find("revenant")
+	ghoul.skill_levels["nervous_system"] = 1
 	ghoul.hunger = 8
 	ghoul.hunger_turn_progress = 6
 	ghoul.safe_return()
@@ -281,7 +288,7 @@ func _test_camp_entry_contract() -> void:
 		ghoul.hunger == 8 and ghoul.hunger_turn_progress == 6
 		and not ghoul.has_status("satiated")
 		and not ghoul.has_status("rested") and ghoul.camp_preparation.rested,
-		"Returning earns Rested for departure without unlocking Satiety before Stomach",
+		"A learned Nervous System on Revenant earns Rested without unlocking Satiety before Stomach",
 	)
 	ghoul.begin_expedition()
 	ghoul.banked_souls = 20
@@ -297,7 +304,7 @@ func _test_camp_entry_contract() -> void:
 	_expect(
 		ghoul.status_remaining("satiated") == 400
 		and ghoul.status_remaining("rested") == 500 and ghoul.get_temporary_hp() == 8,
-		"The departure after a true Ghoul return grants overlapping Satiated and Rested",
+		"The departure after a true Revenant return grants overlapping Satiated and Rested",
 	)
 	ghoul.active_statuses["rested"] = {"remaining_turns": 3, "temporary_hp": 1}
 	ghoul.active_statuses["satiated"] = {"remaining_turns": 2, "temporary_hp": 1}
@@ -376,8 +383,9 @@ func _test_base_status_presentation(tree: SceneTree) -> void:
 	Loc.set_locale("ru")
 	var main = await _new_main(tree)
 	main.state.configure_character("Base Status", GameRules.default_attributes())
-	_configure_form(main, "ghoul")
+	_configure_form(main, "revenant")
 	main.state.skill_levels["stomach"] = 1
+	main.state.skill_levels["nervous_system"] = 1
 	var shared_strip_id: int = main.status_strip.get_instance_id()
 	main._show_base("", "none")
 	await tree.process_frame

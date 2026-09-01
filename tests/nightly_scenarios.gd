@@ -98,13 +98,11 @@ func _prepare(tree: SceneTree) -> void:
 	main._save_game_at_base("create")
 	main._begin_expedition_at(95)
 	_record_floor(main)
-	var victim: Dictionary = main.floor_data.enemies[0].duplicate(true)
+	var canonical_victim: Dictionary = main.floor_data.enemies[0].duplicate(true)
+	var victim: Dictionary = canonical_victim.duplicate(true)
 	var direction := _adjacent_direction(main)
 	victim.pos = main.player_pos + direction
 	victim.hp = 1
-	victim.damage = 0
-	victim.has_seen_player = true
-	victim.last_seen_player = main.player_pos
 	main.floor_data.enemies = [victim]
 	_record("fixture combat", {"enemy": victim, "removed_other_enemies": true})
 	var souls_before: int = main.state.carried_souls
@@ -144,23 +142,17 @@ func _prepare(tree: SceneTree) -> void:
 	_expect(main.state.uses_hunger() and main.state.has_hearing() and main.state.get_total_souls() == total_before - 40, "Expedition skill purchases must spend souls and immediately enable their actual-form systems")
 	# Explicit combat/survival checkpoint fixture: the restart must handle live,
 	# damaged pursuit and hidden attack memory, not just an empty explored floor.
-	var pursuer: Dictionary = victim.duplicate(true)
+	var pursuer: Dictionary = canonical_victim.duplicate(true)
 	pursuer.uid = "restart-pursuer"
 	pursuer.pos = main.player_pos + _adjacent_direction(main)
-	pursuer.hp = 12
-	pursuer.max_hp = 20
-	pursuer.damage = 1
-	pursuer.accuracy = 100
-	pursuer.vision = 10
-	pursuer.attack_type = "melee"
+	pursuer.hp = maxi(1, int(pursuer.max_hp) - 1)
+	pursuer.has_seen_player = true
 	pursuer.last_seen_player = main.player_pos
 	main.floor_data.enemies = [pursuer]
-	var hidden: Dictionary = victim.duplicate(true)
+	var hidden: Dictionary = canonical_victim.duplicate(true)
 	hidden.uid = "restart-hidden"
 	hidden.pos = _unoccupied_hall_cell(main, true)
-	hidden.hp = 2
-	hidden.max_hp = 3
-	hidden.vision = 0
+	hidden.hp = maxi(1, int(hidden.max_hp) - 1)
 	hidden.has_seen_player = false
 	hidden.erase("last_seen_player")
 	main.floor_data.enemies.append(hidden)
@@ -420,7 +412,15 @@ func _evolve(main) -> void:
 
 func _adjacent_direction(main) -> Vector2i:
 	for direction in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-		if main.floor_data.tiles.get(main.player_pos + direction) == "floor" and main._enemy_index_at(main.player_pos + direction) < 0:
+		var candidate: Vector2i = main.player_pos + direction
+		if (
+			main.floor_data.tiles.get(candidate) == "floor"
+			and main._enemy_index_at(candidate) < 0
+			and not main.floor_data.items.any(
+				func(item: Dictionary) -> bool: return item.pos == candidate
+			)
+			and not _is_landmark(main.floor_data, candidate)
+		):
 			return direction
 	_expect(false, "Fixture requires an adjacent unoccupied floor cell")
 	return Vector2i.ZERO
@@ -432,11 +432,21 @@ func _unoccupied_hall_cell(main, hidden := false) -> Vector2i:
 			continue
 		if main.GridNavigation.is_in_sealed_room(main.floor_data, cell) or (hidden and main._is_cell_visible(cell)):
 			continue
-		if main.floor_data.items.any(func(item: Dictionary) -> bool: return item.pos == cell):
+		if (
+			main.floor_data.items.any(func(item: Dictionary) -> bool: return item.pos == cell)
+			or _is_landmark(main.floor_data, cell)
+		):
 			continue
 		return cell
 	_expect(false, "Restart fixture needs a free hall cell")
 	return Vector2i(-1, -1)
+
+
+func _is_landmark(floor_data: Dictionary, cell: Vector2i) -> bool:
+	for field in ["start", "exit", "base_gate", "cradle"]:
+		if floor_data.get(field, Vector2i(-1, -1)) == cell:
+			return true
+	return false
 
 
 func _world(main) -> Dictionary:

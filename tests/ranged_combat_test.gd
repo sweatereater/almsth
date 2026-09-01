@@ -136,8 +136,9 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 		int(main.floor_data["enemies"][0]["hp"]) == 40
 		and int(main.floor_data["enemies"][1]["hp"]) == 40 - ranged_damage
 		and main.state.total_turns == turns_before + 1
-		and main.projectile_traces.size() == 1,
-		"A manually selected valid enemy must override a nearer target and spend exactly one turn",
+		and main.projectile_traces.size() == 1
+		and not main.state.loadout.has("left_hand"),
+		"A two-handed ranged main weapon must override to the selected target, keep offhand free and spend one turn",
 	)
 	main.floor_data["enemies"][1]["dodge"] = 100
 	var miss_turn: int = main.state.total_turns
@@ -216,12 +217,16 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 	main.projectile_traces.clear()
 	var adjacent_turn: int = main.state.total_turns
 	var adjacent_hp := int(main.floor_data["enemies"][0]["hp"])
+	main.player_map_presentation.activate("male", "skeleton")
+	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
 	main._attempt_player_action(Vector2i.RIGHT)
 	_expect(
 		main.player_pos == Vector2i(3, 4)
 		and int(main.floor_data["enemies"][0]["hp"]) == adjacent_hp - ranged_damage
-		and main.state.total_turns == adjacent_turn + 1,
-		"Movement into an adjacent enemy with a bow must shoot once without moving",
+		and main.state.total_turns == adjacent_turn + 1
+		and not main.player_map_presentation.moving
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		"Movement into an adjacent enemy with a bow must reset unfinished walk presentation and shoot once without moving",
 	)
 
 	main.state.current_form_id = "almost_human"

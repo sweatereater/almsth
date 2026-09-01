@@ -10,6 +10,7 @@ const ControlsPanel := preload("res://scripts/ui/controls_remap_panel.gd")
 const InventoryPanelClass := preload("res://scripts/ui/inventory_panel.gd")
 const SaveMenuPanelClass := preload("res://scripts/ui/save_menu_panel.gd")
 const AppearanceChoicePanelClass := preload("res://scripts/ui/appearance_choice_panel.gd")
+const SexChoicePanelClass := preload("res://scripts/ui/sex_choice_panel.gd")
 const AudioManagerClass := preload("res://scripts/audio/audio_manager.gd")
 const DungeonViewportClass := preload("res://scripts/ui/dungeon_viewport.gd")
 const StatusStripClass := preload("res://scripts/ui/status_strip.gd")
@@ -24,6 +25,8 @@ const BossFloor90 := preload("res://scripts/world/fixed_floor_90.gd")
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 const CombatSystem := preload("res://scripts/game/combat_system.gd")
 const HearingContactSystemClass := preload("res://scripts/game/hearing_contact_system.gd")
+const PlayerMapPresentationClass := preload("res://scripts/ui/player_map_presentation.gd")
+const CampBuildPanelClass := preload("res://scripts/ui/camp_build_panel.gd")
 
 enum Screen { NAME_CREATION, STAT_CREATION, STORY, BASE, DUNGEON, CHARACTER, VICTORY, STARTUP }
 
@@ -52,6 +55,7 @@ const CARDINAL_DIRECTIONS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector
 const MOVE_REPEAT_INITIAL_DELAY := 0.28
 const MOVE_REPEAT_INTERVAL := 0.11
 const AUTO_STEP_DELAY := MOVE_REPEAT_INTERVAL * 2.5
+const AUTO_GLOBAL_SPEED_MULTIPLIER := 1.2
 const WAIT_TURN_OPTIONS := [1, 10, 100]
 const MAGIC_TRACE_DURATION := Renderer.MAGIC_TRACE_DURATION
 const PROJECTILE_TRACE_DURATION := Renderer.PROJECTILE_TRACE_DURATION
@@ -122,6 +126,7 @@ var story_kind := ""
 var story_index := 0
 var story_completion_message := ""
 var active_save_slot_id := ""
+var active_save_write_locked := false
 var active_save_detached_by_delete := false
 var active_save_detached_can_resave := false
 var save_policy_overwrite := true
@@ -134,6 +139,7 @@ var save_fault_injector := Callable()
 var save_delete_fault_injector := Callable()
 var last_save_error := ""
 var exit_request_hook := Callable()
+var player_map_presentation := PlayerMapPresentationClass.new()
 
 @export var persistence_enabled := true
 @export var audio_playback_enabled := true
@@ -156,6 +162,8 @@ var inspection_label: Label
 var message_label: RichTextLabel
 var hint_label: Label
 var start_button: Button
+var camp_build_button: Button
+var camp_build_panel: Control
 var attack_button: Button
 var spell_button: Button
 var active_2_button: Button
@@ -180,6 +188,7 @@ var language_button: Button
 var menu_button: Button
 var close_character_button: Button
 var name_prompt_label: Label
+var sex_choice_panel: Control
 var name_input: LineEdit
 var name_confirm_button: Button
 var save_policy_checkbox: CheckButton
@@ -198,6 +207,7 @@ var character_soul_level_label: Label
 var character_status_strip: Control
 var character_equipment_buttons: Dictionary = {}
 var character_equipment_glyphs: Dictionary = {}
+var character_equipment_ghosts: Dictionary = {}
 var character_controls: Array[Control] = []
 var character_common_controls: Array[Control] = []
 var character_inventory_controls: Array[Control] = []
@@ -383,6 +393,9 @@ func _build_interface() -> void:
 
 	start_button = _make_button(Vector2(846, 470), "", Vector2(400, 46))
 	start_button.pressed.connect(_on_start_pressed)
+	camp_build_button = _make_button(BaseLayout.BUILD_RECT.position, "", BaseLayout.BUILD_RECT.size)
+	camp_build_button.add_theme_font_size_override("font_size", 15)
+	camp_build_button.pressed.connect(_open_camp_build_panel)
 
 	attack_button = _make_button(Vector2(28, 558), "", Vector2(90, 36))
 	attack_button.add_theme_font_size_override("font_size", 11)
@@ -445,11 +458,6 @@ func _build_interface() -> void:
 	stage1_camp_controls = Control.new()
 	stage1_camp_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(stage1_camp_controls)
-	for upgrade_id in ["kettle", "bunk", "mural"]:
-		var button := Ui.make_button(stage1_camp_controls, Vector2(876, 310 + stage1_build_buttons.size() * 38), "", Vector2(362, 34))
-		Ui.enable_keyboard_focus(button)
-		button.pressed.connect(_on_build_camp_upgrade.bind(upgrade_id))
-		stage1_build_buttons[upgrade_id] = button
 	kettle_preparation_button = Ui.make_button(stage1_camp_controls, Vector2(876, 424), "", Vector2(362, 36))
 	kettle_preparation_button.toggle_mode = true
 	Ui.enable_keyboard_focus(kettle_preparation_button)
@@ -458,7 +466,7 @@ func _build_interface() -> void:
 		_save_game_at_base()
 		_refresh_interface()
 	)
-	for station in ["kettle", "bunk", "mural"]:
+	for station in ["kettle"]:
 		var hitbox := BaseLayout.station_hitbox_rect(station)
 		var object_button := Ui.make_button(stage1_camp_controls, hitbox.position, "", hitbox.size)
 		object_button.name = "Stage1Object_" + station
@@ -468,8 +476,8 @@ func _build_interface() -> void:
 		Ui.enable_keyboard_focus(object_button)
 		object_button.pressed.connect(_on_stage1_camp_object.bind(station))
 		stage1_object_buttons[station] = object_button
-	build_ritual_table_button.visibility_changed.connect(func():
-		stage1_camp_controls.visible = build_ritual_table_button.visible
+	camp_build_button.visibility_changed.connect(func():
+		stage1_camp_controls.visible = camp_build_button.visible
 	)
 	crusher_object_button = _make_camp_object_button(
 		BaseLayout.station_hitbox_rect("crusher").position,
@@ -490,6 +498,9 @@ func _build_interface() -> void:
 	upgrade_button = _make_button(Vector2(846, 643), "", Vector2(400, 38))
 	upgrade_button.add_theme_font_size_override("font_size", 15)
 	upgrade_button.pressed.connect(_on_upgrade_pressed)
+	for retired_button in [build_crusher_button, build_whetstone_button, build_ritual_table_button, upgrade_button]:
+		retired_button.visible = false
+		retired_button.focus_mode = Control.FOCUS_NONE
 
 	character_button = _make_button(Vector2(828, 14), "", Vector2(302, 42))
 	character_button.pressed.connect(_show_character)
@@ -507,6 +518,11 @@ func _build_interface() -> void:
 	_build_story_interface()
 	_build_save_menu_interface()
 	_build_appearance_choice_interface()
+	camp_build_panel = CampBuildPanelClass.new()
+	camp_build_panel.name = "CampBuildPanel"
+	camp_build_panel.build_requested.connect(_on_camp_build_requested)
+	camp_build_panel.closed.connect(_on_camp_build_closed)
+	add_child(camp_build_panel)
 
 
 func _make_label(position_value: Vector2, size_value: Vector2, font_size: int) -> Label:
@@ -616,13 +632,18 @@ func _fit_localized_button_text() -> void:
 
 
 func _build_creation_interface() -> void:
-	name_prompt_label = _make_label(Vector2(350, 230), Vector2(580, 44), 24)
+	sex_choice_panel = SexChoicePanelClass.new()
+	sex_choice_panel.position = Vector2(474, 178)
+	sex_choice_panel.sex_selected.connect(_on_character_sex_selected)
+	add_child(sex_choice_panel)
+	creation_controls.append(sex_choice_panel)
+	name_prompt_label = _make_label(Vector2(350, 360), Vector2(580, 44), 24)
 	name_prompt_label.text = ""
 	name_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	creation_controls.append(name_prompt_label)
 
 	name_input = LineEdit.new()
-	name_input.position = Vector2(350, 296)
+	name_input.position = Vector2(350, 414)
 	name_input.size = Vector2(580, 56)
 	name_input.placeholder_text = ""
 	name_input.max_length = 24
@@ -641,12 +662,13 @@ func _build_creation_interface() -> void:
 	add_child(name_input)
 	creation_controls.append(name_input)
 
-	name_confirm_button = _make_button(Vector2(440, 382), "")
+	name_confirm_button = _make_button(Vector2(440, 492), "")
+	Ui.enable_keyboard_focus(name_confirm_button)
 	name_confirm_button.pressed.connect(_on_name_confirmed)
 	creation_controls.append(name_confirm_button)
 
 	save_policy_checkbox = CheckButton.new()
-	save_policy_checkbox.position = Vector2(390, 438)
+	save_policy_checkbox.position = Vector2(390, 558)
 	save_policy_checkbox.size = Vector2(500, 40)
 	save_policy_checkbox.button_pressed = true
 	save_policy_checkbox.focus_mode = Control.FOCUS_ALL
@@ -654,10 +676,11 @@ func _build_creation_interface() -> void:
 	save_policy_checkbox.add_theme_color_override("font_color", COLOR_TEXT)
 	add_child(save_policy_checkbox)
 	creation_controls.append(save_policy_checkbox)
-	save_policy_hint_label = _make_label(Vector2(390, 492), Vector2(500, 58), 13)
+	save_policy_hint_label = _make_label(Vector2(390, 622), Vector2(500, 58), 13)
 	save_policy_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	save_policy_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	creation_controls.append(save_policy_hint_label)
+	_configure_creation_focus()
 
 	creation_points_label = _make_label(Vector2(0, 112), Vector2(1280, 48), 24)
 	creation_points_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -692,6 +715,32 @@ func _build_creation_interface() -> void:
 	creation_confirm_button = _make_button(Vector2(440, 614), "")
 	creation_confirm_button.pressed.connect(_on_attributes_confirmed)
 	creation_controls.append(creation_confirm_button)
+
+
+func _configure_creation_focus() -> void:
+	var female: Button = sex_choice_panel.buttons.female
+	var male: Button = sex_choice_panel.buttons.male
+	var controls: Array[Control] = [female, male, name_input, name_confirm_button, save_policy_checkbox]
+	for index in range(controls.size()):
+		var control := controls[index]
+		control.focus_next = control.get_path_to(controls[(index + 1) % controls.size()])
+		control.focus_previous = control.get_path_to(controls[(index - 1 + controls.size()) % controls.size()])
+	female.focus_neighbor_right = female.get_path_to(male)
+	male.focus_neighbor_left = male.get_path_to(female)
+	for button in [female, male]:
+		button.focus_neighbor_bottom = button.get_path_to(name_input)
+	name_input.focus_neighbor_top = name_input.get_path_to(sex_choice_panel.buttons[state.character_sex])
+	name_input.focus_neighbor_bottom = name_input.get_path_to(name_confirm_button)
+	name_confirm_button.focus_neighbor_top = name_confirm_button.get_path_to(name_input)
+	name_confirm_button.focus_neighbor_bottom = name_confirm_button.get_path_to(save_policy_checkbox)
+	save_policy_checkbox.focus_neighbor_top = save_policy_checkbox.get_path_to(name_confirm_button)
+
+
+func _on_character_sex_selected(sex: String) -> void:
+	if screen != Screen.NAME_CREATION or settings_open or main_menu_open:
+		return
+	state.character_sex = sex
+	_configure_creation_focus()
 
 
 func _configure_character_slot_focus() -> void:
@@ -880,8 +929,19 @@ func _build_character_interface() -> void:
 		glyph.size = Vector2(52, 52)
 		glyph.set_slot(slot)
 		slot_button.add_child(glyph)
+		var ghost := TextureRect.new()
+		ghost.name = "TwoHandedGhost"
+		ghost.position = Vector2(6, 6)
+		ghost.size = Vector2(52, 52)
+		ghost.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ghost.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ghost.modulate = Color(1.0, 1.0, 1.0, 0.40)
+		ghost.visible = false
+		slot_button.add_child(ghost)
 		character_equipment_buttons[slot] = slot_button
 		character_equipment_glyphs[slot] = glyph
+		character_equipment_ghosts[slot] = ghost
 		character_controls.append(slot_button)
 		character_inventory_controls.append(slot_button)
 	_configure_character_slot_focus()
@@ -1040,30 +1100,6 @@ func _build_skill_node(skill_id: String, position_value: Vector2, stage_controls
 	button.pressed.connect(_on_skill_pressed.bind(skill_id))
 	Ui.apply_skill_node_style(button, kind)
 	skill_node_buttons[skill_id] = button
-	stage_controls.append(button)
-	character_controls.append(button)
-
-
-func _build_coming_skill_node(node_id: String, position_value: Vector2, stage_controls: Array[Control]) -> void:
-	var button := _make_button(position_value, "", Vector2(220, 82))
-	button.add_theme_font_size_override("font_size", 11)
-	button.disabled = true
-	skill_node_buttons[node_id] = button
-	stage_controls.append(button)
-	character_controls.append(button)
-
-
-func _build_intrinsic_feature_node(
-	feature_id: String,
-	position_value: Vector2,
-	stage_controls: Array[Control],
-) -> void:
-	var button := _make_button(position_value, "", Vector2(220, 82))
-	button.add_theme_font_size_override("font_size", 10)
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	button.disabled = true
-	Ui.apply_skill_node_style(button, "passive")
-	skill_node_buttons[feature_id] = button
 	stage_controls.append(button)
 	character_controls.append(button)
 
@@ -1470,6 +1506,7 @@ func _on_save_slot_load_requested(slot_id: String) -> void:
 		return
 	state = restored
 	active_save_slot_id = String(loaded.get("slot_id", ""))
+	active_save_write_locked = bool(loaded.get("write_locked", false))
 	save_menu_panel.set_active_slot_id(active_save_slot_id)
 	active_save_detached_by_delete = false
 	active_save_detached_can_resave = false
@@ -1499,6 +1536,7 @@ func _on_save_slot_load_requested(slot_id: String) -> void:
 
 
 func _reset_resume_transients() -> void:
+	player_map_presentation.reset(true)
 	_cancel_automatic_actions()
 	_stop_held_movement()
 	_cancel_ability_targeting(false)
@@ -1530,6 +1568,7 @@ func _on_save_slot_delete_requested(slot_id: String) -> void:
 		last_save_error = ""
 		if deleting_active:
 			active_save_slot_id = ""
+			active_save_write_locked = false
 			active_save_detached_by_delete = true
 			active_save_detached_can_resave = false
 	else:
@@ -1555,6 +1594,7 @@ func _reset_for_new_character() -> void:
 	previous_screen = Screen.BASE
 	name_input.text = ""
 	active_save_slot_id = ""
+	active_save_write_locked = false
 	active_save_detached_by_delete = false
 	active_save_detached_can_resave = false
 	save_policy_overwrite = true
@@ -1592,16 +1632,21 @@ func _apply_locale() -> void:
 		"BTN_AUTO_EXPLORE_STOP" if auto_explore_active else "BTN_AUTO_EXPLORE"
 	)
 	camp_button.text = Loc.text("BTN_CAMP")
+	camp_build_button.text = Loc.text("CAMP_BUILD_BUTTON")
+	camp_build_button.accessibility_name = camp_build_button.text
 	upgrade_button.text = Loc.text("CAMP_BUILD_CAMPFIRE")
 	build_crusher_button.text = Loc.text("CAMP_BUILD_CRUSHER")
 	build_whetstone_button.text = Loc.text("CAMP_BUILD_WHETSTONE")
 	build_ritual_table_button.text = Loc.text("CAMP_BUILD_RITUAL_TABLE")
-	crusher_object_button.text = Loc.text("CAMP_OBJECT_CRUSHER")
+	crusher_object_button.text = ""
 	crusher_object_button.tooltip_text = Loc.text("CAMP_OBJECT_CRUSHER_TOOLTIP")
-	whetstone_object_button.text = Loc.text("CAMP_OBJECT_WHETSTONE")
+	crusher_object_button.accessibility_name = Loc.text("CAMP_OBJECT_CRUSHER")
+	whetstone_object_button.text = ""
 	whetstone_object_button.tooltip_text = Loc.text("CAMP_OBJECT_WHETSTONE_TOOLTIP")
-	ritual_table_object_button.text = Loc.text("CAMP_OBJECT_RITUAL_TABLE")
+	whetstone_object_button.accessibility_name = Loc.text("CAMP_OBJECT_WHETSTONE")
+	ritual_table_object_button.text = ""
 	ritual_table_object_button.tooltip_text = Loc.text("CAMP_OBJECT_RITUAL_TABLE_TOOLTIP")
+	ritual_table_object_button.accessibility_name = Loc.text("CAMP_OBJECT_RITUAL_TABLE")
 	skills_mode_button.text = Loc.text("CHARACTER_TAB_SKILLS")
 	inventory_mode_button.text = Loc.text("CHARACTER_TAB_INVENTORY")
 	inventory_equip_button.text = Loc.text("INVENTORY_EQUIP")
@@ -1613,6 +1658,7 @@ func _apply_locale() -> void:
 	language_button.text = Loc.text("BTN_LANGUAGE", [Loc.language_code()])
 	menu_button.text = Loc.text("BTN_MENU")
 	name_confirm_button.text = Loc.text("BTN_CONTINUE")
+	sex_choice_panel.apply_locale()
 	save_policy_checkbox.text = Loc.text("SAVE_POLICY_OVERWRITE")
 	save_policy_checkbox.tooltip_text = Loc.text("SAVE_POLICY_HINT")
 	save_policy_hint_label.text = Loc.text("SAVE_POLICY_HINT")
@@ -1637,6 +1683,7 @@ func _apply_locale() -> void:
 	controls_remap_panel.apply_locale()
 	save_menu_panel.refresh_locale()
 	appearance_choice_panel.apply_locale()
+	camp_build_panel.apply_locale()
 	status_strip.refresh_locale()
 	character_status_strip.refresh_locale()
 	_refresh_settings_interface()
@@ -1987,12 +2034,16 @@ func _begin_expedition_at(floor_number: int) -> void:
 
 
 func _show_dungeon_interface() -> void:
+	player_map_presentation.reset()
+	if camp_build_panel != null and camp_build_panel.visible:
+		camp_build_panel.visible = false
 	screen = Screen.DUNGEON
 	previous_screen = Screen.DUNGEON
 	if audio_manager != null:
 		audio_manager.set_background("dungeon")
 	_apply_dungeon_layout(true)
 	start_button.visible = false
+	camp_build_button.visible = false
 	upgrade_button.visible = false
 	build_crusher_button.visible = false
 	build_whetstone_button.visible = false
@@ -2215,7 +2266,7 @@ func _save_game_at_base(reason := "update") -> bool:
 		return false
 	var meaningful_snapshot := reason in ["create", "death", "safe_return"]
 	var requested_slot_id := active_save_slot_id
-	if not save_policy_overwrite and meaningful_snapshot:
+	if active_save_write_locked or (not save_policy_overwrite and meaningful_snapshot):
 		requested_slot_id = ""
 	var result := SaveSystem.save_slot(
 		state,
@@ -2234,6 +2285,7 @@ func _save_game_at_base(reason := "update") -> bool:
 		_refresh_interface()
 		return false
 	active_save_slot_id = String(result.get("slot_id", active_save_slot_id))
+	active_save_write_locked = false
 	active_save_detached_by_delete = false
 	active_save_detached_can_resave = false
 	last_save_error = ""
@@ -2301,6 +2353,7 @@ func _hide_game_interface() -> void:
 	hint_label.visible = false
 	message_label.visible = false
 	start_button.visible = false
+	camp_build_button.visible = false
 	attack_button.visible = false
 	spell_button.visible = false
 	active_2_button.visible = false
@@ -2333,11 +2386,14 @@ func _show_name_creation() -> void:
 	_hide_game_interface()
 	_set_controls_visible(creation_controls, false)
 	_set_controls_visible(character_controls, false)
-	title_label.visible = true
+	title_label.visible = false
 	menu_button.visible = true
 	title_label.text = Loc.text("TITLE_NAME_CREATION")
 	name_prompt_label.text = Loc.text("NAME_PROMPT")
 	name_prompt_label.visible = true
+	sex_choice_panel.set_sex(state.character_sex)
+	_configure_creation_focus()
+	sex_choice_panel.visible = true
 	name_input.visible = true
 	name_confirm_button.visible = true
 	save_policy_checkbox.visible = true
@@ -2365,11 +2421,12 @@ func _show_stat_creation() -> void:
 	_set_controls_visible(character_controls, false)
 	_set_controls_visible(creation_controls, true)
 	name_prompt_label.visible = false
+	sex_choice_panel.visible = false
 	name_input.visible = false
 	name_confirm_button.visible = false
 	save_policy_checkbox.visible = false
 	save_policy_hint_label.visible = false
-	title_label.visible = true
+	title_label.visible = false
 	title_label.text = Loc.text("TITLE_STAT_CREATION")
 	_refresh_creation_preview()
 	queue_redraw()
@@ -2465,6 +2522,7 @@ func _advance_story() -> void:
 
 
 func _show_base(text: String, save_reason := "update") -> void:
+	player_map_presentation.reset()
 	if audio_manager != null:
 		audio_manager.set_background("base")
 	projectile_traces.clear()
@@ -2499,10 +2557,11 @@ func _show_base(text: String, save_reason := "update") -> void:
 	hint_label.visible = true
 	message_label.visible = true
 	start_button.visible = true
-	upgrade_button.visible = true
-	build_crusher_button.visible = true
-	build_whetstone_button.visible = true
-	build_ritual_table_button.visible = true
+	camp_build_button.visible = true
+	upgrade_button.visible = false
+	build_crusher_button.visible = false
+	build_whetstone_button.visible = false
+	build_ritual_table_button.visible = false
 	attack_button.visible = false
 	spell_button.visible = false
 	active_2_button.visible = false
@@ -2527,7 +2586,35 @@ func _on_start_pressed() -> void:
 	_open_expedition_choice()
 
 
+func _open_camp_build_panel() -> void:
+	if screen != Screen.BASE or camp_build_panel.visible or not inventory_service_mode.is_empty():
+		return
+	_set_base_actions_visible(false)
+	camp_upgrades_label.visible = false
+	hint_label.visible = false
+	message_label.visible = false
+	menu_button.visible = false
+	camp_build_panel.open_for(state)
+
+
+func _on_camp_build_requested(upgrade_id: String) -> void:
+	_on_build_camp_upgrade(upgrade_id)
+
+
+func _on_camp_build_closed() -> void:
+	if screen != Screen.BASE:
+		return
+	_set_base_actions_visible(true)
+	camp_upgrades_label.visible = true
+	hint_label.visible = true
+	message_label.visible = true
+	menu_button.visible = true
+	_refresh_interface()
+	camp_build_button.call_deferred("grab_focus")
+
+
 func _load_floor(floor_number: int) -> void:
+	player_map_presentation.reset()
 	_cancel_automatic_actions()
 	_cancel_ability_targeting(false)
 	_clear_hearing_context()
@@ -2538,6 +2625,11 @@ func _load_floor(floor_number: int) -> void:
 	var cradle_chance := state.get_cradle_chance()
 	if floor_number == BossFloor90.FLOOR_NUMBER:
 		floor_data = BossFloor90.create()
+		if bool(state.milestones.get("minotaur_defeated", false)):
+			floor_data.enemies.clear()
+			floor_data.boss_defeated = true
+			floor_data.boss_door_open = true
+			floor_data.tiles[floor_data.boss_door] = "floor"
 	else:
 		floor_data = generator.generate(floor_number, rng.randi(), cradle_chance)
 	var cradle_appeared: bool = floor_data["cradle"] != Vector2i(-1, -1)
@@ -2567,6 +2659,7 @@ func _use_cradle() -> void:
 		return
 	var result := state.evolve_at_cradle()
 	if result["ok"]:
+		player_map_presentation.reset(true)
 		_audio_action("evolution")
 		floor_data["cradle_used"] = true
 		_log_action(Loc.text("MSG_CRADLE_EVOLVED", [
@@ -2780,11 +2873,17 @@ func _on_build_camp_upgrade(upgrade_id: String) -> void:
 		)
 		_save_game_at_base()
 	else:
-		_log_action(Loc.text(
-			"MSG_CAMP_UPGRADE_EXISTS"
-			if result.get("reason", "") == "built"
-			else "MSG_CAMP_UPGRADE_NEEDS"
-		))
+		if result.get("reason", "") == "prerequisite":
+			var required_id := String(result.get("required_upgrade", ""))
+			_log_action(Loc.text("CAMP_BUILD_PREREQUISITE", [
+				Loc.text(String(GameRules.CAMP_UPGRADES.get(required_id, {}).get("name", required_id))),
+			]))
+		else:
+			_log_action(Loc.text(
+				"MSG_CAMP_UPGRADE_EXISTS"
+				if result.get("reason", "") == "built"
+				else "MSG_CAMP_UPGRADE_NEEDS"
+			))
 	_refresh_interface()
 	queue_redraw()
 
@@ -2867,10 +2966,11 @@ func _on_inventory_panel_close_requested() -> void:
 
 func _set_base_actions_visible(value: bool) -> void:
 	start_button.visible = value
-	upgrade_button.visible = value
-	build_crusher_button.visible = value
-	build_whetstone_button.visible = value
-	build_ritual_table_button.visible = value
+	camp_build_button.visible = value
+	upgrade_button.visible = false
+	build_crusher_button.visible = false
+	build_whetstone_button.visible = false
+	build_ritual_table_button.visible = false
 	character_button.visible = value
 	crusher_object_button.visible = (
 		value and bool(state.camp_upgrades.get("crusher", false))
@@ -2886,8 +2986,7 @@ func _set_base_actions_visible(value: bool) -> void:
 func _configure_base_focus() -> void:
 	var focusable: Array[Button] = [start_button]
 	for button in [
-		build_crusher_button, build_whetstone_button, build_ritual_table_button,
-		upgrade_button, character_button,
+		camp_build_button, character_button,
 	]:
 		Ui.enable_keyboard_focus(button)
 		if button.visible and not button.disabled:
@@ -3170,8 +3269,9 @@ func _automatic_action_is_current(action_generation: int, explore_mode: bool) ->
 func _automatic_step_delay_seconds() -> float:
 	if auto_step_delay_override >= 0.0:
 		return auto_step_delay_override
-	return AUTO_STEP_DELAY / PresentationSettings.auto_movement_speed_multiplier(
-		auto_movement_speed_percent
+	return AUTO_STEP_DELAY / (
+		PresentationSettings.auto_movement_speed_multiplier(auto_movement_speed_percent)
+		* AUTO_GLOBAL_SPEED_MULTIPLIER
 	)
 
 
@@ -3255,10 +3355,11 @@ func _refresh_character_sheet() -> void:
 		_apply_character_header()
 	var derived := state.get_derived_stats()
 	character_primary_label.text = Loc.text("PRIMARY_ATTRIBUTES")
+	var effective_attributes: Dictionary = state.get_effective_attributes()
 	for attribute_id in GameRules.ATTRIBUTE_ORDER:
 		var attribute_name := Loc.text(String(GameRules.ATTRIBUTE_NAMES[attribute_id]))
 		var row_label: Label = character_attribute_row_labels[attribute_id]
-		row_label.text = "%s: %d" % [attribute_name, state.attributes[attribute_id]]
+		row_label.text = "%s: %d" % [attribute_name, effective_attributes[attribute_id]]
 		_fit_single_line_label(row_label, 11, 9)
 		var spend_button: Button = character_attribute_spend_buttons[attribute_id]
 		spend_button.tooltip_text = "%s +1" % attribute_name
@@ -3290,26 +3391,41 @@ func _refresh_character_sheet() -> void:
 		var slot_button: Button = character_equipment_buttons[slot]
 		var unlocked := GameRules.is_slot_unlocked(state.current_form_id, slot)
 		var item_key := String(state.loadout.get(slot, ""))
+		var ghosted_two_hander := (
+			slot == "left_hand"
+			and GameRules.is_two_handed_weapon(String(state.loadout.get("right_hand", "")))
+		)
+		var display_item_key := String(state.loadout.get("right_hand", "")) if ghosted_two_hander else item_key
 		var slot_glyph: InventorySlotIcon = character_equipment_glyphs[slot]
+		var ghost: TextureRect = character_equipment_ghosts[slot]
 		var slot_name := Loc.text(String(GameRules.EQUIPMENT_SLOTS[slot]["name"]))
 		slot_button.icon = null
 		slot_button.text = ""
 		slot_button.modulate = Color.WHITE
-		var permanent := not item_key.is_empty() and GameRules.is_item_permanent(item_key)
+		ghost.visible = false
+		ghost.texture = null
+		ghost.modulate = Color(1.0, 1.0, 1.0, 0.40)
+		var permanent := not display_item_key.is_empty() and GameRules.is_item_permanent(display_item_key)
 		slot_glyph.set_slot(slot, not unlocked, permanent)
-		slot_glyph.visible = item_key.is_empty() or permanent
+		slot_glyph.visible = (display_item_key.is_empty() or permanent) and not ghosted_two_hander
 		var accessible_value := Loc.text("INVENTORY_EMPTY")
-		if not item_key.is_empty():
-			var item_rules := GameRules.item_rules(item_key)
+		if not display_item_key.is_empty():
+			var item_rules := GameRules.item_rules(display_item_key)
 			var icon_path := String(item_rules.get("icon", ""))
 			if not icon_path.is_empty():
-				slot_button.icon = load(icon_path) as Texture2D
-			accessible_value = _item_display_name(item_key)
+				if ghosted_two_hander:
+					ghost.texture = load(icon_path) as Texture2D
+					ghost.visible = true
+				else:
+					slot_button.icon = load(icon_path) as Texture2D
+			accessible_value = _item_display_name(display_item_key)
 			if permanent:
 				accessible_value += " · " + Loc.text("INVENTORY_PERMANENT_LOCKED")
 		elif not unlocked:
 			accessible_value = Loc.text("INVENTORY_SLOT_LOCKED")
 		slot_button.tooltip_text = "%s · %s" % [slot_name, accessible_value]
+		if ghosted_two_hander:
+			slot_button.tooltip_text += " · " + Loc.text("WEAPON_GHOST_TOOLTIP")
 		slot_button.accessibility_name = slot_button.tooltip_text
 		# Locked and empty mannequin slots remain inspectable so the inventory can
 		# explain their state and switch to the corresponding category.
@@ -3393,6 +3509,8 @@ func _select_character_panel(mode: String) -> void:
 
 
 func _on_equipment_slot_pressed(slot: String) -> void:
+	if slot == "left_hand" and GameRules.is_two_handed_weapon(String(state.loadout.get("right_hand", ""))):
+		slot = "right_hand"
 	_reset_dismantle_all_confirmation()
 	character_panel_mode = "inventory"
 	inventory_feedback = ""
@@ -3858,6 +3976,8 @@ func _show_victory(save_progress := true) -> void:
 
 
 func _process(delta: float) -> void:
+	if player_map_presentation.update(delta):
+		_refresh_dungeon_viewport()
 	if main_menu_open or settings_open:
 		return
 	_update_magic_traces(delta)
@@ -3886,6 +4006,9 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if audio_manager != null and event.is_pressed():
 		audio_manager.notify_user_gesture()
+	if camp_build_panel != null and camp_build_panel.visible and camp_build_panel.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if main_menu_open and save_menu_panel.visible:
 		if save_menu_panel.handle_input(event):
 			get_viewport().set_input_as_handled()
@@ -3942,6 +4065,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# The Build overlay is a blocking modal. Pointer/touch events reach its GUI
+	# controls first; anything left unhandled must stop here instead of opening a
+	# character sheet, menu, or base action behind the shade.
+	if camp_build_panel != null and camp_build_panel.visible:
+		camp_build_panel.handle_input(event)
+		get_viewport().set_input_as_handled()
+		return
 	if main_menu_open and save_menu_panel.visible:
 		if save_menu_panel.handle_input(event):
 			get_viewport().set_input_as_handled()
@@ -4011,6 +4141,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not inventory_service_mode.is_empty():
 		if inventory_panel.handle_input(event):
 			get_viewport().set_input_as_handled()
+		return
+	# The project's gamepad A is mapped to interact, not Godot's ui_accept.
+	# Keep this dispatch inside the creation screen and behind all modal guards.
+	if screen == Screen.NAME_CREATION and not event.is_action("ui_accept") and (
+		event.is_action_pressed("interact")
+		or (event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_A)
+	):
+		var focused_creation := get_viewport().gui_get_focus_owner()
+		if focused_creation == name_input:
+			_on_name_confirmed()
+		elif focused_creation == save_policy_checkbox:
+			save_policy_checkbox.button_pressed = not save_policy_checkbox.button_pressed
+		elif focused_creation is Button and not focused_creation.disabled and (
+			focused_creation == name_confirm_button or sex_choice_panel.buttons.values().has(focused_creation)
+		):
+			focused_creation.pressed.emit()
+		else:
+			return
+		get_viewport().set_input_as_handled()
 		return
 	if screen == Screen.CHARACTER and character_panel_mode == "inventory":
 		if inventory_panel.handle_input(event):
@@ -4094,8 +4243,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	):
 		var focused_base_control := get_viewport().gui_get_focus_owner()
 		if focused_base_control is Button and [
-			start_button, build_crusher_button, build_whetstone_button,
-			build_ritual_table_button, upgrade_button, character_button,
+			start_button, camp_build_button, character_button,
 			crusher_object_button, whetstone_object_button, ritual_table_object_button,
 		].has(focused_base_control):
 			focused_base_control.pressed.emit()
@@ -4344,6 +4492,8 @@ func _cell_has_inspection_subject(cell: Vector2i) -> bool:
 
 
 func _attempt_player_action(direction: Vector2i) -> bool:
+	player_map_presentation.activate(state.character_sex, state.get_display_form_id())
+	player_map_presentation.face(direction)
 	var target := player_pos + direction
 	var opens_door: bool = floor_data["tiles"].get(target, "void") == "door_closed"
 	if opens_door:
@@ -4364,6 +4514,7 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 	var attacked_enemy := false
 	var committed_ability_id := ""
 	if enemy_index >= 0:
+		player_map_presentation.reset()
 		var target_uid := String(floor_data["enemies"][enemy_index].get("uid", ""))
 		var attack_ability_id := _effective_attack_ability()
 		if _execute_attack_ability(attack_ability_id, target_uid):
@@ -4371,6 +4522,7 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 		attacked_enemy = true
 	else:
 		player_pos = target
+		player_map_presentation.begin_step(direction, _expected_next_player_step_interval())
 		_audio_action("step")
 		action_should_stop = _pick_up_item_at_player()
 		if not action_should_stop:
@@ -4394,6 +4546,12 @@ func _attempt_player_action(direction: Vector2i) -> bool:
 	):
 		return false
 	return not action_should_stop
+
+
+func _expected_next_player_step_interval() -> float:
+	if auto_travel_active:
+		return _automatic_step_delay_seconds()
+	return MOVE_REPEAT_INTERVAL
 
 
 func _complete_player_turn(pending_ability_id := "", pending_duration := -1) -> void:
@@ -4461,12 +4619,14 @@ func _activate_ability_slot(slot_id: String, options: Dictionary = {}) -> bool:
 	var executed := false
 	match ability_id:
 		"basic_attack", "double_attack", "circular_attack":
+			player_map_presentation.reset()
 			executed = _execute_attack_ability(
 				ability_id,
 				String(options.get("target_uid", "")),
 				options,
 			)
 		"magic_missile":
+			player_map_presentation.reset()
 			executed = _cast_magic_missile(float(options.get("ricochet_roll", -1.0)))
 	if executed:
 		_complete_player_turn(ability_id)
@@ -4498,6 +4658,7 @@ func _confirm_appearance_choice(form_id: String) -> void:
 	if not appearance_choice_panel.visible:
 		return
 	if state.set_display_form_id(form_id):
+		player_map_presentation.reset(true)
 		_log_action(Loc.text("MSG_APPEARANCE_CHANGED", [
 			Loc.text(String(GameRules.FORMS[state.get_display_form_id()]["name"])),
 		]))
@@ -4939,6 +5100,7 @@ func _confirm_dash(target := Vector2i(-1, -1)) -> bool:
 		_refresh_interface()
 		return false
 	var distance := AbilitySystem.dash_distance(player_pos, chosen)
+	player_map_presentation.reset()
 	player_pos = chosen
 	_audio_action("dash")
 	_cancel_ability_targeting(false)
@@ -5432,6 +5594,7 @@ func _try_enemy_dash(enemy_index: int) -> bool:
 	for other_index in range(floor_data["enemies"].size()):
 		if other_index != enemy_index:
 			occupied[floor_data["enemies"][other_index]["pos"]] = true
+	_add_enemy_forbidden_occupancy(occupied)
 	var candidates := AbilitySystem.dash_targets_in_direction(
 		floor_data["tiles"], enemy["pos"], direction, known_floor, occupied,
 	)
@@ -5469,7 +5632,28 @@ func _enemy_step_toward(enemy_index: int, target: Vector2i) -> Vector2i:
 		if index == enemy_index:
 			continue
 		blocked_cells[floor_data["enemies"][index]["pos"]] = true
-	return GridNavigation.next_step(floor_data["tiles"], current, target, blocked_cells)
+	_add_enemy_forbidden_occupancy(blocked_cells)
+	var step := GridNavigation.next_step(
+		floor_data["tiles"], current, target, blocked_cells,
+	)
+	# GridNavigation intentionally permits an occupied goal for actor pursuit.
+	# A stale last-seen cell may instead be a chest or landmark after the player
+	# leaves it; never let that exception violate durable floor occupancy.
+	if step == target and target != player_pos and bool(blocked_cells.get(target, false)):
+		return current
+	return step
+
+
+func _add_enemy_forbidden_occupancy(blocked_cells: Dictionary) -> void:
+	# Generated chests and landmarks never share a cell with an enemy. Keep that
+	# invariant true after movement too, so every live turn boundary remains a
+	# valid exact snapshot rather than relying on load-time normalization.
+	for item in floor_data.get("items", []):
+		blocked_cells[item.pos] = true
+	for field in ["start", "exit", "base_gate", "cradle"]:
+		var cell: Vector2i = floor_data.get(field, Vector2i(-1, -1))
+		if cell != Vector2i(-1, -1):
+			blocked_cells[cell] = true
 
 
 func _pick_up_item_at_player() -> bool:
@@ -5492,6 +5676,7 @@ func _pick_up_item_at_player() -> bool:
 
 
 func _handle_death() -> void:
+	player_map_presentation.reset()
 	_cancel_automatic_actions()
 	_cancel_ability_targeting(false)
 	projectile_traces.clear()
@@ -5818,7 +6003,11 @@ func _refresh_interface() -> void:
 	equipment_label.text = "\n".join(equipment_lines)
 
 	camp_upgrades_label.text = ""
-	start_button.tooltip_text = Loc.text("CAMP_PREPARATION_DESC")
+	start_button.tooltip_text = Loc.text("CAMP_START_TOOLTIP")
+	start_button.accessibility_name = "%s. %s" % [start_button.text, start_button.tooltip_text]
+	camp_build_button.text = Loc.text("CAMP_BUILD_BUTTON")
+	camp_build_button.tooltip_text = Loc.text("CAMP_BUILD_TITLE")
+	camp_build_button.accessibility_name = "%s. %s" % [camp_build_button.text, camp_build_button.tooltip_text]
 	for station in stage1_object_buttons:
 		var object_button: Button = stage1_object_buttons[station]
 		object_button.visible = bool(state.camp_upgrades.get(station, false))
@@ -5878,6 +6067,8 @@ func _refresh_interface() -> void:
 	)
 	if screen == Screen.BASE and inventory_service_mode.is_empty():
 		_configure_base_focus()
+	if camp_build_panel != null and camp_build_panel.visible:
+		camp_build_panel.refresh()
 	wait_button.text = _wait_button_text()
 	auto_explore_button.text = Loc.text(
 		"BTN_AUTO_EXPLORE_STOP" if auto_explore_active else "BTN_AUTO_EXPLORE"
@@ -5904,10 +6095,7 @@ func _refresh_interface() -> void:
 	_fit_button_text(camp_button, 14, 10)
 	_fit_button_text(character_action_button, 14, 10)
 	_fit_button_text(interact_button, 14, 10)
-	_fit_button_text(build_crusher_button, 15, 11)
-	_fit_button_text(build_whetstone_button, 15, 11)
-	_fit_button_text(build_ritual_table_button, 15, 10)
-	_fit_button_text(upgrade_button, 15, 11)
+	_fit_button_text(camp_build_button, 15, 11)
 	_refresh_inspection_panel()
 	_refresh_action_history()
 	_refresh_dungeon_viewport()
@@ -6012,6 +6200,8 @@ func _apply_base_layout() -> void:
 	camp_upgrades_label.size = BaseLayout.CAMP_UPGRADES_RECT.size
 	start_button.position = BaseLayout.START_RECT.position
 	start_button.size = BaseLayout.START_RECT.size
+	camp_build_button.position = BaseLayout.BUILD_RECT.position
+	camp_build_button.size = BaseLayout.BUILD_RECT.size
 	build_crusher_button.position = BaseLayout.BUILD_CRUSHER_RECT.position
 	build_crusher_button.size = BaseLayout.BUILD_CRUSHER_RECT.size
 	build_whetstone_button.position = BaseLayout.BUILD_WHETSTONE_RECT.position
@@ -6114,7 +6304,13 @@ func _refresh_dungeon_viewport() -> void:
 		player_hit_flash_remaining,
 		lethal_hit_afterimages,
 		hearing_cells,
+		_player_map_visual(),
 	)
+
+
+func _player_map_visual() -> Dictionary:
+	player_map_presentation.activate(state.character_sex, state.get_display_form_id())
+	return player_map_presentation.visual()
 
 
 func _apply_dungeon_layout(enabled: bool) -> void:

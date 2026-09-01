@@ -256,7 +256,8 @@ func show_load_list() -> void:
 	page = 0
 	_refresh_state()
 	if not slot_buttons.is_empty():
-		slot_buttons[0].call_deferred("grab_focus")
+		var first_control: Control = trash_buttons[0] if slot_buttons[0].disabled else slot_buttons[0]
+		first_control.call_deferred("grab_focus")
 
 
 func close() -> void:
@@ -311,18 +312,27 @@ func _rebuild_slot_buttons() -> void:
 		var row_y := 210 + local_index * 58
 		var load_control := Ui.make_button(self, Vector2(380, row_y), "", Vector2(460, 52))
 		load_control.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		var character_name := String(metadata.get("character_name", "—"))
+		var locked := bool(metadata.get("locked", false)) or not bool(metadata.get("compatible", true))
+		var character_name := String(metadata.get("character_name", "—")).strip_edges()
+		if character_name.is_empty():
+			character_name = Loc.text("SAVE_MENU_INCOMPATIBLE_NAME")
 		var date_text := _local_time_text(int(metadata.get("updated_at", 0)))
-		var metadata_text := Loc.text("SAVE_MENU_ROW_META", [
+		var metadata_text := Loc.text("SAVE_MENU_INCOMPATIBLE_META", [
+			int(metadata.get("incompatible_version", 0)),
+		]) if locked else Loc.text("SAVE_MENU_ROW_META", [
 			date_text, int(metadata.get("lifetime_souls_earned", 0)),
 		])
-		var full_text := Loc.text("SAVE_MENU_ROW", [
+		var full_text := Loc.text("SAVE_MENU_INCOMPATIBLE_TOOLTIP", [
+			character_name, int(metadata.get("incompatible_version", 0)),
+		]) if locked else Loc.text("SAVE_MENU_ROW", [
 			character_name, date_text, int(metadata.get("lifetime_souls_earned", 0)),
 		])
 		load_control.tooltip_text = full_text
 		load_control.accessibility_name = full_text
 		Ui.enable_keyboard_focus(load_control)
-		load_control.pressed.connect(_on_slot_pressed.bind(String(metadata.get("slot_id", ""))))
+		load_control.disabled = locked
+		if not locked:
+			load_control.pressed.connect(_on_slot_pressed.bind(String(metadata.get("slot_id", ""))))
 		var name_label := Ui.make_label(load_control, Vector2(12, 4), Vector2(432, 22), 13)
 		name_label.text = character_name
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -363,7 +373,7 @@ func _refresh_state() -> void:
 	load_button.visible = not list_mode
 	settings_button.visible = not list_mode
 	exit_button.visible = not list_mode
-	continue_button.disabled = slots.is_empty() and not in_game_context
+	continue_button.disabled = _first_loadable_slot_id().is_empty() and not in_game_context
 	load_button.disabled = slots.is_empty()
 	back_button.visible = list_mode
 	var page_count := _page_count()
@@ -408,8 +418,10 @@ func _configure_focus() -> void:
 func _on_continue() -> void:
 	if in_game_context:
 		resume_requested.emit()
-	elif not slots.is_empty():
-		continue_requested.emit(String(slots[0].get("slot_id", "")))
+	else:
+		var slot_id := _first_loadable_slot_id()
+		if not slot_id.is_empty():
+			continue_requested.emit(slot_id)
 
 
 func _on_new_game() -> void:
@@ -433,7 +445,19 @@ func _on_exit() -> void:
 func _on_slot_pressed(slot_id: String) -> void:
 	if Time.get_ticks_msec() < list_activation_blocked_until_ms:
 		return
+	for metadata in slots:
+		if String(metadata.get("slot_id", "")) == slot_id and (
+			bool(metadata.get("locked", false)) or not bool(metadata.get("compatible", true))
+		):
+			return
 	load_requested.emit(slot_id)
+
+
+func _first_loadable_slot_id() -> String:
+	for metadata in slots:
+		if bool(metadata.get("compatible", true)) and not bool(metadata.get("locked", false)):
+			return String(metadata.get("slot_id", ""))
+	return ""
 
 
 func _open_delete_modal(global_index: int) -> void:

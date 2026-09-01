@@ -1,0 +1,381 @@
+{
+  "schema_version": 1,
+  "normal_renderer_required": true,
+  "matrix_contract": "5 stages x RU/EN x 1280x720/960x540",
+  "zoom_contract": "Ghoul Character Sheet pixel-identical at dungeon zoom 44/66/88",
+  "captures": [
+    {
+      "locale": "ru",
+      "stage": "skeleton",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-skeleton.png",
+      "sha256": "04fd8dff703db0855417a0e717b91cfe6a959f3ea86c9c504e31eb349dc8723f"
+    },
+    {
+      "locale": "ru",
+      "stage": "zombie",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-zombie.png",
+      "sha256": "9f31a9fa6175d61f09fda2acb6e32ade74a2e2882225f888bf8d57634b41e83d"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-ghoul.png",
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "locale": "ru",
+      "stage": "revenant",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-revenant.png",
+      "sha256": "9224754d987e6619a9de8128a367dbadf553751a873c69334ea0fb22a3311bdb"
+    },
+    {
+      "locale": "ru",
+      "stage": "almost_human",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-almost_human.png",
+      "sha256": "1c01ca4663135c182d7a8fdd3e71b95fca960102ddcee4b9758076033cf5c0f0"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 44,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z44.png",
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 66,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z66.png",
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 88,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z88.png",
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "locale": "en",
+      "stage": "skeleton",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-skeleton.png",
+      "sha256": "9015cc0795927da5ca5da639854ca54826651a197b844dcc8baf8c75551b8525"
+    },
+    {
+      "locale": "en",
+      "stage": "zombie",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-zombie.png",
+      "sha256": "2799593568e86cfad45b28f79d0050d26e286a2a2ae94fd0842a695ed6f38f7e"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-ghoul.png",
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "locale": "en",
+      "stage": "revenant",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-revenant.png",
+      "sha256": "69a60a4fe236242ade94415a631481edd896849d6d9cf998c4ac091000afa89e"
+    },
+    {
+      "locale": "en",
+      "stage": "almost_human",
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-almost_human.png",
+      "sha256": "60939631ef7abbaef94ba41618ec8a56e613c876da3a2832f0d9e9f661c42c85"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 44,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z44.png",
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 66,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z66.png",
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 88,
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z88.png",
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "locale": "ru",
+      "stage": "skeleton",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-skeleton.png",
+      "sha256": "aef49f79acfb5c0406ccccf33686725d6e33172334cbffed016f64fe9fe4cee6"
+    },
+    {
+      "locale": "ru",
+      "stage": "zombie",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-zombie.png",
+      "sha256": "e781eb79da63ce72877df100d18682a5ed77f30a77e826fd41c33de391cad08c"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-ghoul.png",
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "locale": "ru",
+      "stage": "revenant",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-revenant.png",
+      "sha256": "4191871d43ae23265d0b21e5ee7a0c5d50feb453caa964a69475b575b28c69a8"
+    },
+    {
+      "locale": "ru",
+      "stage": "almost_human",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-almost_human.png",
+      "sha256": "f62600950cb29f12a4c5aae093933afb6926a073c32bf1ef03b2693eccc00a46"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 44,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z44.png",
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 66,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z66.png",
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "locale": "ru",
+      "stage": "ghoul",
+      "zoom": 88,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z88.png",
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "locale": "en",
+      "stage": "skeleton",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-skeleton.png",
+      "sha256": "9322467682101e6612bd37dd5050d8aa408cd6712222dd3c07642d60e24bdb1c"
+    },
+    {
+      "locale": "en",
+      "stage": "zombie",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-zombie.png",
+      "sha256": "458ba68fad10b0c7bf4494e866f0bc7a01bfc2dd7c81eddab25ca3c007ea6560"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-ghoul.png",
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "locale": "en",
+      "stage": "revenant",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-revenant.png",
+      "sha256": "0ff4f4a1fe81ff1fc26d3d2b8e129fcca898ea120a1472c66a00151fb8bdd251"
+    },
+    {
+      "locale": "en",
+      "stage": "almost_human",
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "matrix",
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-almost_human.png",
+      "sha256": "7a1cf4656dbf327e4863dc2fc56bc5bca497073c902df8337f9d8f4124f45141"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 44,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z44.png",
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 66,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z66.png",
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "locale": "en",
+      "stage": "ghoul",
+      "zoom": 88,
+      "viewport": [
+        960,
+        540
+      ],
+      "category": "zoom",
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z88.png",
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "viewport": [
+        1280,
+        720
+      ],
+      "category": "state-sheet",
+      "path": "art/reviews/body-skills/2026-09-01/ui/state-sheet-1280x720.png",
+      "sha256": "7d188d478f15daf486f867087f973d3553ea1c64118829f51145e3ef40bc8a46"
+    }
+  ]
+}

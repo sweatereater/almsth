@@ -4,7 +4,7 @@ extends RefCounted
 const SaveSystem := preload("res://scripts/system/persistence.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
 
-const ROOT := "res://.tmp/soul-level-regression"
+const ROOT := "res://.tmp/nightly/soul-level-regression"
 
 var failures: Array[String] = []
 
@@ -15,7 +15,7 @@ func run(tree: SceneTree) -> Array[String]:
 	_test_rules_and_evolution_gates()
 	_test_campfire_and_permanence()
 	_test_permanent_jacket_invariants()
-	_test_presence_aware_migration()
+	_test_current_soul_roundtrips()
 	_test_slot_compatibility()
 	await _test_interface(tree)
 	_cleanup()
@@ -26,7 +26,7 @@ func _test_rules_and_evolution_gates() -> void:
 	var requirements := {
 		"skeleton": 1, "zombie": 1, "ghoul": 2, "revenant": 3, "almost_human": 4,
 	}
-	_expect(GameRules.SOUL_LEVEL_START == 1 and GameRules.CAMPFIRE_SOUL_LEVEL_BONUS == 1, "Soul Level start and Campfire bonus must remain explicit rules")
+	_expect(GameRules.SOUL_LEVEL_START == 0 and GameRules.CAMPFIRE_SOUL_LEVEL_BONUS == 1, "Soul Level raw start 0 and Campfire bonus 1 must remain explicit rules")
 	for form_id in GameRules.FORM_ORDER:
 		_expect(GameRules.required_soul_level(form_id) == requirements[form_id], "Soul Level requirement mismatch for %s" % form_id)
 
@@ -38,7 +38,7 @@ func _test_rules_and_evolution_gates() -> void:
 		state.current_form_id = current_form
 		state.absorbed_souls = int(GameRules.FORMS[current_form]["threshold"])
 		state.highest_unlocked_form_index = index
-		state.soul_level = maxi(1, required - 2)
+		state.soul_level = maxi(0, required - 2)
 		state.carried_souls = 999
 		state.hp = maxi(1, state.get_max_hp() - 1)
 		if required > state.get_effective_soul_level():
@@ -51,7 +51,7 @@ func _test_rules_and_evolution_gates() -> void:
 				and before == [state.current_form_id, state.absorbed_souls, state.carried_souls, state.hp, state.highest_unlocked_form_index],
 				"%s → %s must fail by effective Soul Level without mutation" % [current_form, next_form],
 			)
-		state.soul_level = maxi(1, required - 1)
+		state.soul_level = maxi(0, required - 1)
 		state.carried_souls = GameRules.evolution_cost(current_form) - 1
 		var soul_blocked := state.evolve_at_cradle()
 		_expect(not bool(soul_blocked.get("ok", true)) and soul_blocked.get("reason") == "souls", "Soul checks must follow the Soul Level gate for %s" % next_form)
@@ -66,24 +66,24 @@ func _test_rules_and_evolution_gates() -> void:
 
 func _test_campfire_and_permanence() -> void:
 	var state := RunState.new()
-	_expect(state.soul_level == 1 and state.get_effective_soul_level() == 2, "Fresh state must keep raw Soul Level 1 and display effective 2")
+	_expect(state.soul_level == 0 and state.get_effective_soul_level() == 1, "Fresh state must keep raw Soul Level 0 and display effective 1")
 	state.resources = {"wood": 3, "stone": 3, "cloth": 0}
 	state.hp = maxi(1, state.get_max_hp() - 2)
 	var old_hp := state.hp
 	var old_max_hp := state.get_max_hp()
 	var built := state.build_camp_upgrade("campfire")
 	_expect(
-		bool(built.get("ok", false)) and state.soul_level == 2
-		and state.get_effective_soul_level() == 3
+		bool(built.get("ok", false)) and state.soul_level == 1
+		and state.get_effective_soul_level() == 2
 		and state.hp == old_hp and state.get_max_hp() == old_max_hp,
 		"Campfire must grant one Soul Level without maximum-HP contribution or healing",
 	)
-	_expect(not bool(state.build_camp_upgrade("campfire").get("ok", false)) and state.soul_level == 2, "Campfire Soul Level must be one-time")
+	_expect(not bool(state.build_camp_upgrade("campfire").get("ok", false)) and state.soul_level == 1, "Campfire Soul Level must be one-time")
 	state.current_form_id = "ghoul"
 	state.highest_unlocked_form_index = 2
 	state.die()
-	_expect(state.soul_level == 2, "Death must never reduce permanent Soul Level")
-	_expect(state.get_effective_soul_level() == 3, "Death must preserve the one canonical jacket Soul Level bonus")
+	_expect(state.soul_level == 1, "Death must never reduce permanent Soul Level")
+	_expect(state.get_effective_soul_level() == 2, "Death must preserve the one canonical jacket Soul Level bonus")
 
 
 func _test_permanent_jacket_invariants() -> void:
@@ -96,7 +96,9 @@ func _test_permanent_jacket_invariants() -> void:
 	_expect(state.add_item(GameRules.PERMANENT_JACKET_ITEM_ID) == "" and state.add_item_key(jacket_key) == "", "Public inventory additions must reject the jacket")
 	_expect(not state.equip(jacket_key, "jacket").get("ok", true), "Direct equip must not replace the canonical jacket")
 	_expect(not state.unequip("jacket").get("ok", true) and state.loadout.get("jacket", "") == jacket_key, "Unequip must not remove the canonical jacket")
-	state.camp_upgrades = {"crusher": true, "whetstone": true, "ritual_table": true, "campfire": false}
+	state.camp_upgrades.crusher = true
+	state.camp_upgrades.whetstone = true
+	state.camp_upgrades.ritual_table = true
 	state.banked_souls = 100
 	_expect(not state.can_bind_item(jacket_key, "equipped", "jacket"), "Jacket must not be bindable")
 	_expect(not state.bind_item(jacket_key, "equipped", "jacket").get("ok", true), "Binding mutation must reject the jacket")
@@ -127,33 +129,45 @@ func _test_permanent_jacket_invariants() -> void:
 	_expect(int(death.get("items", -1)) == 1 and malformed.get_effective_soul_level() == before_death_effective and malformed.loadout.get("jacket", "") == jacket_key, "Death must not count or lose the jacket")
 
 
-func _test_presence_aware_migration() -> void:
-	var cases: Array[Dictionary] = [
-		{"name": "plain legacy", "data": {}, "expected": 1},
-		{"name": "legacy campfire", "data": {"camp_upgrades": {"campfire": true}}, "expected": 2},
-		{"name": "dead highest ghoul", "data": {"highest_unlocked_form_index": 2}, "expected": 2},
-		{"name": "current revenant", "data": {"absorbed_souls": 48}, "expected": 3},
-		{"name": "highest almost with fire", "data": {"highest_unlocked_form_index": 4, "camp_upgrades": {"campfire": true}}, "expected": 4},
-		{"name": "present below minimum", "data": {"soul_level": 1, "highest_unlocked_form_index": 3, "camp_upgrades": {"campfire": true}}, "expected": 2},
-		{"name": "present high", "data": {"soul_level": 7, "highest_unlocked_form_index": 1}, "expected": 7},
-	]
-	for fixture in cases:
-		var data: Dictionary = (fixture["data"] as Dictionary).duplicate(true)
-		data["character_name"] = String(fixture["name"])
-		var restored := RunState.new()
-		_expect(restored.restore_save_data(data) and restored.soul_level == int(fixture["expected"]), "Soul Level migration failed for %s" % fixture["name"])
-		var roundtrip := RunState.new()
-		_expect(roundtrip.restore_save_data(restored.to_save_data()) and roundtrip.soul_level == restored.soul_level, "Soul Level migration must not repeat bonuses for %s" % fixture["name"])
+func _test_current_soul_roundtrips() -> void:
+	var state := RunState.new()
+	state.configure_character("Current Soul v17", GameRules.default_attributes())
+	state.resources = {"wood": 3, "stone": 3, "cloth": 0}
+	_expect(bool(state.build_camp_upgrade("campfire").get("ok", false)), "Current Campfire fixture must build")
+	state.resources.wood = 30
+	_expect(bool(state.build_camp_upgrade("rocking_chair").get("ok", false)), "Current Rocking Chair fixture must build")
+	state.record_enemy_defeat("minotaur")
+	state.resources = {"wood": 12, "stone": 20, "cloth": 5}
+	state.banked_souls = 60
+	_expect(bool(state.build_camp_upgrade("mural").get("ok", false)), "Current Mural fixture must build")
+	_expect(
+		state.soul_level == 3 and state.get_effective_soul_level() == 4,
+		"Campfire, Mural and Rocking Chair plus jacket must produce raw/effective 3/4",
+	)
+	var saved := state.to_save_data()
+	var restored := RunState.new()
+	_expect(
+		restored.restore_save_data(saved)
+		and restored.soul_level == 3 and restored.get_effective_soul_level() == 4,
+		"Current v17 state-only roundtrip must preserve all one-time Soul sources exactly",
+	)
+	var before := restored.to_snapshot_data()
+	var missing_sex := saved.duplicate(true)
+	missing_sex.erase("character_sex")
+	_expect(
+		not restored.restore_save_data(missing_sex) and restored.to_snapshot_data() == before,
+		"Current v17 data without character sex must reject without replay or mutation",
+	)
 
 
 func _test_slot_compatibility() -> void:
 	var state := RunState.new()
-	state.configure_character("Version Nine", GameRules.default_attributes())
+	state.configure_character("Version Seventeen", GameRules.default_attributes())
 	state.soul_level = 5
-	_expect(bool(SaveSystem.save_slot(state, "soul-v9", "overwrite", ROOT, 900).get("ok", false)), "Version 9 Soul Level slot must save")
-	var loaded := SaveSystem.load_slot("soul-v9", ROOT)
+	_expect(bool(SaveSystem.save_slot(state, "soul-v17", "overwrite", ROOT, 900).get("ok", false)), "Current v17 Soul Level slot must save")
+	var loaded := SaveSystem.load_slot("soul-v17", ROOT)
 	var restored := RunState.new()
-	_expect(bool(loaded.get("ok", false)) and restored.restore_save_data(loaded.get("state", {})) and restored.soul_level == 5, "Version 9 Soul Level slot must roundtrip")
+	_expect(bool(loaded.get("ok", false)) and restored.restore_save_data(loaded.get("state", {})) and restored.soul_level == 5, "Current v17 Soul Level slot must roundtrip")
 
 	var legacy_state := {"character_name": "V8 Campfire", "highest_unlocked_form_index": 2, "camp_upgrades": {"campfire": true}}
 	_write_text(ROOT + "/soul-v8.json", JSON.stringify({
@@ -216,6 +230,7 @@ func _cleanup() -> void:
 
 
 func _remove_tree(path: String) -> void:
+	assert(path == ROOT or path.begins_with(ROOT + "/"), "Soul-level cleanup escaped its fixed nightly root")
 	var directory := DirAccess.open(path)
 	if directory == null:
 		if FileAccess.file_exists(path):

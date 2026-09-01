@@ -1,0 +1,9 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+{"alpha":0,"alpha_bounds_xywh":[0,0,768,2048],"format":4,"path":"C:/Users/Kirill/.codex/generated_images/01a05966-eb61-7532-b07f-f814a86ec868/exec-7c492897-e566-45cc-9938-5de79e168783.png","sha256":"f9dd3ccdc4979bc0f72cf8568ec78432369e34a0929abd54ee0116d9e3387117","size":[768,2048]}
+{"alpha":0,"alpha_bounds_xywh":[0,0,768,2048],"format":4,"path":"C:/Users/Kirill/.codex/generated_images/01a05966-eb61-7532-b07f-f814a86ec868/exec-eadee3c0-33fd-47ca-9dcc-328cc94e7950.png","sha256":"3646e0f5b6ef1a90b0b05d1082886a39ad7e1759e241deba56e27e17271d2cc0","size":[768,2048]}
+{"alpha":0,"alpha_bounds_xywh":[0,0,768,2048],"format":4,"path":"C:/Users/Kirill/.codex/generated_images/01a05966-eb61-7532-b07f-f814a86ec868/exec-6723ee63-7233-426d-8653-33432059a6ba.png","sha256":"9fedc0cbb05ce499a69670f93371acd900c912d026d8a9a843c4b5275e030031","size":[768,2048]}
+{"alpha":0,"alpha_bounds_xywh":[0,0,768,2048],"format":4,"path":"C:/Users/Kirill/.codex/generated_images/01a05966-eb61-7532-b07f-f814a86ec868/exec-b5625cc0-4e43-4379-bb49-e8e355d781a8.png","sha256":"d583d418750dbb6d425bba890d467968c51bc7badf14f53d29c625e683334079","size":[768,2048]}
+{"alpha":0,"alpha_bounds_xywh":[0,0,768,2048],"format":4,"path":"C:/Users/Kirill/.codex/generated_images/01a05966-eb61-7532-b07f-f814a86ec868/exec-993c32a4-d11f-48b4-8faf-5a140ac91dc7.png","sha256":"294e024206a3810ee8473c33a3045922a947c829de9d836c2ec8e04f9ba65a7f","size":[768,2048]}
+ERROR: Failed to read the root certificate store.
+   at: get_system_ca_certificates (platform/windows/os_windows.cpp:2582)

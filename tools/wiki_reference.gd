@@ -8,7 +8,7 @@ const Localization := preload("res://scripts/localization/localization.gd")
 const Floors := preload("res://scripts/world/floor_generator.gd")
 const FixedFloor := preload("res://scripts/world/fixed_floor_90.gd")
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 const MARKDOWN_PATH := "res://docs/wiki/generated/game-reference.md"
 const JSON_PATH := "res://docs/wiki/generated/game-reference.json"
 const RESOURCE_IDS := ["wood", "stone", "cloth"]
@@ -108,6 +108,11 @@ static func validate_contract() -> Array[String]:
 		for resource_id in item.get("salvage", {}):
 			if resource_id not in RESOURCE_IDS:
 				failures.append("Item %s salvages unknown resource: %s" % [item_id, resource_id])
+		if Rules.item_category(item_id) == "weapon":
+			if Rules.weapon_attack_type(item_id) not in ["melee", "ranged"]:
+				failures.append("Weapon %s has an invalid attack_type" % item_id)
+			if Rules.weapon_grip(item_id) not in ["one_handed", "two_handed"]:
+				failures.append("Weapon %s has an invalid grip" % item_id)
 
 	for enemy_id in Rules.ENEMIES:
 		var enemy: Dictionary = Rules.ENEMIES[enemy_id]
@@ -123,6 +128,9 @@ static func validate_contract() -> Array[String]:
 		for resource_id in upgrade.get("cost", {}):
 			if resource_id not in RESOURCE_IDS:
 				failures.append("Camp upgrade %s costs unknown resource: %s" % [upgrade_id, resource_id])
+		for requirement in upgrade.get("requires", []):
+			if not Rules.CAMP_UPGRADES.has(requirement):
+				failures.append("Camp upgrade %s requires unknown upgrade: %s" % [upgrade_id, requirement])
 
 	return failures
 
@@ -338,12 +346,13 @@ static func build_markdown() -> String:
 		])
 	lines.append_array(PackedStringArray([
 		"", "## Предметы", "",
-		"| ID | RU / EN | Слоты | Min depth | Параметры | Разбор |",
-		"| --- | --- | --- | ---: | --- | --- |",
+		"| ID | RU / EN | Слоты | attack_type | grip | Min depth | Параметры | Разбор |",
+		"| --- | --- | --- | --- | --- | ---: | --- | --- |",
 	]))
 	for item in reference["equipment"]:
-		lines.append("| `%s` | %s / %s | `%s` | %d | %s | %s |" % [
+		lines.append("| `%s` | %s / %s | `%s` | `%s` | `%s` | %d | %s | %s |" % [
 			item["id"], _md(item["name"]["ru"]), _md(item["name"]["en"]), ", ".join(item["slots"]),
+			item["attack_type"], item["grip"],
 			item["min_depth"], _format_dictionary(item["stats"]), _format_dictionary(item["salvage"]),
 		])
 	lines.append_array(PackedStringArray([
@@ -369,12 +378,12 @@ static func build_markdown() -> String:
 		"- Обзор не масштабируется.",
 		"- Фиксированный этаж %d использует базовые параметры Минотавра без этих бонусов." % FixedFloor.FLOOR_NUMBER,
 		"", "## Постройки лагеря", "",
-		"| ID | RU / EN | Стоимость |", "| --- | --- | --- |",
+		"| ID | RU / EN | Стоимость | Требует |", "| --- | --- | --- | --- |",
 	]))
 	for upgrade in reference["camp_upgrades"]:
-		lines.append("| `%s` | %s / %s | %s |" % [
+		lines.append("| `%s` | %s / %s | %s | %s |" % [
 			upgrade["id"], _md(upgrade["name"]["ru"]), _md(upgrade["name"]["en"]),
-			_format_dictionary(upgrade["cost"]),
+			_format_dictionary(upgrade["cost"]), ", ".join(upgrade["requires"]) if not upgrade["requires"].is_empty() else "—",
 		])
 	lines.append_array(PackedStringArray([
 		"", "## Источник истины", "",
@@ -517,7 +526,7 @@ static func _equipment() -> Array:
 	var ids := Rules.EQUIPMENT.keys()
 	ids.sort()
 	var stat_keys := [
-		"weapon_type", "range", "damage", "ranged_damage", "max_hp", "soul_bonus", "soul_level_bonus",
+		"range", "damage", "ranged_damage", "max_hp", "soul_bonus", "soul_level_bonus",
 		"accuracy", "dodge", "mana", "spell_power", "regeneration", "vision", "preparation",
 	]
 	for item_id in ids:
@@ -537,6 +546,8 @@ static func _equipment() -> Array:
 			"name": _localized(String(item["name"])),
 			"category": Rules.item_category(item_id),
 			"slots": Rules.compatible_slots(item_id),
+			"attack_type": Rules.weapon_attack_type(item_id) if Rules.item_category(item_id) == "weapon" else "",
+			"grip": Rules.weapon_grip(item_id) if Rules.item_category(item_id) == "weapon" else "",
 			"min_depth": int(item["min_depth"]),
 			"stats": _sorted_dictionary(stats),
 			"salvage": _sorted_dictionary(item.get("salvage", {})),
@@ -585,6 +596,7 @@ static func _camp_upgrades() -> Array:
 			"id": upgrade_id,
 			"name": _localized(String(upgrade["name"])),
 			"cost": _sorted_dictionary(upgrade["cost"].merged({"banked_souls": upgrade["banked_souls"], "minotaur_tail": upgrade["minotaur_tail"]}) if upgrade_id == "mural" else upgrade["cost"]),
+			"requires": Array(upgrade.get("requires", []), TYPE_STRING, "", null),
 		})
 	return result
 
