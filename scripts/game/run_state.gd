@@ -17,7 +17,7 @@ var absorbed_souls := 0
 var lifetime_souls_earned := 0
 var character_name := ""
 ## Presentation identity used by creation, the character sheet and the map; never gameplay rules.
-var character_sex := "male"
+var character_sex := "female"
 var attributes := GameRules.default_attributes()
 var current_form_id := "skeleton"
 ## Optional cosmetic override. Empty means the appearance follows current_form_id.
@@ -43,6 +43,10 @@ var inventory: Dictionary = {}
 ## Marks belong to real stacks/physical equipped slots, not to item definitions.
 var inventory_marks: Dictionary = {}
 var equipped_marks: Dictionary = {}
+## Camp storage is permanent across expeditions and death. It contains only the
+## same canonical movable stack keys as inventory, but never equipped items.
+var storage: Dictionary = {}
+var storage_marks: Dictionary = {}
 ## Permanent milestones/trophies never enter the death-cleared inventory.
 var milestones: Dictionary = {"minotaur_defeated": false, "minotaur_tail_awarded": false}
 var trophies: Dictionary = {"minotaur_tail": 0}
@@ -68,6 +72,7 @@ var camp_upgrades := {
 	"kettle": false,
 	"rocking_chair": false,
 	"record_player": false,
+	"storage_chest": false,
 }
 var skill_levels: Dictionary = GameRules.default_skill_levels()
 var ability_loadout: Dictionary = AbilitySystem.default_loadout()
@@ -83,8 +88,9 @@ var mana_regeneration_progress := 0.0
 var total_turns := 0
 var cradle_miss_streak := 0
 
-## Exact snapshots bypass legacy migrations, but accept only the current v17 schema.
-const SNAPSHOT_FIELDS := [
+## Frozen strict v17 shapes. Persistence validates these exact historical fields
+## before adding only the three Stage 1B defaults and validating current v18.
+const SNAPSHOT_FIELDS_V17 := [
 	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
 	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id", "soul_level",
 	"base_level", "checkpoint_floor", "rope_floor", "current_floor", "hp", "mana",
@@ -93,13 +99,37 @@ const SNAPSHOT_FIELDS := [
 	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
 	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
 ]
-const STATE_ONLY_FIELDS := [
+const STATE_ONLY_FIELDS_V17 := [
 	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
 	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id",
 	"soul_level", "base_level", "checkpoint_floor", "rope_floor", "hp", "mana",
 	"loadout", "inventory", "inventory_marks", "equipped_marks", "milestones", "trophies",
 	"camp_preparation", "resources", "camp_upgrades", "skill_levels", "ability_loadout",
 	"ability_cooldowns", "active_statuses", "unspent_attribute_points",
+	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
+	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
+]
+const CAMP_UPGRADE_IDS_V17 := [
+	"mural", "bunk", "textile_area", "workbench", "writing_set", "ritual_table",
+	"crusher", "whetstone", "campfire", "kettle", "rocking_chair", "record_player",
+]
+const SNAPSHOT_FIELDS := [
+	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
+	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id", "soul_level",
+	"base_level", "checkpoint_floor", "rope_floor", "current_floor", "hp", "mana",
+	"loadout", "inventory", "inventory_marks", "equipped_marks", "storage", "storage_marks",
+	"milestones", "trophies", "camp_preparation", "resources", "camp_upgrades", "skill_levels",
+	"ability_loadout", "ability_cooldowns", "active_statuses", "unspent_attribute_points",
+	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
+	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
+]
+const STATE_ONLY_FIELDS := [
+	"banked_souls", "carried_souls", "absorbed_souls", "lifetime_souls_earned",
+	"character_name", "character_sex", "attributes", "current_form_id", "display_form_id",
+	"soul_level", "base_level", "checkpoint_floor", "rope_floor", "hp", "mana",
+	"loadout", "inventory", "inventory_marks", "equipped_marks", "storage", "storage_marks",
+	"milestones", "trophies", "camp_preparation", "resources", "camp_upgrades", "skill_levels",
+	"ability_loadout", "ability_cooldowns", "active_statuses", "unspent_attribute_points",
 	"highest_unlocked_form_index", "food", "hunger", "hunger_turn_progress",
 	"regeneration_progress", "mana_regeneration_progress", "total_turns", "cradle_miss_streak",
 ]
@@ -204,6 +234,10 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 			return false
 		if not _snapshot_integer(data.inventory[key]) or int(data.inventory[key]) <= 0:
 			return false
+	if not _storage_data_valid(
+		data.storage, data.storage_marks, bool(data.camp_upgrades.storage_chest), defaults,
+	):
+		return false
 	for field in ["milestones", "camp_preparation"]:
 		if data[field].size() != defaults.get(field).size():
 			return false
@@ -238,11 +272,49 @@ static func is_snapshot_data_valid(data: Dictionary) -> bool:
 	return true
 
 
+## Validate an authentic strict-v17 full state, then augment it with only the
+## Stage 1B defaults. Returning an empty dictionary means the historical shape
+## or the resulting exact current state is corrupt.
+static func migrate_v17_snapshot_data(data: Dictionary) -> Dictionary:
+	return _migrate_v17_data(data, false)
+
+
+## State-only v17 has the same exact durable fields except current_floor.
+static func migrate_v17_state_only_data(data: Dictionary) -> Dictionary:
+	return _migrate_v17_data(data, true)
+
+
+static func _migrate_v17_data(data: Dictionary, state_only: bool) -> Dictionary:
+	var normalized := snapshot_data_from_json(data)
+	var historical_fields := STATE_ONLY_FIELDS_V17 if state_only else SNAPSHOT_FIELDS_V17
+	if normalized.size() != historical_fields.size():
+		return {}
+	for field in historical_fields:
+		if not normalized.has(field):
+			return {}
+	var historical_camp: Variant = normalized.get("camp_upgrades")
+	if not historical_camp is Dictionary or historical_camp.size() != CAMP_UPGRADE_IDS_V17.size():
+		return {}
+	for upgrade_id in CAMP_UPGRADE_IDS_V17:
+		if not historical_camp.has(upgrade_id) or not historical_camp[upgrade_id] is bool:
+			return {}
+	var migrated := normalized.duplicate(true)
+	migrated["storage"] = {}
+	migrated["storage_marks"] = {}
+	migrated["camp_upgrades"]["storage_chest"] = false
+	var valid := (
+		is_stage1_save_data_valid(migrated)
+		if state_only
+		else is_snapshot_data_valid(migrated)
+	)
+	return migrated if valid else {}
+
+
 static func _snapshot_integer(value: Variant) -> bool:
 	return value is int or (value is float and is_finite(value) and value == floor(value) and absf(value) < 9007199254740992.0)
 
 
-## Shared current-v17 semantic boundary. Both exact full-run snapshots and
+## Shared current-v18 semantic boundary. Both exact full-run snapshots and
 ## state-only disk records reach this helper before any live RunState is mutated.
 static func _strict_progression_semantics_valid(data: Dictionary, candidate: RunState) -> bool:
 	var expected_form := GameRules.form_for_absorbed_souls(int(data.absorbed_souls))
@@ -340,7 +412,7 @@ static func _strict_progression_semantics_valid(data: Dictionary, candidate: Run
 	return true
 
 
-## Durable v17 state-only records are current-schema data, not migration inputs.
+## Durable v18 state-only records are current-schema data, not migration inputs.
 ## They must contain every serialized field and pass the same type/range/semantic
 ## validation as an exact snapshot before Persistence exposes them to Main.
 static func is_stage1_save_data_valid(data: Dictionary) -> bool:
@@ -406,6 +478,41 @@ static func _stage1_extensions_valid(data: Dictionary) -> bool:
 			return false
 	for slot in data.equipped_marks:
 		if not slot is String or not data.loadout.has(slot) or data.equipped_marks[slot] not in ["keep", "salvage"] or not GameRules.is_item_movable(String(data.loadout[slot])):
+			return false
+	var has_storage_fields := data.has("storage") or data.has("storage_marks")
+	if has_storage_fields:
+		if not data.get("storage") is Dictionary or not data.get("storage_marks") is Dictionary:
+			return false
+		if not _storage_data_valid(
+			data.storage,
+			data.storage_marks,
+			bool(data.camp_upgrades.get("storage_chest", false)),
+			defaults,
+		):
+			return false
+	return true
+
+
+static func _storage_data_valid(
+	stored: Dictionary,
+	marks: Dictionary,
+	chest_built: bool,
+	defaults: RunState,
+) -> bool:
+	if not chest_built and (not stored.is_empty() or not marks.is_empty()):
+		return false
+	for key in stored:
+		if (
+			not key is String
+			or key.is_empty()
+			or defaults._sanitized_item_key(key) != key
+			or not GameRules.is_item_movable(key)
+			or not _snapshot_integer(stored[key])
+			or int(stored[key]) <= 0
+		):
+			return false
+	for key in marks:
+		if not key is String or not stored.has(key) or marks[key] not in ["keep", "salvage"]:
 			return false
 	return true
 
@@ -488,6 +595,8 @@ func to_save_data() -> Dictionary:
 		"inventory": inventory.duplicate(true),
 		"inventory_marks": inventory_marks.duplicate(true),
 		"equipped_marks": equipped_marks.duplicate(true),
+		"storage": storage.duplicate(true),
+		"storage_marks": storage_marks.duplicate(true),
 		"milestones": milestones.duplicate(true),
 		"trophies": trophies.duplicate(true),
 		"camp_preparation": camp_preparation.duplicate(true),
@@ -550,7 +659,10 @@ func _minimum_soul_level_for_progress(use_permanent_bonus := true) -> int:
 
 func restore_save_data(data: Dictionary) -> bool:
 	var has_stage1_fields := false
-	for field in ["inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation"]:
+	for field in [
+		"inventory_marks", "equipped_marks", "milestones", "trophies", "camp_preparation",
+		"storage", "storage_marks",
+	]:
 		has_stage1_fields = has_stage1_fields or data.has(field)
 	if has_stage1_fields and not _stage1_extensions_valid(data):
 		return false
@@ -654,6 +766,22 @@ func restore_save_data(data: Dictionary) -> bool:
 			var count := maxi(0, int(saved_inventory[saved_key]))
 			if not item_key.is_empty() and GameRules.is_item_movable(item_key) and count > 0:
 				inventory[item_key] = int(inventory.get(item_key, 0)) + count
+	storage.clear()
+	storage_marks.clear()
+	var saved_storage: Variant = data.get("storage", {})
+	if saved_storage is Dictionary:
+		for saved_key in saved_storage:
+			var item_key := _sanitized_item_key(String(saved_key))
+			var count := maxi(0, int(saved_storage[saved_key]))
+			if not item_key.is_empty() and GameRules.is_item_movable(item_key) and count > 0:
+				storage[item_key] = int(storage.get(item_key, 0)) + count
+	var saved_storage_marks: Variant = data.get("storage_marks", {})
+	if saved_storage_marks is Dictionary:
+		for saved_key in saved_storage_marks:
+			var item_key := String(saved_key)
+			var mark := String(saved_storage_marks[saved_key])
+			if storage.has(item_key) and mark in ["keep", "salvage"]:
+				storage_marks[item_key] = mark
 	loadout.clear()
 	var saved_loadout = data.get("loadout", {})
 	if saved_loadout is Dictionary:
@@ -975,6 +1103,8 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 	var replaced_id: String = loadout.get(slot, "")
 	var displaced_offhand := ""
 	var displaced_offhand_policy := ""
+	var displaced_main_hand := ""
+	var displaced_main_hand_policy := ""
 	if slot == "right_hand" and GameRules.is_two_handed_weapon(item_key):
 		displaced_offhand = String(loadout.get("left_hand", ""))
 		if not displaced_offhand.is_empty():
@@ -982,6 +1112,12 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 			equipped_marks.erase("left_hand")
 			loadout.erase("left_hand")
 			displaced_offhand_policy = _return_displaced_item_key(displaced_offhand, displaced_mark)
+	elif slot == "left_hand" and GameRules.is_two_handed_weapon(String(loadout.get("right_hand", ""))):
+		displaced_main_hand = String(loadout.get("right_hand", ""))
+		var displaced_mark := String(equipped_marks.get("right_hand", ""))
+		equipped_marks.erase("right_hand")
+		loadout.erase("right_hand")
+		displaced_main_hand_policy = _return_displaced_item_key(displaced_main_hand, displaced_mark)
 	_remove_backpack_bonus(slot, replaced_id)
 	equipped_marks.erase(slot)
 	loadout[slot] = item_key
@@ -996,21 +1132,15 @@ func equip(item_id: String, destination_slot := "") -> Dictionary:
 		"replaced_id": replaced_id,
 		"displaced_offhand": displaced_offhand,
 		"displaced_offhand_mark_policy": displaced_offhand_policy,
+		"displaced_main_hand": displaced_main_hand,
+		"displaced_main_hand_mark_policy": displaced_main_hand_policy,
 	}
 
 
 func _validate_hand_equip(item_key: String, slot: String) -> Dictionary:
-	if (
-		slot == "left_hand"
-		and GameRules.is_two_handed_weapon(String(loadout.get("right_hand", "")))
-	):
-		return {
-			"ok": false,
-			"reason": "two_handed_offhand_blocked",
-			"slot": slot,
-			"redirect_slot": "right_hand",
-			"message": Loc.text("MSG_TWO_HANDED_OFFHAND_BLOCKED"),
-		}
+	# Hand conflicts are resolved atomically by equip(): a two-handed main hand
+	# displaces an offhand item, and an offhand item symmetrically displaces the
+	# conflicting two-handed main-hand item.
 	return {"ok": true}
 
 
@@ -1068,6 +1198,10 @@ func set_item_mark(item_key: String, mark: String, source := "inventory", slot :
 			return false
 		marks = equipped_marks
 		key = slot
+	elif source == "storage":
+		if not storage.has(item_key):
+			return false
+		marks = storage_marks
 	elif source != "inventory" or not inventory.has(item_key):
 		return false
 	if mark.is_empty():
@@ -1078,7 +1212,11 @@ func set_item_mark(item_key: String, mark: String, source := "inventory", slot :
 
 
 func item_mark(item_key: String, source := "inventory", slot := "") -> String:
-	return String(equipped_marks.get(slot, "")) if source == "equipped" else String(inventory_marks.get(item_key, ""))
+	if source == "equipped":
+		return String(equipped_marks.get(slot, ""))
+	if source == "storage":
+		return String(storage_marks.get(item_key, ""))
+	return String(inventory_marks.get(item_key, ""))
 
 
 func remove_item(item_key: String, count := 1) -> bool:
@@ -1094,6 +1232,117 @@ func remove_item(item_key: String, count := 1) -> bool:
 	else:
 		inventory[item_key] = available - count
 	return true
+
+
+func transfer_inventory_to_storage(item_key: String, count: Variant = 1) -> Dictionary:
+	return _transfer_storage_stack(item_key, count, true)
+
+
+func transfer_storage_to_inventory(item_key: String, count: Variant = 1) -> Dictionary:
+	return _transfer_storage_stack(item_key, count, false)
+
+
+func _transfer_storage_stack(
+	item_key: String,
+	count: Variant,
+	from_inventory: bool,
+) -> Dictionary:
+	var direction := "inventory_to_storage" if from_inventory else "storage_to_inventory"
+	if not bool(camp_upgrades.get("storage_chest", false)):
+		return {"ok": false, "reason": "unbuilt", "direction": direction}
+	if (
+		item_key.is_empty()
+		or _sanitized_item_key(item_key) != item_key
+		or not GameRules.is_item_movable(item_key)
+	):
+		return {"ok": false, "reason": "invalid_item", "direction": direction}
+	if not count is int or int(count) <= 0:
+		return {"ok": false, "reason": "invalid_count", "direction": direction}
+
+	var source: Dictionary = inventory if from_inventory else storage
+	var source_marks: Dictionary = inventory_marks if from_inventory else storage_marks
+	var destination: Dictionary = storage if from_inventory else inventory
+	var destination_marks: Dictionary = storage_marks if from_inventory else inventory_marks
+	var available_variant: Variant = source.get(item_key)
+	if not available_variant is int or int(available_variant) <= 0:
+		return {"ok": false, "reason": "missing", "direction": direction}
+	var available := int(available_variant)
+	var requested := int(count)
+	if requested > available:
+		return {
+			"ok": false,
+			"reason": "insufficient",
+			"available": available,
+			"requested": requested,
+			"direction": direction,
+		}
+	var source_mark := String(source_marks.get(item_key, ""))
+	if source_mark not in ["", "keep", "salvage"]:
+		return {"ok": false, "reason": "invalid_state", "direction": direction}
+	var destination_count_variant: Variant = destination.get(item_key, 0)
+	if (
+		not destination_count_variant is int
+		or int(destination_count_variant) < 0
+		or (destination.has(item_key) and int(destination_count_variant) == 0)
+	):
+		return {"ok": false, "reason": "invalid_state", "direction": direction}
+	var destination_count := int(destination_count_variant)
+	var destination_mark := String(destination_marks.get(item_key, ""))
+	if (
+		destination_mark not in ["", "keep", "salvage"]
+		or (destination_marks.has(item_key) and destination_count == 0)
+	):
+		return {"ok": false, "reason": "invalid_state", "direction": direction}
+
+	# Build all four replacements before committing any of them. A failed branch
+	# above therefore leaves counts and stack marks byte-for-byte untouched.
+	var next_inventory := inventory.duplicate(true)
+	var next_inventory_marks := inventory_marks.duplicate(true)
+	var next_storage := storage.duplicate(true)
+	var next_storage_marks := storage_marks.duplicate(true)
+	var next_source: Dictionary = next_inventory if from_inventory else next_storage
+	var next_source_marks: Dictionary = next_inventory_marks if from_inventory else next_storage_marks
+	var next_destination: Dictionary = next_storage if from_inventory else next_inventory
+	var next_destination_marks: Dictionary = next_storage_marks if from_inventory else next_inventory_marks
+
+	var remaining := available - requested
+	if remaining == 0:
+		next_source.erase(item_key)
+		next_source_marks.erase(item_key)
+	else:
+		next_source[item_key] = remaining
+		# A partial move keeps the source stack's existing mark unchanged.
+		if source_mark.is_empty():
+			next_source_marks.erase(item_key)
+		else:
+			next_source_marks[item_key] = source_mark
+	next_destination[item_key] = destination_count + requested
+	var merged_mark := source_mark
+	if destination_count > 0:
+		if "keep" in [destination_mark, source_mark]:
+			merged_mark = "keep"
+		elif destination_mark == "salvage" and source_mark == "salvage":
+			merged_mark = "salvage"
+		else:
+			merged_mark = ""
+	if merged_mark.is_empty():
+		next_destination_marks.erase(item_key)
+	else:
+		next_destination_marks[item_key] = merged_mark
+
+	inventory = next_inventory
+	inventory_marks = next_inventory_marks
+	storage = next_storage
+	storage_marks = next_storage_marks
+	return {
+		"ok": true,
+		"direction": direction,
+		"item_key": item_key,
+		"count": requested,
+		"remaining": remaining,
+		"destination_count": destination_count + requested,
+		"mark": merged_mark,
+	}
 
 
 func get_inventory_keys() -> Array:

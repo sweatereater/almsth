@@ -8,7 +8,7 @@ const Palette := preload("res://scripts/ui/ui_palette.gd")
 const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 const Artwork := preload("res://scripts/ui/character_artwork.gd")
 
-var selected_sex := "male"
+var selected_sex := "female"
 var buttons: Dictionary = {}
 var labels: Dictionary = {}
 var selection_markers: Dictionary = {}
@@ -18,18 +18,16 @@ func _init() -> void:
 	size = Vector2(332, 160)
 	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var group := ButtonGroup.new()
 	for index in range(Artwork.SEXES.size()):
 		var sex: String = Artwork.SEXES[index]
 		var button := Ui.make_button(self, Vector2(index * 176, 0), "", Vector2(156, 160))
 		button.name = sex.capitalize()
-		button.toggle_mode = true
-		button.button_group = group
+		button.toggle_mode = false
 		Ui.enable_keyboard_focus(button)
 		button.pressed.connect(_select.bind(sex))
 		buttons[sex] = button
 		var portrait := TextureRect.new()
-		portrait.position = Vector2(18, 20)
+		portrait.position = Vector2(18, 22)
 		portrait.size = Vector2(120, 120)
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -50,6 +48,7 @@ func _init() -> void:
 		marker.position = Vector2(3, 6)
 		marker.size = Vector2(4, 148)
 		marker.color = Palette.color(Palette.WARM_ARCHIVE, "soul")
+		marker.visible = false
 		marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(marker)
 		selection_markers[sex] = marker
@@ -57,17 +56,34 @@ func _init() -> void:
 
 
 func set_sex(sex: String) -> void:
-	selected_sex = sex if sex in Artwork.SEXES else "male"
-	for id in buttons:
-		buttons[id].set_pressed_no_signal(id == selected_sex)
-		selection_markers[id].visible = id == selected_sex
+	selected_sex = sex if sex in Artwork.SEXES else "female"
+	for id: String in buttons:
+		var marker: ColorRect = selection_markers[id]
+		var button: Button = buttons[id]
+		var is_selected: bool = (id == selected_sex)
+		var hover_style: StyleBox = button.get_theme_stylebox("hover")
+		if hover_style == null:
+			hover_style = button.get_theme_stylebox("normal")
+		if hover_style == null:
+			hover_style = button.get_theme_stylebox("pressed")
+		marker.visible = is_selected
+		if is_selected:
+			if hover_style != null:
+				button.add_theme_stylebox_override("normal", hover_style)
+				button.add_theme_stylebox_override("pressed", hover_style)
+				button.add_theme_stylebox_override("focus", hover_style)
+		else:
+			button.remove_theme_stylebox_override("normal")
+			button.remove_theme_stylebox_override("pressed")
+		if hover_style != null:
+			button.add_theme_stylebox_override("focus", hover_style)
 	apply_locale()
 
 
 func apply_locale() -> void:
 	for sex in buttons:
 		var label := Loc.text("SEX_FEMALE" if sex == "female" else "SEX_MALE")
-		labels[sex].text = ("✓ " if sex == selected_sex else "") + label
+		labels[sex].text = label
 		buttons[sex].tooltip_text = Loc.text("SEX_CHOICE_HINT", [label])
 		buttons[sex].accessibility_name = labels[sex].text
 		buttons[sex].accessibility_description = buttons[sex].tooltip_text
@@ -76,3 +92,4 @@ func apply_locale() -> void:
 func _select(sex: String) -> void:
 	set_sex(sex)
 	sex_selected.emit(sex)
+
