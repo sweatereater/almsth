@@ -1,0 +1,2142 @@
+{
+  "schema": 1,
+  "baseline": "accepted Stage 1E protected art baseline",
+  "authorized_runtime_exceptions": [],
+  "files": [
+    {
+      "path": "art/characters/female/fullbody/form-almost-human.png",
+      "bytes": 1947873,
+      "sha256": "885d78d644f89d248de1710841f7fa9afbe4a2f3698a026f9ff771eed947d33f"
+    },
+    {
+      "path": "art/characters/female/fullbody/form-ghoul.png",
+      "bytes": 585375,
+      "sha256": "6ddbdc82a6d199414a58382042746eeb5ce87a97cf7ea950b4a5c1f730df9c76"
+    },
+    {
+      "path": "art/characters/female/fullbody/form-revenant.png",
+      "bytes": 591294,
+      "sha256": "e036ba3247b13a03a52c3c96fe76bc1346fb8e5b220d83e5f5f1b39b7b48373f"
+    },
+    {
+      "path": "art/characters/female/fullbody/form-skeleton.png",
+      "bytes": 523781,
+      "sha256": "148e6206771cc239d4291fd02225eed2531ddc5f132cd5c0c331a461c78b55a6"
+    },
+    {
+      "path": "art/characters/female/fullbody/form-zombie.png",
+      "bytes": 514811,
+      "sha256": "2e1f3a33e5fc28900e86b5b5e95f98c31960d02e8053e6fd5dc625d68ba14feb"
+    },
+    {
+      "path": "art/characters/female/heads/form-almost-human.png",
+      "bytes": 178987,
+      "sha256": "562d0a4bb6ce96fca41632db6baa5687c29d27a4250f0dbc88666dfe4347514f"
+    },
+    {
+      "path": "art/characters/female/heads/form-ghoul.png",
+      "bytes": 72703,
+      "sha256": "14920a4770febcaef465dda127e838b69e5ccfa097321cfe2ac2057bffed5683"
+    },
+    {
+      "path": "art/characters/female/heads/form-revenant.png",
+      "bytes": 71668,
+      "sha256": "f0d685ecf2b031b0f22031438eded29031d807323bfc66131f3792af8b585115"
+    },
+    {
+      "path": "art/characters/female/heads/form-skeleton.png",
+      "bytes": 30778,
+      "sha256": "c0ed16cb10ab9e7365808676c99804c62407b6d70394fc954ffc5789570853ab"
+    },
+    {
+      "path": "art/characters/female/heads/form-zombie.png",
+      "bytes": 44731,
+      "sha256": "9c334d1a065ff607bfdef244c32915f704cd76511b44482e05e0969fa66dfef2"
+    },
+    {
+      "path": "art/characters/female/manifest.json",
+      "bytes": 14563,
+      "sha256": "22d02fa8295462a47a90d9f41b687db33fb740e1d99996ac434ef5da0f45c7b4"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/contact-opposite-master.png",
+      "bytes": 1298998,
+      "sha256": "1231cb7cb90c77f2ade83faa13462e89df15576e5753e3097b20ae49af961b88"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/contact-opposite-prompt.txt",
+      "bytes": 1466,
+      "sha256": "43c767a06055212640f7cca14f5f720a5686dc4a13cc37a08121c657339a75c1"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/extraction-attempt-prompt.txt",
+      "bytes": 919,
+      "sha256": "21d650246a9b2677db52870eb320ab84e4430bd0beca3d9a8f412c4a3a036909"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/frames-manifest.json",
+      "bytes": 1120,
+      "sha256": "fbbd83769b026563316aa11b3d7b4892558acce167cd697eedbd5da46eacd725"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/generation-01-prompt.txt",
+      "bytes": 2904,
+      "sha256": "400597830297819b93f7218206559f0f341f7a69376ec0c8c9854130ca8d42bf"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/generation-02-prompt.txt",
+      "bytes": 1699,
+      "sha256": "1447a9a84f0c8a6d2f06d126db5317c46f57422271484733f3767876f99c39f1"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/generation-03-prompt.txt",
+      "bytes": 439,
+      "sha256": "a0d17e6b7a156a696d68f23843e9a651b5ab1314d92c011ad0288ae88567e502"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/opposite-attempt-prompt.txt",
+      "bytes": 2099,
+      "sha256": "7e269bbad4ad60c6cfecb443f1eb91fdcb68bd95db13d5e99600beb5847f807c"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/opposite-attempt.png",
+      "bytes": 1443553,
+      "sha256": "cabe35af3122fe3b034017f8c91c8e30b2827e5f4758fcb71c689d3e65b1c093"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/README.md",
+      "bytes": 8620,
+      "sha256": "bdd1a0cf619c5d65eabedb0c2c0b1b4dbf8df312ee72f5a68a5956026f08b0b1"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-44-idle.png",
+      "bytes": 288161,
+      "sha256": "a795a54ac396dfd72801a00c27f43c2f45a913a6277a54e6cb659eaac99b66cd"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-44-walk.png",
+      "bytes": 287594,
+      "sha256": "5a2e3b4c8481816c8e8705425ba0c87d44980ad930bfe44c0122e6e9723cf28a"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-66-idle.png",
+      "bytes": 524105,
+      "sha256": "0b7d3aab3fd8f4bb20fe978fa591944cb73b937d03741f0520ef67505ec2ac4c"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-66-walk.png",
+      "bytes": 523140,
+      "sha256": "0807b7a6d2e6da6751603863083a5dde97a378ee8eec038811a97f958db2f021"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-88-chest.png",
+      "bytes": 783913,
+      "sha256": "7ca34600d9939868e3635b536614dbca30d0c7a42b5330c59efaebd9b0316a68"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-88-door.png",
+      "bytes": 785137,
+      "sha256": "0dcf209c622b480504b80c2dbc2114942a1c87f64e3855780e76701b62e11346"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-88-edge.png",
+      "bytes": 784091,
+      "sha256": "db61f264b9a2589274d157e083eb49808efba623a4be5c6ae63b32bf5a96eb8f"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-88-idle.png",
+      "bytes": 788828,
+      "sha256": "ab15cdd8cc257cbd05f8c2f86dd1df8f5ab280ec59ff39d03e773d7e63e61237"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/1280x720-88-walk.png",
+      "bytes": 788157,
+      "sha256": "8355db4c74e5421f9c479d132248fe026444fb253ca591b36617f8caba130195"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-44-idle.png",
+      "bytes": 177925,
+      "sha256": "ee94974818f025f73aca30bdaa442d2d3c5e6d83f0cdb79f2ab982d8e969ce27"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-44-walk.png",
+      "bytes": 177398,
+      "sha256": "e25a73456f59967cc5997a99c67054ec3bb0bd61a5ef1478e7e48203748233b7"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-66-idle.png",
+      "bytes": 313618,
+      "sha256": "0c7cfcbb2fe8fba27110b88ae2aeb8e14ee227413a82ae0faeb9aeddeb701e8a"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-66-walk.png",
+      "bytes": 313067,
+      "sha256": "107c2a582fb22256ab31f4798892de628031fe6108b9c831cad900d11f5a0b81"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-88-chest.png",
+      "bytes": 483506,
+      "sha256": "72f0f9be26705d11c3b5899d96a32e71f06db0d1949f31b1e5f4672ea6c852dd"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-88-door.png",
+      "bytes": 484847,
+      "sha256": "d85474f20b593e90f1c1f394b125d50ce4ce21a2e902ca44a2c41ad99b2935c6"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-88-edge.png",
+      "bytes": 484143,
+      "sha256": "2c4c36a03c586042568b7fa9705fbecbbd8bdd7f62fe31517aa5cf0b0e4e5bb9"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-88-idle.png",
+      "bytes": 488371,
+      "sha256": "086de4bf01e92637806a79050e81a22a26fcb9889a4423d0635b12c35593bf7b"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/960x540-88-walk.png",
+      "bytes": 488013,
+      "sha256": "3d9d6825cd28bcc17674d16fcff9a003775ca3cf6615e0286a5ba6b8f5a0968d"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/contact-sheet.png",
+      "bytes": 118797,
+      "sha256": "74ac79b7d645b21428c2eb632c16df4e046f33c89714dc20158f05e7536815e4"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/frames-264-checker.png",
+      "bytes": 181241,
+      "sha256": "9e97114142c94855a896c77d51fa98258b7e093cda4be5c67152e405c158c8a5"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/frames-264-dark.png",
+      "bytes": 163096,
+      "sha256": "e44d38fbafcb1daa30be3308088c76c8599a56d5e8616d07d6539f9118e77ec4"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/frames-264-light.png",
+      "bytes": 179685,
+      "sha256": "8c832e943ffdcb88dccf12ac2a82bb138d93e84fbe42bf67df225e71b943e92d"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/walking-map-crop.gif",
+      "bytes": 653287,
+      "sha256": "16a8f75eceb8da3e82c53df5b7f7fd0f3c5ef9f2825ea3e619eb685a47dcfc67"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/review/walking-map.gif",
+      "bytes": 4457844,
+      "sha256": "8f21128a3a92b7cc181b3d6f44d3b28b4f61a529afc1b3cc85ceea15a95c4b9e"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/walk-alpha.png",
+      "bytes": 1294737,
+      "sha256": "61e3e0a6d45fffd70d5b61f1d9b5ad3e5aef8aee7f3585ec2c7f7dcb20c7395d"
+    },
+    {
+      "path": "art/characters/female/map-ghoul/walk-master.png",
+      "bytes": 1607915,
+      "sha256": "5bc5a5daed6e9f269288a9226c9f7c1b3f5425344d6906a96a1cec1a57ac4913"
+    },
+    {
+      "path": "art/characters/female/masks/form-almost-human.png",
+      "bytes": 3214,
+      "sha256": "ea5d90ada8331717356a80001a7b2825716735f0c27244b16d367b2c46489165"
+    },
+    {
+      "path": "art/characters/female/masks/form-ghoul.png",
+      "bytes": 2309,
+      "sha256": "72180043728f9f7bbc5e6f28b2bc9f9d757b2451df5a1a4151e0172b2cd09211"
+    },
+    {
+      "path": "art/characters/female/masks/form-revenant.png",
+      "bytes": 1971,
+      "sha256": "95032490b7abb44c2d71277e0e4eb25c65d3bf7c748ddbc65dc7038ef830f895"
+    },
+    {
+      "path": "art/characters/female/masks/form-skeleton.png",
+      "bytes": 1203,
+      "sha256": "48e33fcc03e86565af67e540769e9ccaf2885e549cc925ac7ba7b5c4c7b9d9a7"
+    },
+    {
+      "path": "art/characters/female/masks/form-zombie.png",
+      "bytes": 1623,
+      "sha256": "9542b118cd8f753e7f063cb198439c01f302320000be2ec38b819b7dfaf988b7"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-checker.png",
+      "bytes": 238757,
+      "sha256": "8aec795343567cc62ef02290051ca66ba8e0038a705462c3b319e75bd0324336"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-dark.png",
+      "bytes": 231911,
+      "sha256": "e2991ab53a12a926c0ea27decc5e920954fa41808bb7e63b6e102df9fbd902cf"
+    },
+    {
+      "path": "art/characters/female/previews/five-heads-light.png",
+      "bytes": 236653,
+      "sha256": "3dc989965c52c7ed62f695e65d8a7acecf902858d6f2cac21486b3b828b9e3b8"
+    },
+    {
+      "path": "art/characters/female/previews/heads-264-checker.png",
+      "bytes": 229905,
+      "sha256": "b26affe050a960e3923632b88f4c6c519ca4d51ba4e908f71eb336a4031cb09d"
+    },
+    {
+      "path": "art/characters/female/previews/heads-264-dark.png",
+      "bytes": 225336,
+      "sha256": "d0ea03a772cabc5fbe0f9f233e69100595f3780c49974feb51644ae46b501bfa"
+    },
+    {
+      "path": "art/characters/female/previews/heads-264-light.png",
+      "bytes": 229977,
+      "sha256": "52db40043949d91862adb3b1c3f348b1fe952fa1c6771326ac0c66ec92aa5dba"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-checker.png",
+      "bytes": 12499,
+      "sha256": "b7c3b94a635cac208c391f3b117702ef76a2b6451f37f2dfa9082ed1cd625d0e"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-dark.png",
+      "bytes": 11137,
+      "sha256": "e22a40f0aa650f0d14a00affcd9e70a97edf224ac1c7e93657213e8293e16a45"
+    },
+    {
+      "path": "art/characters/female/previews/heads-44-light.png",
+      "bytes": 12122,
+      "sha256": "3e5035a2a349034be77494f79666b82a50c9df84cb16429695900d9959c517a3"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-checker.png",
+      "bytes": 22378,
+      "sha256": "5122ca9ef146ee736873844817235251a7ec4cca9adf730040ca9a1029af9ced"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-dark.png",
+      "bytes": 20444,
+      "sha256": "e6bd6c893fa7b70e1d6a81f35d590a641f928f2829cc323b63c76256176235d6"
+    },
+    {
+      "path": "art/characters/female/previews/heads-66-light.png",
+      "bytes": 22050,
+      "sha256": "338c75708a1476a44d6fd77251850696e9dbf0d58ab3835ef1b76af31748a216"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-checker.png",
+      "bytes": 35027,
+      "sha256": "a046fd8794787bc4b70d35827bbb39f56f729e5af232092624897e5cf8b9ea0d"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-dark.png",
+      "bytes": 32623,
+      "sha256": "dfe302eb28c61e0adc7885d6e407f7744438570b888ef53053df7e4e0439627f"
+    },
+    {
+      "path": "art/characters/female/previews/heads-88-light.png",
+      "bytes": 34842,
+      "sha256": "ce6db869895fd4ba145e7a7f896a203e6cebd015c38927b61f0c6da3f202e04d"
+    },
+    {
+      "path": "art/characters/female/README.md",
+      "bytes": 6858,
+      "sha256": "87886183ce7ab829ce5261d4bb0c7cab5eee80f9b672d4bfec6318a32d545018"
+    },
+    {
+      "path": "art/characters/female/recipe.json",
+      "bytes": 28871,
+      "sha256": "6d8f6c16320837fb9c46c1752d1a4c7e6c383eababa91fa307e8d3f5d9ec56de"
+    },
+    {
+      "path": "art/characters/female/sources/almost-human-original.png",
+      "bytes": 2855954,
+      "sha256": "d20a535161689e23ba1a973bf9c3a3aeb860aec02fbce6f5e823c204bb8f0479"
+    },
+    {
+      "path": "art/characters/female/sources/four-stages-approved.png",
+      "bytes": 2751344,
+      "sha256": "8b371aa8a586956933e8a8c0a9fdd1a6288c740cd4172b3bd26d550d1a143b15"
+    },
+    {
+      "path": "art/characters/male/packaging.log",
+      "bytes": 1616,
+      "sha256": "e28c85ce891ed3ae3c6bea4c6e5cee84654249b73e7f791b7adadae892cdfb79"
+    },
+    {
+      "path": "art/characters/male/README.md",
+      "bytes": 855,
+      "sha256": "9d8d5ee69cbd8f0526232eb9e81514bc253d1266838915fe4a7c6db97e6dee9e"
+    },
+    {
+      "path": "art/characters/male/self-test.log",
+      "bytes": 335,
+      "sha256": "c423069ff9520403f3b1306d6631c709fd519c0c88c9c94aa2f7f4b5645550d2"
+    },
+    {
+      "path": "art/characters/male/sources/five-stages-approved.png",
+      "bytes": 2399044,
+      "sha256": "74ed2961886fe021c6c63b305d17ea403d6f74d15c655e2f3690bf241c1bab04"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-almost-human-attempt-01.png",
+      "bytes": 1228693,
+      "sha256": "f8e2c25770286f82b94f96a89725511efe372308b78678aa5a864681cb47a387"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-revenant-attempt-01.png",
+      "bytes": 2239186,
+      "sha256": "64cabb653bb652d316a50f6acfe0f04ff67799ccce07e74c3984ebcd67dc4080"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-revenant-attempt-02.png",
+      "bytes": 1918837,
+      "sha256": "826b924b33597592b9bb278c578e052bb316eaac5959fc58aab77a0f4c930a54"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-skeleton-attempt-01.png",
+      "bytes": 1310078,
+      "sha256": "3ca7503230f57d2b0bd71be4dbe2f8e85a73d872d27f6c85b0f9c577280d1642"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-skeleton-attempt-02.png",
+      "bytes": 1569281,
+      "sha256": "65d72c6596062f992e7e20e66d267c344097b5ef91169faefb73bc1af078f1b8"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-zombie-attempt-01.png",
+      "bytes": 2211468,
+      "sha256": "45990fbf58f10f5a37b27605a2e2f524cee31a18f491eed91f49e982c7e544f8"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/female-zombie-attempt-02.png",
+      "bytes": 2006576,
+      "sha256": "2a05855c545ffba1a14c6ffabeff23e7c6af2e07047549ae5fbbe2ed0128fa26"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-almost-human-attempt-01.png",
+      "bytes": 2096168,
+      "sha256": "feeea0b38b397ec9b43902f05bd100e74a6d9076b6590b2d633be2e3e3c4d176"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-almost-human-attempt-02.png",
+      "bytes": 1795854,
+      "sha256": "25b5ea344cdcd13492597387c882f5e245be58e23a7ecd1b413b43fa0791e1ee"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-ghoul-attempt-01.png",
+      "bytes": 2147680,
+      "sha256": "0e763905c7dcbe7416a626871aa0a468c56e72f5fc05377c03e79cb445a59f74"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-ghoul-attempt-02.png",
+      "bytes": 2242158,
+      "sha256": "9c3d0857e869d57d561e304626e5642bed1f9664b3f30a3fed4ed23ef46ad92d"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-revenant-attempt-01.png",
+      "bytes": 2035586,
+      "sha256": "ae94bb99596f5d18adad694db72b687ff2571cd68c70405834b48542d7fffd48"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-revenant-attempt-02.png",
+      "bytes": 2237547,
+      "sha256": "5b9b77b7f455ba4856007a3aa1a8919f93b712a23f064e5d3a3cb9d3e296f24d"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-skeleton-attempt-01.png",
+      "bytes": 2063161,
+      "sha256": "6e1ddf7d6a70b6dec8b98bae180c9864e608983e49216ffe4896b523958aa6c8"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-skeleton-attempt-02.png",
+      "bytes": 2205666,
+      "sha256": "6072d2e6e38f9945c1ca734ef6888b1a6af469bbcac8adf206b47bea7f554cdc"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-zombie-attempt-01.png",
+      "bytes": 2255710,
+      "sha256": "07cf494d4383d9621debc1f5272395c93237c80e1881de6b51f78f5f2b861bda"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/male-zombie-attempt-02.png",
+      "bytes": 1951322,
+      "sha256": "c515c7f488e63220df43baf4567abbaa04c85c0ef2e53dd392c055a07db85823"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/candidates/old-claymore-attempt-01.png",
+      "bytes": 457970,
+      "sha256": "41aa1f1f92c9c0cb8ed10d430661362021567f0ab6cea7364a6a5c2b8fea5e3c"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/imagegen-prompts.md",
+      "bytes": 26911,
+      "sha256": "2812113a15de68ce8e0c4702e15f2de467dba1ed6e1bae4089149e4bcc02efef"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/README.md",
+      "bytes": 1596,
+      "sha256": "7cafd13c2d9fc3e36017410a0749ae1208e795ffdb09cff972788de9dc377476"
+    },
+    {
+      "path": "art/characters/map-runtime/2026-09-01/runtime-manifest.json",
+      "bytes": 26391,
+      "sha256": "bb4d49fbef927eff1baecbcdcd5cafb19eea77a6f17ba7676e7f3fe542632860"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/female/almost-human.png",
+      "bytes": 2128873,
+      "sha256": "c0d5de5da59a597ba42cddb193902f2fcab343e041b9aed95d0dea618d212ac1"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/female/ghoul.png",
+      "bytes": 646087,
+      "sha256": "1f60e895ef145fdc0fbe62bc51026471cbd458cb70860695b2421cc034abd464"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/female/revenant.png",
+      "bytes": 651114,
+      "sha256": "733d12b0795fd0961219a3bf50299e1b377332f44b11d383dbeb53fe562ed1f7"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/female/skeleton.png",
+      "bytes": 577537,
+      "sha256": "44f9386cd9df09b3d3503ec2934b7a83f2619ecbf57692f23cbf047facd53123"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/female/zombie.png",
+      "bytes": 570834,
+      "sha256": "d04bf29f5590264d109c9b5054a50968dfd3d5c677d82ac5aff272ef9ff8b877"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/almost-human.png",
+      "bytes": 570973,
+      "sha256": "e78728632b92a7d15c00b100f988d37efdd0e4cecf52fbc2ae5959d4d86d008b"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/ghoul.png",
+      "bytes": 442716,
+      "sha256": "e25c0218eeed7240fed3bd34d669ebb3b3bdad3e37353e9382c567e32e9cb647"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/head.png",
+      "bytes": 46321,
+      "sha256": "ebb6dfe52d00cea71749af31fe7a6d1f66e167e3fa7ebfdae3d1529f4eb9f94b"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/revenant.png",
+      "bytes": 428110,
+      "sha256": "ef167e9d59b6ca8dd91db94c427b978733968f0022092e0b4eafe622d78a9523"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/skeleton.png",
+      "bytes": 431819,
+      "sha256": "fecd9e057c47e089eddd263f3b5c7c8e1e540fc9becb94edc171383662700735"
+    },
+    {
+      "path": "art/characters/sex-selection/cutouts/male/zombie.png",
+      "bytes": 465686,
+      "sha256": "f7095be323a54c41b934a08c474aa837d04ec05faa7d55ad950ad2252f4d299b"
+    },
+    {
+      "path": "art/characters/sex-selection/manifest.json",
+      "bytes": 5832,
+      "sha256": "19356ba04d1249fa7761f738160a3257daa6ce8908ec162ec647ce148d1f5ab8"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/female/almost-human.png",
+      "bytes": 10623,
+      "sha256": "ea35a2af8a612fb686d74f132799e0501f1fef5b233a1baebdb0f4905449d330"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/female/ghoul.png",
+      "bytes": 6354,
+      "sha256": "a43abef2a37019b49e01ec2fa7f34befcb58f420349b82958cabc22c229122c6"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/female/revenant.png",
+      "bytes": 5711,
+      "sha256": "2557545327c7d646e87af53429ca5d24a6be81c2097d845792084d3768d40ab1"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/female/skeleton.png",
+      "bytes": 6228,
+      "sha256": "27ec5c762a1195c3f29c22940b78b49a03ede139226d433e49359ccc8138aa9a"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/female/zombie.png",
+      "bytes": 5814,
+      "sha256": "441bd36701316f6ce489919bc3a2b1ddc524914789cdb22d4dcfdb75829106c3"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/almost-human.png",
+      "bytes": 6845,
+      "sha256": "0ae254c07adf14e48a9d3c53c16f30a3a268e82cf86abd3834ed12dd7498724e"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/ghoul.png",
+      "bytes": 5663,
+      "sha256": "a4c0a34168cf20504c2ceb289af77e2d77bc073e7b946acd46c4f35646601252"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/head.png",
+      "bytes": 1129,
+      "sha256": "b5a8f3e29ed2b67646fe91b766f0025a094454f01ce8c5e18fac8b56f3ff64eb"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/revenant.png",
+      "bytes": 5480,
+      "sha256": "3325c46f248fce973ab146b40bbcaa490725ab5e0abc1fa8747002e14a6f7067"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/skeleton.png",
+      "bytes": 5915,
+      "sha256": "cccf2cfe2cb17d457e44092b1129bdfc6b9bccd3b2987c106f7e6b29c79473a5"
+    },
+    {
+      "path": "art/characters/sex-selection/masks/male/zombie.png",
+      "bytes": 6370,
+      "sha256": "8640c2a26b6569fbaf8acdb2db33cbf5dbb429831505e949d3cef18839468ed8"
+    },
+    {
+      "path": "art/characters/sex-selection/previews/bodies-dark.png",
+      "bytes": 1165375,
+      "sha256": "d0772d8ea836ba9b573ef2d12cde77a9cbea00bd3c849f39fb0388faf0f21fd7"
+    },
+    {
+      "path": "art/characters/sex-selection/previews/bodies-light.png",
+      "bytes": 1180577,
+      "sha256": "f619512423994a815ab6a6b1ae383019faf8126acf71db2b544f1704c3fc80a5"
+    },
+    {
+      "path": "art/characters/sex-selection/previews/selector-heads.png",
+      "bytes": 92792,
+      "sha256": "dbc10695f9bbbb950ce703000d4587459c6ac0e0fe4ebf35836923ada9d8bf4e"
+    },
+    {
+      "path": "art/characters/sex-selection/README.md",
+      "bytes": 4704,
+      "sha256": "560dbf30eebaf874c24987de55cdf04cfc1646639fc1db7fdb4e0f1c6eff239b"
+    },
+    {
+      "path": "art/characters/sex-selection/recipe.json",
+      "bytes": 30620,
+      "sha256": "8562cae669236caf55a5c939898a3011afd19bba25c7c66e751dfa1da1ce25be"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/camp-empty-v1.png",
+      "bytes": 2811879,
+      "sha256": "4b2f1d5ef1d6fcacc056353f3bf4b88c0ccf5bdb6e0754dd23d2cefe92e2ec22"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/camp-empty-v2.png",
+      "bytes": 2676859,
+      "sha256": "6aa0cb03a38b33ee64057c89adfaa064939e63cc60f95d3c2bfc903658cbddf3"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/camp-furnished-v1.png",
+      "bytes": 2548968,
+      "sha256": "9b28630749d481f341e0479a0066c73516971213e7be471a54d9056f489949f8"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/camp-furnished-v2.png",
+      "bytes": 2698736,
+      "sha256": "c937eb0391bb29ac566e1c12a4ebed60887f9294519fd437dc32f7a9ae9d182f"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-01.png",
+      "bytes": 1949193,
+      "sha256": "08e6a9d73044dec90afc727653816c57b5036f9c9fb21bffaaddcad85c7f9eee"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-02.png",
+      "bytes": 1784594,
+      "sha256": "978ad627cd80d60e5e81704b5b904366779563071d525ef3fa4917c0a45f9903"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/candidates/camp-isolation-attempt-03.png",
+      "bytes": 1671190,
+      "sha256": "8541b849007edb9c2d1b409040f365321dc79a64fad2b3fd66634ae48b662f7c"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/PROMPTS.md",
+      "bytes": 22149,
+      "sha256": "d4b79f01a022d0a48099d9f9b063aa440e69ce8954cd0c694fe1200269144526"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/README.md",
+      "bytes": 13105,
+      "sha256": "903a374b34688e373dcea653912d06b7bf19423f2ffeeb0b055d3405f0a6caef"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/runtime-review/all-modules-runtime.png",
+      "bytes": 799411,
+      "sha256": "9c714216df679b66cf5308aa06d486762e57f9a0e52227d27dfeb5a8d3bb1245"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/runtime-review/camp-empty-normalized-1636x960.png",
+      "bytes": 2596269,
+      "sha256": "48d23dbff869c19dccb564128f79315b2795903945517a45ceea282293d4a0d6"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/runtime-review/camp-furnished-normalized-1636x960.png",
+      "bytes": 2612182,
+      "sha256": "f14bc41f2331b055b115a3cbe75a31865e3ad39e2c747940e8b2c86af8db3ace"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/runtime-review/camp-isolation-matte.png",
+      "bytes": 1807523,
+      "sha256": "2a96eb2c29b8272511a4ce2e3b2d46f975da31318c215261eda89155096832d9"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/runtime-review/empty-runtime.png",
+      "bytes": 672327,
+      "sha256": "39441a7e46047593ae01783738b590f4fb8e0e1de24c065f058ec5b7b4a5fa15"
+    },
+    {
+      "path": "art/concepts/camp/2026-09-01/storage-chest-master.png",
+      "bytes": 2456713,
+      "sha256": "9fc7c1d961e2a9b0d13ea967866c3c6b4e91422e044d1eb7e894770238c3d1a3"
+    },
+    {
+      "path": "art/concepts/character_faces/final/01_skeleton.png",
+      "bytes": 1832781,
+      "sha256": "e3c59dd920f436fe5f8f661ee5647acadd41fdd3a9409ca4f506f5edeae0b94c"
+    },
+    {
+      "path": "art/concepts/character_faces/final/02_zombie.png",
+      "bytes": 1895064,
+      "sha256": "67910cc29db1b0aea6c9cbfa2484218c78c91751ae8130b39357ab490c6033bd"
+    },
+    {
+      "path": "art/concepts/character_faces/final/03_ghoul.png",
+      "bytes": 1960803,
+      "sha256": "5eefddbcddf366fd8251ccba88bab2f9d242ecf6170df217d28ad22787ced45b"
+    },
+    {
+      "path": "art/concepts/character_faces/final/04_revenant.png",
+      "bytes": 1999755,
+      "sha256": "fe44e5deff607c32fe846c1ebfddbc9e85e30ed337cdd902cee988246515ceea"
+    },
+    {
+      "path": "art/concepts/character_faces/final/05_almost_human.png",
+      "bytes": 1854753,
+      "sha256": "707d7711c3ecfcaa10ad7b9112617dad6f5731c17b2d6625d2134f4c81977e70"
+    },
+    {
+      "path": "art/concepts/character_faces/form_01_skeleton.png",
+      "bytes": 1782762,
+      "sha256": "20c61f2c5c4e40fd267b2aad9fa78c4232e92a31510a837040752b012af12e78"
+    },
+    {
+      "path": "art/concepts/character_faces/form_01_skeleton_v2.png",
+      "bytes": 1734890,
+      "sha256": "fad827442362f116ab0fcc5b0d775931c5fa882ff934128377591d422f258646"
+    },
+    {
+      "path": "art/concepts/character_faces/form_01_skeleton_v3.png",
+      "bytes": 1759852,
+      "sha256": "0a938135fcb4c8e4461c697c2e50c864f36667eec1ca7bb2eea8b33b993fce24"
+    },
+    {
+      "path": "art/concepts/character_faces/form_01_skeleton_v4.png",
+      "bytes": 1832781,
+      "sha256": "e3c59dd920f436fe5f8f661ee5647acadd41fdd3a9409ca4f506f5edeae0b94c"
+    },
+    {
+      "path": "art/concepts/character_faces/form_02_zombie.png",
+      "bytes": 1849343,
+      "sha256": "c4a7e11736daf4b74990cea50479e814b0192519f014c14168b109ac8e73837e"
+    },
+    {
+      "path": "art/concepts/character_faces/form_02_zombie_v2.png",
+      "bytes": 1863286,
+      "sha256": "5eb23839bc0f8f997bba55459505bc12eeb7d93601aaab08c0312d5a9a19626e"
+    },
+    {
+      "path": "art/concepts/character_faces/form_02_zombie_v3.png",
+      "bytes": 1841258,
+      "sha256": "970016d6d1c94c5c98e3ea7ba6778fe6f70ca44157c211be0d29f443cb42fc20"
+    },
+    {
+      "path": "art/concepts/character_faces/form_02_zombie_v4.png",
+      "bytes": 1895064,
+      "sha256": "67910cc29db1b0aea6c9cbfa2484218c78c91751ae8130b39357ab490c6033bd"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul.png",
+      "bytes": 1848325,
+      "sha256": "e2082d45b6a2f7f5dd449c378bc7eb8f6ae737ea1dc20c5914766924b69dba9e"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v2.png",
+      "bytes": 2029536,
+      "sha256": "334f37bc503338f3a4a13c0e73bf4e8d1e309dfc61130b7b8636fff830552301"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v3.png",
+      "bytes": 1818601,
+      "sha256": "d4ecd89eb53742e8a02da18d0d798767eb53c989309291f72ff903d5e117dbd5"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v4.png",
+      "bytes": 2002177,
+      "sha256": "a0289c4eb256f99e2941fc85cc8fc3420a2690811b3aa326c5f3a51b66c77377"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v5.png",
+      "bytes": 1996239,
+      "sha256": "423cb221aa64c268b57fc3d142cdd8a3fb526871f9c7e98f18822b8925403c54"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v6.png",
+      "bytes": 1941175,
+      "sha256": "e0ecfa2fa8e2271f2c0731beff19e19bd7be2b3cbb19da248192f9e653a5f413"
+    },
+    {
+      "path": "art/concepts/character_faces/form_03_ghoul_v7.png",
+      "bytes": 1960803,
+      "sha256": "5eefddbcddf366fd8251ccba88bab2f9d242ecf6170df217d28ad22787ced45b"
+    },
+    {
+      "path": "art/concepts/character_faces/form_04_revenant.png",
+      "bytes": 1919013,
+      "sha256": "e113d611a940c0a60e3a447086582889dd2a35f908b2100eedd25adef87a3491"
+    },
+    {
+      "path": "art/concepts/character_faces/form_04_revenant_v2.png",
+      "bytes": 2047846,
+      "sha256": "119c6f0442c2f1f1a22b26c4b2f34925bce7f019987cb0109f19c1f2547bd1af"
+    },
+    {
+      "path": "art/concepts/character_faces/form_04_revenant_v3.png",
+      "bytes": 1999755,
+      "sha256": "fe44e5deff607c32fe846c1ebfddbc9e85e30ed337cdd902cee988246515ceea"
+    },
+    {
+      "path": "art/concepts/character_faces/form_05_almost_human.png",
+      "bytes": 1877218,
+      "sha256": "492ed3e0e12dd088e012f7c390dc3c992c6b95b7bfe1ca3b1151045d990c9d6b"
+    },
+    {
+      "path": "art/concepts/character_faces/form_05_almost_human_v2.png",
+      "bytes": 1854753,
+      "sha256": "707d7711c3ecfcaa10ad7b9112617dad6f5731c17b2d6625d2134f4c81977e70"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/01-tired-skeptic.png",
+      "bytes": 2975589,
+      "sha256": "563d338d7a6a961366007d7b7cbe330a6ad85e87902bc7c2d3a5548f2483b680"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/02-shifty-rogue.png",
+      "bytes": 3110122,
+      "sha256": "59179d148e9c46f36d459c33c66e783ecd36b9add6f6e821df28581b4cef985a"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/03-absent-minded-scholar.png",
+      "bytes": 2952012,
+      "sha256": "c5a1c4a1f620d7eaf1cc24d957415dfe71c4015871b0a0caeb1ea0c23cc65c2e"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/04-gentle-oaf.png",
+      "bytes": 3130634,
+      "sha256": "104f25c57aad6a8bac1a43d44acd2a94134fc01cd3d9af37f342cc3d399d0b8d"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/05-pompous-bungler.png",
+      "bytes": 3125532,
+      "sha256": "95588814722e72f14a5a422e10836b91aa4a8327770958048525f657248fa1db"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/06-shameless-goofball.png",
+      "bytes": 2963600,
+      "sha256": "ffbeae5fab209137df081e3a19fca7eb098c0865da0e2876cc195449ca3a5c9b"
+    },
+    {
+      "path": "art/concepts/character_fullbody/alternatives_2026-08-31/PROMPTS.md",
+      "bytes": 15294,
+      "sha256": "c57c089faec629aa69564690152e89ebb1e5134eceecb6ae01d89bf59df828e9"
+    },
+    {
+      "path": "art/concepts/character_fullbody/body_lineup_approved_clothing.png",
+      "bytes": 2500456,
+      "sha256": "240944dfd6b6d5ff10f15e6d6513c3df5c212668625234dcbff8ff36961fafd2"
+    },
+    {
+      "path": "art/concepts/character_fullbody/final/character_fullbody_set_01.png",
+      "bytes": 2445741,
+      "sha256": "953e27c097d4805026f7236ed025dc5fbd48786f35fb2748b85163be1f65732f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/final/character_progression_lineup.png",
+      "bytes": 2445741,
+      "sha256": "953e27c097d4805026f7236ed025dc5fbd48786f35fb2748b85163be1f65732f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/final/character_progression_lineup_v1_eye_offset.png",
+      "bytes": 2478179,
+      "sha256": "93f48f500bfc616cfd75b1afef85f4999a8bd939582cb15b05249fc7eef19939"
+    },
+    {
+      "path": "art/concepts/character_fullbody/final/character_progression_lineup_v2_ghoul_eye.png",
+      "bytes": 2445741,
+      "sha256": "953e27c097d4805026f7236ed025dc5fbd48786f35fb2748b85163be1f65732f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/protagonist_quartet_2026-08-31/01-hero-wanderer.png",
+      "bytes": 2424038,
+      "sha256": "74f6b772b94376dfb783d2dcd75d4d0eb1d54e4b79e2f3060329137e27506d2e"
+    },
+    {
+      "path": "art/concepts/character_fullbody/protagonist_quartet_2026-08-31/02-hero-knight.png",
+      "bytes": 3110331,
+      "sha256": "2c43956cbf2b1d8342c63a70be20608503ebde7140a37003c628f32afc91e7af"
+    },
+    {
+      "path": "art/concepts/character_fullbody/protagonist_quartet_2026-08-31/03-heroine-wanderer.png",
+      "bytes": 2895284,
+      "sha256": "29bfb3337d59056e5756c8a3d093a2516837909ee882f443adaad7c45e97bc89"
+    },
+    {
+      "path": "art/concepts/character_fullbody/protagonist_quartet_2026-08-31/04-heroine-rebel.png",
+      "bytes": 2855954,
+      "sha256": "d20a535161689e23ba1a973bf9c3a3aeb860aec02fbce6f5e823c204bb8f0479"
+    },
+    {
+      "path": "art/concepts/character_fullbody/protagonist_quartet_2026-08-31/PROMPTS.md",
+      "bytes": 13489,
+      "sha256": "af61e7e42868a0d1ac1ae4b0c7b98d3707d6bb1242b52ee0c04b43c39ea8a2e7"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/01-bone-rebel.png",
+      "bytes": 2806229,
+      "sha256": "b8b71368c49603641e0887c3ef8da8c0dd3eb728b43291f69d985ea2c8d7d1ff"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/02-quiet-wanderer.png",
+      "bytes": 2832916,
+      "sha256": "ee7b758dd5eaf584e2f22459e5558bd2f48296e18957a56058c18163e7d258b6"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/03-bone-scavenger.png",
+      "bytes": 3060710,
+      "sha256": "1274ecfe327f91d521e94a1014180dfb36b20a1daded7368262ef315628de9be"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/04-ash-rebel.png",
+      "bytes": 2764631,
+      "sha256": "8be75e263cfeb8e591b642473049c53e8a85197ec05d717c6ad42dd80908aa0f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/05-echo-keeper.png",
+      "bytes": 3230856,
+      "sha256": "7abd1f6f2f621b13c6749c794c6406254427bbe448fab88e4545c51c6fdc1403"
+    },
+    {
+      "path": "art/concepts/character_fullbody/reference_variants_2026-08-31/PROMPTS.md",
+      "bytes": 12007,
+      "sha256": "83bfd3fbfd9ae690a471b374dee64ebbc576e186cfa6d80d8a9048f10468da9a"
+    },
+    {
+      "path": "art/concepts/character_fullbody/style_tests/ghoul/ghoul_style_01_hard_edge_detailed.png",
+      "bytes": 2598075,
+      "sha256": "7d6610aee50797850ae82930ac9caab78c162bc0a99752db75208711c8519590"
+    },
+    {
+      "path": "art/concepts/character_fullbody/style_tests/ghoul/ghoul_style_02_graphic_comic.png",
+      "bytes": 2327172,
+      "sha256": "6d78a2cb2dc286e940021cf8692dfc8f24636786b809cb64dc78da82608e6eca"
+    },
+    {
+      "path": "art/concepts/character_fullbody/style_tests/ghoul/ghoul_style_03_hybrid.png",
+      "bytes": 2501351,
+      "sha256": "c41558d7eeeab8256d3be344453072e44e0ae3daac137f9c6c6ca2726cb4d56f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/style_tests/ghoul/references/early_graphic_lineup.png",
+      "bytes": 3123289,
+      "sha256": "2245e68d810cbf3bcf959f04ede9ef5d7b75b24aa6c9fb0d4c779bb8baa4d79e"
+    },
+    {
+      "path": "art/concepts/character_fullbody/work/lineup_heads_pass_01_skeleton.png",
+      "bytes": 2368844,
+      "sha256": "2f9566768e37fb1e67b9624ddc7aa09ce1ff1b7125deece74c6354a1492bbd7f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/work/lineup_heads_pass_02_zombie.png",
+      "bytes": 2290950,
+      "sha256": "270cee98c3099b0a478d97728d42b8741e0f2eb7c5857e25bbefae2adf66c175"
+    },
+    {
+      "path": "art/concepts/character_fullbody/work/lineup_heads_pass_03_ghoul.png",
+      "bytes": 2338283,
+      "sha256": "8faa9becab046773a0275c60f8b7869f10819ac8beaf852fd35331f5149b1ce9"
+    },
+    {
+      "path": "art/concepts/character_fullbody/work/lineup_heads_pass_04_revenant.png",
+      "bytes": 2360232,
+      "sha256": "a9f1660fd496221b1e50f0ed07b415b2d93611e5dca5b05b791d1e843869543f"
+    },
+    {
+      "path": "art/concepts/character_fullbody/work/lineup_heads_pass_05_almost_human.png",
+      "bytes": 2478179,
+      "sha256": "93f48f500bfc616cfd75b1afef85f4999a8bd939582cb15b05249fc7eef19939"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/manifest.json",
+      "bytes": 10675,
+      "sha256": "6cf5278a02ac3fb6be787a39efcd7ef1b0a4714e5057ebb9181883e8448a394b"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-almost_human.png",
+      "bytes": 106572,
+      "sha256": "60939631ef7abbaef94ba41618ec8a56e613c876da3a2832f0d9e9f661c42c85"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-ghoul.png",
+      "bytes": 105860,
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-revenant.png",
+      "bytes": 90169,
+      "sha256": "69a60a4fe236242ade94415a631481edd896849d6d9cf998c4ac091000afa89e"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-skeleton.png",
+      "bytes": 107609,
+      "sha256": "9015cc0795927da5ca5da639854ca54826651a197b844dcc8baf8c75551b8525"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-1280x720-zombie.png",
+      "bytes": 91357,
+      "sha256": "2799593568e86cfad45b28f79d0050d26e286a2a2ae94fd0842a695ed6f38f7e"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-almost_human.png",
+      "bytes": 74741,
+      "sha256": "7a1cf4656dbf327e4863dc2fc56bc5bca497073c902df8337f9d8f4124f45141"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-ghoul.png",
+      "bytes": 73378,
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-revenant.png",
+      "bytes": 62908,
+      "sha256": "0ff4f4a1fe81ff1fc26d3d2b8e129fcca898ea120a1472c66a00151fb8bdd251"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-skeleton.png",
+      "bytes": 74948,
+      "sha256": "9322467682101e6612bd37dd5050d8aa408cd6712222dd3c07642d60e24bdb1c"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-en-960x540-zombie.png",
+      "bytes": 63882,
+      "sha256": "458ba68fad10b0c7bf4494e866f0bc7a01bfc2dd7c81eddab25ca3c007ea6560"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-almost_human.png",
+      "bytes": 108967,
+      "sha256": "1c01ca4663135c182d7a8fdd3e71b95fca960102ddcee4b9758076033cf5c0f0"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-ghoul.png",
+      "bytes": 111225,
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-revenant.png",
+      "bytes": 95483,
+      "sha256": "9224754d987e6619a9de8128a367dbadf553751a873c69334ea0fb22a3311bdb"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-skeleton.png",
+      "bytes": 111993,
+      "sha256": "04fd8dff703db0855417a0e717b91cfe6a959f3ea86c9c504e31eb349dc8723f"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-1280x720-zombie.png",
+      "bytes": 97568,
+      "sha256": "9f31a9fa6175d61f09fda2acb6e32ade74a2e2882225f888bf8d57634b41e83d"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-almost_human.png",
+      "bytes": 76763,
+      "sha256": "f62600950cb29f12a4c5aae093933afb6926a073c32bf1ef03b2693eccc00a46"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-ghoul.png",
+      "bytes": 77773,
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-revenant.png",
+      "bytes": 67160,
+      "sha256": "4191871d43ae23265d0b21e5ee7a0c5d50feb453caa964a69475b575b28c69a8"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-skeleton.png",
+      "bytes": 78325,
+      "sha256": "aef49f79acfb5c0406ccccf33686725d6e33172334cbffed016f64fe9fe4cee6"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/matrix-ru-960x540-zombie.png",
+      "bytes": 68440,
+      "sha256": "e781eb79da63ce72877df100d18682a5ed77f30a77e826fd41c33de391cad08c"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/state-sheet-1280x720.png",
+      "bytes": 187424,
+      "sha256": "7d188d478f15daf486f867087f973d3553ea1c64118829f51145e3ef40bc8a46"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z44.png",
+      "bytes": 105860,
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z66.png",
+      "bytes": 105860,
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-1280x720-ghoul-z88.png",
+      "bytes": 105860,
+      "sha256": "f8bf9560b9c05a5ed0235cd95078485e1ca6aba058be6769c97100cfb970a179"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z44.png",
+      "bytes": 73378,
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z66.png",
+      "bytes": 73378,
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-en-960x540-ghoul-z88.png",
+      "bytes": 73378,
+      "sha256": "4946937cf1bbe38b14f96791aeb5306d3de6ff3af30ae3b2c7b4defc5ceb43bd"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z44.png",
+      "bytes": 111225,
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z66.png",
+      "bytes": 111225,
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-1280x720-ghoul-z88.png",
+      "bytes": 111225,
+      "sha256": "293f6bb6dc0dab711f4be956e18657562b1a49c8859bbda53405f64616374684"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z44.png",
+      "bytes": 77773,
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z66.png",
+      "bytes": 77773,
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "path": "art/reviews/body-skills/2026-09-01/ui/zoom-ru-960x540-ghoul-z88.png",
+      "bytes": 77773,
+      "sha256": "01b02090e4edbad6203d871a2dda9fa9710b4ba070d3e001f75ad35052983d46"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/choose_appearance-stage1e.png",
+      "bytes": 957392,
+      "sha256": "f242b60bd0befb801d487cf1fd71113551e0e216212c3a7736f3ca6651ea57a2"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/choose_appearance.png",
+      "bytes": 905172,
+      "sha256": "2837bad4cb323f6713f06576e00be87beb619fa945e74d7806f8ffd345e76a22"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/ears-stage1e.png",
+      "bytes": 581928,
+      "sha256": "c946494b549f16bf2a692132cebbc0ea6dcdc648d65b8e52b8de0a6ac12a4611"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/ears.png",
+      "bytes": 895734,
+      "sha256": "0cb6979a47baa33e9859d3c6a3dd83a3308526a1eab1dda5ca749999953c9ef8"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/flesh_regeneration-stage1e.png",
+      "bytes": 782358,
+      "sha256": "37142f8c9ce3b5dcea09747f094292b00d4cbe56587a1d343aefa9ab9afcc51a"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/flesh_regeneration.png",
+      "bytes": 1106629,
+      "sha256": "d3dfe06d799ea86f991210cc40cb3b27ac043e77ad89afbed2c1dd709b9b5c7b"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/flexible_joints-stage1e.png",
+      "bytes": 406123,
+      "sha256": "82d0988d61306ab5d108d3435a584b5ca82c43a1f1f31ff246364e370b7213bf"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/flexible_joints.png",
+      "bytes": 1027544,
+      "sha256": "b68f487f1d493c69ba5f0fa01c1b9f195234b2c9747dad08c519e1d7a1d5b069"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/fundamentals-stage1e.png",
+      "bytes": 631323,
+      "sha256": "45d7e044abb463e17c32af392f1fa84e582bd079757cbc3d427b63f320874e11"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/fundamentals.png",
+      "bytes": 985975,
+      "sha256": "4e57ae88ea5b64d5d73ccdd0be64e194977af859821889a87f79aaa8511a0933"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/muscle_fibers-stage1e.png",
+      "bytes": 716615,
+      "sha256": "2f62589c2f546b92cf57d22e06aa0c8a52dcebc69fd853a08e12cfae8abc2362"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/muscle_fibers.png",
+      "bytes": 1078398,
+      "sha256": "292a8c8cce4a8fdf8e3431994361738646be3b42f3d751ed564d704abb97d5fe"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/nervous_system-stage1e.png",
+      "bytes": 639487,
+      "sha256": "ed2c6b1ed59225d3a83864a06585a8a1e7448aebbfa66bb8425a239e5ccd9591"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/nervous_system.png",
+      "bytes": 1068189,
+      "sha256": "608db66c8d15ca25344efc3f4fe0be2d7bcd9ae07c69d6cbd4ec9963cf9e7d5b"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/sharp_vision-stage1e.png",
+      "bytes": 683450,
+      "sha256": "512c1f25de7544777753e03ca0b0a7a8da3ec4e85263932510a2e420fbb11060"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/sharp_vision.png",
+      "bytes": 1063767,
+      "sha256": "dbbc9c7dac0b3f82e48758a66d3f13c8bf5ee407a7e99fad12b708fbf0c0cfc9"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/stomach-stage1e.png",
+      "bytes": 530435,
+      "sha256": "13fc2f1afd2c4e496d15bf4e1b56688325900b53c7be892e4011ff4ca8e2d102"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/stomach.png",
+      "bytes": 1001779,
+      "sha256": "409915d170947f1ac51a3d1abaf97a88b9595d5c04f4660e820d90e1c0e304b9"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/strong_bones-stage1e.png",
+      "bytes": 703933,
+      "sha256": "675e0e3f0a60153b39dd3596e1f6475e174cd1141f139a1aa19e8d65083aa8b5"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/strong_bones.png",
+      "bytes": 514825,
+      "sha256": "484ec16a96bf49d46de522afec7be8e1c0a1b128812860d6bbe4e821f84e638f"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/strong_spine-stage1e.png",
+      "bytes": 1058477,
+      "sha256": "8e249415b32e2a84b8968bfe3722bce4a645a313b94d9cf671c8423d26d49b73"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/candidates/strong_spine.png",
+      "bytes": 950626,
+      "sha256": "d82e928d812e3559bf9657d5d4be5fd8b34d27926eda8533612cb678ae1582a0"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/manifest.json",
+      "bytes": 30925,
+      "sha256": "cee90b948fcd67c5f72890502982aa9a9ef96f248646d92a9403e402a7456c6f"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/choose_appearance.png",
+      "bytes": 39587,
+      "sha256": "e08cb44c610c961e791bd8c0d9a8653c1171152705660e0776ebbabcfba8333d"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/ears.png",
+      "bytes": 26906,
+      "sha256": "44019b936a763eff6a07476893cb0e0a35fa70a1f2921e2ba57dbbab161230cc"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/flesh_regeneration.png",
+      "bytes": 37468,
+      "sha256": "9517487a34898d0a3336eadc621c6c3358109b0b316198092ae316073a7b531e"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/flexible_joints.png",
+      "bytes": 23386,
+      "sha256": "7c1d690e1154dc48ca6f3d2e3bab005d43481b1d0b67e4ae7102bcbaf7130298"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/fundamentals.png",
+      "bytes": 26127,
+      "sha256": "9f218e462a7dcca279d58d22da7faa062cc4f56f8549d564d8c4ce5535552733"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/muscle_fibers.png",
+      "bytes": 43309,
+      "sha256": "aa5ee2e2f313e3ac46c8829fde5e3864c5a080067cfbd9f9f027fcfe256b43f6"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/nervous_system.png",
+      "bytes": 50199,
+      "sha256": "43c2c0579e931e73cb174fdb3c2c458c137fa390cc7d51e366c17a603874d3e9"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/sharp_vision.png",
+      "bytes": 36646,
+      "sha256": "3342b13b809d9d510d6dbb5ad6fe872eebe4caed36b765b35e4168cdb95c7e7a"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/stomach.png",
+      "bytes": 15940,
+      "sha256": "3d60773c8e3b24961cad53c0d1698ffb91f07ac4a539d5de2c6af87570efcca5"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/strong_bones.png",
+      "bytes": 31598,
+      "sha256": "da5697b32dfb500d6f40636554df3cde8beee6f991b733c3f182d237b5f1e858"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/masters/strong_spine.png",
+      "bytes": 23523,
+      "sha256": "ed4ace12f290ea58f56796e2118050d0bcc6d1ee80834b41652547d7378c138f"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/previews/contact-checker.png",
+      "bytes": 228340,
+      "sha256": "48d1a65ff9c742eff49fed7b9d85c1cfbb972a22e9df1e6516601e316231525f"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+      "bytes": 211578,
+      "sha256": "ca3017ea1e6ba561130dc5757ff344f0a95dba97258690a93aa2ca3f3e8ab8b3"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/previews/contact-light.png",
+      "bytes": 230686,
+      "sha256": "23a3e60ace3df5a3b6af67d1355518173122f2f6f887391e9aa52a969414340f"
+    },
+    {
+      "path": "art/skills/body-icons/2026-09-01/PROMPTS.md",
+      "bytes": 7408,
+      "sha256": "44d3096a7241393956e74b407db926792c8be9cbfcc1db570ca268445098ccf4"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-base.png",
+      "bytes": 672327,
+      "sha256": "39441a7e46047593ae01783738b590f4fb8e0e1de24c065f058ec5b7b4a5fa15"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-bunk.png",
+      "bytes": 42979,
+      "sha256": "1ed92c680cf6c8f00a0379a7e0c6573cff8e960b7fa18e57f8cc32f210eec2f4"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-campfire.png",
+      "bytes": 47217,
+      "sha256": "1b87dec63be53de77af808ab52e5ee836a10eed69818ff7525f054884f8e1ad1"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-crusher.png",
+      "bytes": 54106,
+      "sha256": "539579729599b0925dcedf62bdf09cbbfb477d3a393a332956d309340e1a1e24"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-kettle.png",
+      "bytes": 24701,
+      "sha256": "df117ad4c36079f6b72e89896700cf88915bd2dc9dfffc1143a81c7170cbb84c"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-mural.png",
+      "bytes": 14561,
+      "sha256": "873a2e82c4e0c466f64390d129a90e6b305559b6d7a3f69bcb6f3373de7ea5f8"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-record-player.png",
+      "bytes": 68950,
+      "sha256": "067820e5123e52111e8af6dc819fd0212c37a01c497604d6263355d6f50f3873"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-ritual-table.png",
+      "bytes": 38678,
+      "sha256": "00f165adc06e245745b056c04d50b051340695188e94e3bebf12cfe4bbc1d440"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-rocking-chair.png",
+      "bytes": 56048,
+      "sha256": "f6b00201118422480e0a4fafbdc071ff64fbb4aec11041034f8f721cd3cc91e1"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-storage-chest.png",
+      "bytes": 9975,
+      "sha256": "e4728c749eefdddb02aa123130e7af6227805f4b5f690d40f30a732c2d3d020f"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-textile-area.png",
+      "bytes": 51647,
+      "sha256": "fc349615115ad19b23378f3ecb0a6f17f5c3853af50ff7e0b856b49b32e25406"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-whetstone.png",
+      "bytes": 25112,
+      "sha256": "e0ebfba632ea769130420f310cbc93df46315e47c44ac4cd89f1858c945bbba5"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-workbench.png",
+      "bytes": 46989,
+      "sha256": "c48a78418b85b14ddc8cb4a59f0af520db48a6d191cd72848de046aa10345303"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/camp-writing-set.png",
+      "bytes": 22599,
+      "sha256": "321343681b6d27c62ea76abe3bd8b820139a748d800bb49bac86f1560f989a0e"
+    },
+    {
+      "path": "assets/art/camp-2026-09-01/manifest.json",
+      "bytes": 21226,
+      "sha256": "4f3455bab466f855c0d31a195b3c8266d28e986dafb80024c7d29ff1c2599183"
+    },
+    {
+      "path": "assets/art/camp-base-expanded.png",
+      "bytes": 1870356,
+      "sha256": "84d4abb92ad0610cff86c0947718fb2c6825cc52a4f6c2856aa790870d28eccf"
+    },
+    {
+      "path": "assets/art/camp-base.png",
+      "bytes": 1892937,
+      "sha256": "6398b030747025c657bd756b49a625c87fc45797a6c81d644433f31fbae8e94f"
+    },
+    {
+      "path": "assets/art/camp-bunk.png",
+      "bytes": 29048,
+      "sha256": "537b54fc9697e2d920096bb01c9090adfa4334819d90854435c2a01abf981bce"
+    },
+    {
+      "path": "assets/art/camp-campfire.png",
+      "bytes": 1981478,
+      "sha256": "667d76b1cc415908d7eaa2c383cc0497d14a7919f0c1735ae3845291ffd6c954"
+    },
+    {
+      "path": "assets/art/camp-crusher.png",
+      "bytes": 2120437,
+      "sha256": "05011d02f6b9183f6da2ef7e7b4a37d24d34dd2f2726dc0f240ef24638823081"
+    },
+    {
+      "path": "assets/art/camp-kettle.png",
+      "bytes": 19054,
+      "sha256": "e2cc2f751ca6ea4e446d3c982bd112a8e43cf30fca124801ee44b10711d28433"
+    },
+    {
+      "path": "assets/art/camp-mural.png",
+      "bytes": 18494,
+      "sha256": "13bfd8bd381129e2a16dec8887d78cdf8eec5d487cdd5e25eab07bc6ea3e71a8"
+    },
+    {
+      "path": "assets/art/camp-ritual-table.png",
+      "bytes": 2392777,
+      "sha256": "21e5fefc13af7b98f1d046758b6348c292ce29961ad894faee65836eab3d06c4"
+    },
+    {
+      "path": "assets/art/camp-whetstone.png",
+      "bytes": 1686979,
+      "sha256": "bb44b9c0cefb57c4c94a8e26d28c738d1ac2031983538fada69cf9da20fae8d2"
+    },
+    {
+      "path": "assets/art/death-bones-overlay.png",
+      "bytes": 1622874,
+      "sha256": "2443e8bdd6b2206f0fdd887f63c5f62355d256d920fead38744e2db91844c802"
+    },
+    {
+      "path": "assets/art/death-bones.png",
+      "bytes": 1901335,
+      "sha256": "cd7406377d3379b18366758b7dda4e0908475fdf8ddd334521486f7876446112"
+    },
+    {
+      "path": "assets/art/death-camp-background.png",
+      "bytes": 1870356,
+      "sha256": "84d4abb92ad0610cff86c0947718fb2c6825cc52a4f6c2856aa790870d28eccf"
+    },
+    {
+      "path": "assets/art/intro-01-wandering.png",
+      "bytes": 1942425,
+      "sha256": "b53e3ddd8ec8fef7e8b45e5f36b15ab45337fa4181c0067be12b21920aae67e9"
+    },
+    {
+      "path": "assets/art/intro-02-poncho.png",
+      "bytes": 2113271,
+      "sha256": "df689d1a434ed4782875222a8ba345173f899d0c82a21705b769c5019e73414b"
+    },
+    {
+      "path": "assets/art/intro-03-awakening.png",
+      "bytes": 2025949,
+      "sha256": "1de7585fd829c7e33126558bf98cf27630a244808f0a7bc591660598533e500f"
+    },
+    {
+      "path": "assets/art/PROMPTS.md",
+      "bytes": 4540,
+      "sha256": "513a9dd81c5c8faca89c7785272a6b1423948739b418e4e99ecc35b2b3f65eca"
+    },
+    {
+      "path": "assets/art/skeleton-equipment.png",
+      "bytes": 2222740,
+      "sha256": "478b7be85790f4f2b39b542da6abbb7b4f6a4c63ef62998445e83ab7ed075440"
+    },
+    {
+      "path": "assets/dungeon/chest-crypt.png",
+      "bytes": 91811,
+      "sha256": "fb04fec33fbc032e980063b4d3f7763e3939ead9facdcf6b7bfb3b1e032c8214"
+    },
+    {
+      "path": "assets/dungeon/chest.png",
+      "bytes": 1614736,
+      "sha256": "091e22c7629de2e65ac071fb70e594b5fed6cbde773e5e42eb7b18df628d2d26"
+    },
+    {
+      "path": "assets/dungeon/decor-cocoon-1.png",
+      "bytes": 65981,
+      "sha256": "a4c964ad3e75e9794f596d45c55dd10ec2a1d951ed0a528aa2fdfdbd868e6e07"
+    },
+    {
+      "path": "assets/dungeon/decor-cocoon-2.png",
+      "bytes": 85954,
+      "sha256": "b9b8e41860ac0806ff507b7e6a47556a61cdc6238e2f870019b0e69d74517a14"
+    },
+    {
+      "path": "assets/dungeon/decor-mosaic-1.png",
+      "bytes": 106731,
+      "sha256": "baeb93537fb6e2fa5e8f8ad3aefd6678ff37dbc3cbad4b1bffc6220f5cd5bad7"
+    },
+    {
+      "path": "assets/dungeon/decor-mosaic-2.png",
+      "bytes": 95094,
+      "sha256": "d20a2ea89a7e60fd3886d1d06b9c09f4c32c41108e9658893cd6fb10f9bf0a6c"
+    },
+    {
+      "path": "assets/dungeon/decor-mosaic-3.png",
+      "bytes": 115638,
+      "sha256": "79ff7dd6be77584f960100dc0d8205483431019bb3b7ed1a0ed7535d56dedd5e"
+    },
+    {
+      "path": "assets/dungeon/enemy-arachnid.png",
+      "bytes": 97654,
+      "sha256": "80896fe38bd0965fc0791aa172ca45ce369ab784047cb70b87834dfb4d4ef864"
+    },
+    {
+      "path": "assets/dungeon/enemy-blind-scavenger.png",
+      "bytes": 111452,
+      "sha256": "c5e77cd761dc941431eb10e64795c914620e12ea19cf901f1be6afc52af56abf"
+    },
+    {
+      "path": "assets/dungeon/enemy-bone-crossbowman.png",
+      "bytes": 68953,
+      "sha256": "0053e550eef7ee78d1c80d237c913ff83c0cd1254128736c8ce0c6800f433afa"
+    },
+    {
+      "path": "assets/dungeon/enemy-grave-rat.png",
+      "bytes": 61227,
+      "sha256": "9c5eb169fce29c38841dbf1fcbb44c5fe57f62535f49798bd0e4d0987a2f68e3"
+    },
+    {
+      "path": "assets/dungeon/enemy-hollow-guard.png",
+      "bytes": 1253048,
+      "sha256": "a2adf9b579e9a74e0edf27d74f0d84de16c6b8dbb4ee22b1a82f12d060be9730"
+    },
+    {
+      "path": "assets/dungeon/enemy-minotaur.png",
+      "bytes": 2222021,
+      "sha256": "ebbf772838fb3d7b8d7bcfd7c5dba9ae56b7b4e350d4b59cb5eb4ed64167ad5c"
+    },
+    {
+      "path": "assets/dungeon/enemy-skeletal-archer.svg",
+      "bytes": 1004,
+      "sha256": "43e1053a4d00d2ec5fbd76b1c8e46a4b60cc71243fa902daf5174474e196e619"
+    },
+    {
+      "path": "assets/dungeon/enemy-slag-smith.png",
+      "bytes": 82765,
+      "sha256": "19264c003b17cd98daa3df7cf9773397a2011662db4d7c9fa4e18f0ef6647428"
+    },
+    {
+      "path": "assets/dungeon/enemy-soul-leech.png",
+      "bytes": 1016413,
+      "sha256": "71e6c8015fee7704f02106befa2cc4ce9f6d4d6a4d41935243d728b7bb328653"
+    },
+    {
+      "path": "assets/dungeon/female-ghoul/frames/walk-00.png",
+      "bytes": 58249,
+      "sha256": "85944c51018691adbe3a6bcb40898ebb390add4fc7243531d2746690c6dd108b"
+    },
+    {
+      "path": "assets/dungeon/female-ghoul/frames/walk-01.png",
+      "bytes": 55629,
+      "sha256": "03222f39a2d9e52683cf8b6c7dc6940c717c1830e3f572d70331d58d7980a2e0"
+    },
+    {
+      "path": "assets/dungeon/female-ghoul/frames/walk-02.png",
+      "bytes": 52458,
+      "sha256": "716fcf5db51d902514313f21440e22ba9bd9ffac14553e855bb1a3d4c5d1dc1b"
+    },
+    {
+      "path": "assets/dungeon/female-ghoul/frames/walk-03.png",
+      "bytes": 60449,
+      "sha256": "db5ec118eb6986bc38385a351b473a96b45f29c1f153f5ba041a4c71123baf61"
+    },
+    {
+      "path": "assets/dungeon/floor-stone.png",
+      "bytes": 2710767,
+      "sha256": "4fdd9235a6ef4a026844648daa22c953c8ea7bbb42c7fb9b1cfe2a27db5a3fc6"
+    },
+    {
+      "path": "assets/dungeon/player-almost-human.png",
+      "bytes": 40417,
+      "sha256": "29db6428a29a719f4982061d6ffbad45499b9587aca84abdb5d97da756b3cd35"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/almost_human/walk-00.png",
+      "bytes": 58672,
+      "sha256": "3400f7e218b82477691f359b47f2b15eae7c2a5eca4a39893e47bdd9e4feadbe"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/almost_human/walk-01.png",
+      "bytes": 53305,
+      "sha256": "02174e556545f6e5ee0e770a318fb5c193fbd221e3ad6612fadbb6a88bff6721"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/almost_human/walk-02.png",
+      "bytes": 61752,
+      "sha256": "8bc1fcd8c0a1afed01e280ae7fece6a4cfecf76567d010c912eb59c6a7007dfe"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/almost_human/walk-03.png",
+      "bytes": 52635,
+      "sha256": "35a1fedfbdf1ef206049275e77b309738dd4b464e5c08bbb6a09e63c9fc5efcc"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/revenant/walk-00.png",
+      "bytes": 58821,
+      "sha256": "5f0eb01cf97eeab7487708eedc599958ed39c85be6b2c93df567ba93925094ec"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/revenant/walk-01.png",
+      "bytes": 54054,
+      "sha256": "51c42529244b2f474bf2b8aef3e8a48392c40abad5d19f3ad4220c69fecded4b"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/revenant/walk-02.png",
+      "bytes": 57908,
+      "sha256": "f341a8f95fbc491b6d9beceed2a0afcd93bd00e805329173c058e5e1d757e9e6"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/revenant/walk-03.png",
+      "bytes": 50359,
+      "sha256": "831f81b9a205b8acb490146c7143416639c89642840bf4a943793b96432e1f5b"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/skeleton/walk-00.png",
+      "bytes": 62701,
+      "sha256": "f4411b66602c6e8c78ade2ff30aca479fb1e6dcada39ffa894aacf26b4d42ce2"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/skeleton/walk-01.png",
+      "bytes": 57887,
+      "sha256": "35cba6d5683c5f949df1c9410254a2ed19dbd9af973cf03e0e86c43866fa6c5f"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/skeleton/walk-02.png",
+      "bytes": 60806,
+      "sha256": "0ba2f641750999fb227ef1bf63912ec277816240eedb04f55f8ffb0497f71058"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/skeleton/walk-03.png",
+      "bytes": 59174,
+      "sha256": "9b51d6fcea1c301190053d86106a38de4f712f06d5ae11633a4f77e257a15dec"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/zombie/walk-00.png",
+      "bytes": 57006,
+      "sha256": "65f74e11e4c9c76cd58bfe7a96c81b390e7add9c2dfd8d5c7066a048578b6a7a"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/zombie/walk-01.png",
+      "bytes": 57600,
+      "sha256": "00da48b5d57044afe41af23231ab2022951272522d8c921b918bf72af25849e7"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/zombie/walk-02.png",
+      "bytes": 55834,
+      "sha256": "8c03a67a4c8f6576c1b974003268b247550cf696306a5b00707e854332dcd8c4"
+    },
+    {
+      "path": "assets/dungeon/player-forms/female/zombie/walk-03.png",
+      "bytes": 56342,
+      "sha256": "37fea8267b0e2bdc2e156aafd79c245b76a5f07c24c6005282a3168a58f22cbb"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/almost_human/walk-00.png",
+      "bytes": 50633,
+      "sha256": "a4069b3a7b7766b87644e7f38b64272cc66903ae7ff5c1e831a17e39693f1031"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/almost_human/walk-01.png",
+      "bytes": 49904,
+      "sha256": "4bf643d133aee647bb12e105fee614ef6a7f030fe00add2fa3fdcac87e91aa9c"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/almost_human/walk-02.png",
+      "bytes": 53381,
+      "sha256": "99cafedacaec0955a8cb10421eee93529d068e68059c92fe74422c3ef8e8b7e7"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/almost_human/walk-03.png",
+      "bytes": 52673,
+      "sha256": "3985cb4d72bd3bc2972386896c2df83ac4fa93c44f8980148102061ae99bedc6"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/ghoul/walk-00.png",
+      "bytes": 50482,
+      "sha256": "b0065b02988b7214445500bbafeac3c6e904e926ffd2cc19001088cb357b3984"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/ghoul/walk-01.png",
+      "bytes": 48262,
+      "sha256": "9480de18f9c3e4eb027721eaddd7a4f497d0892cb696f82bc0b1282fb711bbe0"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/ghoul/walk-02.png",
+      "bytes": 50918,
+      "sha256": "a17dccfdb217cb896c8e122862ab8fce3e71535239ba5fe998367b6c7fa0b1b6"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/ghoul/walk-03.png",
+      "bytes": 49488,
+      "sha256": "a55e0246e30bd49a1414b3d3587e80ce5396b47a744678c8ba27b9205137f389"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/revenant/walk-00.png",
+      "bytes": 47279,
+      "sha256": "7fe35774f5c1cec410e63e5f2a4496e38b1b1e6f48c294ad8667c5c4be7eca7f"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/revenant/walk-01.png",
+      "bytes": 46487,
+      "sha256": "f741bdc59e219c22222264426fdc1847a527705a62cb29c59b71f120b1b4f5d9"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/revenant/walk-02.png",
+      "bytes": 48262,
+      "sha256": "a5db0688e3410a1fe8c5b5ac8c3679ae419d0b53637c7a3e042929126fb41b59"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/revenant/walk-03.png",
+      "bytes": 47941,
+      "sha256": "dc0def182c9c9e49d79c0a0321fbff4f3eb81bed82fb28209a28014ebba8672d"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/skeleton/walk-00.png",
+      "bytes": 49073,
+      "sha256": "b2e0638e3a4e0c543938f180d17c7b2a3a18600e580749e78cb27be048dea90f"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/skeleton/walk-01.png",
+      "bytes": 47171,
+      "sha256": "870a908e3ff3d6b47053e4090de01e89e3d7453d32f717b60331d29f58955de3"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/skeleton/walk-02.png",
+      "bytes": 51671,
+      "sha256": "14d2404b00cfb67c47657a7ed996dc01f2b59f3412c750e78b913064c7ebb9ff"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/skeleton/walk-03.png",
+      "bytes": 49152,
+      "sha256": "cd8a79131014ebfaf7d9ff52357a8b6ec715c124150d15e4748090dc87cdf88d"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/zombie/walk-00.png",
+      "bytes": 54507,
+      "sha256": "9a14ef1fd54a20b03f51d174165c34281d34e2717ee3a39d298f9c4333efe89b"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/zombie/walk-01.png",
+      "bytes": 52003,
+      "sha256": "b2f5906191f9c3af05691cb287107be9b1a02576ca0d1a3050a200e0efd5d9c9"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/zombie/walk-02.png",
+      "bytes": 55874,
+      "sha256": "a359efe76ed2df5e239a002b926c77a489418539f4387956d4636c14d9a29b8a"
+    },
+    {
+      "path": "assets/dungeon/player-forms/male/zombie/walk-03.png",
+      "bytes": 53696,
+      "sha256": "2271bf631ac3548682615cbd57061835194d4da08480f47f406a6288c6e7acb4"
+    },
+    {
+      "path": "assets/dungeon/player-ghoul.png",
+      "bytes": 45054,
+      "sha256": "a46c352852d3927a03ba1897fe67a261233e07f33ff01ec09717891a85d571ee"
+    },
+    {
+      "path": "assets/dungeon/player-revenant.png",
+      "bytes": 43700,
+      "sha256": "a8ce554a7ec662288b3c13929eb875d474b22ed814b157ac2cea241eb4c2cc00"
+    },
+    {
+      "path": "assets/dungeon/player-skeleton.png",
+      "bytes": 45140,
+      "sha256": "bba266fef7cef872030ef0f506019821f3a9b2945e818dc76a94b0690f604170"
+    },
+    {
+      "path": "assets/dungeon/player-zombie.png",
+      "bytes": 45361,
+      "sha256": "a2151252ae9bcbf5f3eadeb65eb8526d04d47cfbc635a9d18e0469a9bb2db65e"
+    },
+    {
+      "path": "assets/dungeon/PROMPTS.md",
+      "bytes": 9455,
+      "sha256": "eab81abd73f2c405b288c7902424b96d620e0e756b04abbd7015b531f81577eb"
+    },
+    {
+      "path": "assets/dungeon/wall-stone.png",
+      "bytes": 1670564,
+      "sha256": "46c45dec6c4248035b92e6c5404990a07d3a1860d863f5b62439264234c96074"
+    },
+    {
+      "path": "assets/items/item-aiming-ring.png",
+      "bytes": 24037,
+      "sha256": "468d7bafb2d3185047d768e8fbadb21883b9da2ef08acfe453f8de74fe5ab61f"
+    },
+    {
+      "path": "assets/items/item-archivists-mask.png",
+      "bytes": 20391,
+      "sha256": "aa6dbeb700dccc687f18165aed471c76c920ff86c52e0843e31bef9db8355cb5"
+    },
+    {
+      "path": "assets/items/item-bone-bow.png",
+      "bytes": 9591,
+      "sha256": "8215e47db091e45cc36d1b20ca147668c8933fead1659d512b4c3f1923bae128"
+    },
+    {
+      "path": "assets/items/item-bone-buckler.png",
+      "bytes": 26420,
+      "sha256": "5767819d15f89c87642f98f460c10b2a1709da514658cb8f97d093309e6b5120"
+    },
+    {
+      "path": "assets/items/item-bone-knife.png",
+      "bytes": 10925,
+      "sha256": "438e1e7398bc2c515aa11175a8c4dc9f8d1d3df593eb939f0ac0b6ff1a2294de"
+    },
+    {
+      "path": "assets/items/item-expedition-backpack.png",
+      "bytes": 32148,
+      "sha256": "0d69975e9cd0be294a0fc2c620d41b0c563a07845bde3abff683db19028d4a9f"
+    },
+    {
+      "path": "assets/items/item-grave-mace.png",
+      "bytes": 12845,
+      "sha256": "53cbb9cd9254d5157cae65e509d0617fe892aa2793e8a4e9df6ed5777fd49c61"
+    },
+    {
+      "path": "assets/items/item-gravediggers-lamp.png",
+      "bytes": 19388,
+      "sha256": "feb64d95305764cb010c44dea22247f1e4e54373135a19b4939eab4cbc5ccecd"
+    },
+    {
+      "path": "assets/items/item-heavy-leg-wraps.png",
+      "bytes": 23968,
+      "sha256": "5c0c9742966b849b935d69075438f3fea6a35e86e20fab26f0b489d7398b0761"
+    },
+    {
+      "path": "assets/items/item-hollow-lantern.png",
+      "bytes": 17141,
+      "sha256": "8a3c0aaf07c4a5fa8e3fb3ff1fb59c5d65ac86c5178dd6991eb31e35ced66e0d"
+    },
+    {
+      "path": "assets/items/item-lamellar-vest.png",
+      "bytes": 25258,
+      "sha256": "ce865e25b47b018520bd04295a5286e8326ce26b85342fb76b25500d5a2a37c0"
+    },
+    {
+      "path": "assets/items/item-leather-gloves.png",
+      "bytes": 25310,
+      "sha256": "e9abc270a4757fa3fa1d889d13f34d2f784b113401714cbe3a6a0fab3fc2a535"
+    },
+    {
+      "path": "assets/items/item-old-claymore.png",
+      "bytes": 7743,
+      "sha256": "a4b328c366e2ce9a026cb6b9e462400c523f131084bda05ddf58ce243bad6f5d"
+    },
+    {
+      "path": "assets/items/item-pilgrim-shield.png",
+      "bytes": 23959,
+      "sha256": "089f5fc175f5378e75f873b4977ac7b764460ebbc460b5950a2af475f2e27be8"
+    },
+    {
+      "path": "assets/items/item-pilgrims-boots.png",
+      "bytes": 24943,
+      "sha256": "b177c3db5f9c1d644c1023d2df4edb8e1492f03aa507e703071aff0583d38d13"
+    },
+    {
+      "path": "assets/items/item-rotting-mail.png",
+      "bytes": 27509,
+      "sha256": "2a4bdfe6a9887451e0980420a26abb737cd823ff1223f6ebcae9ad2e926c57cf"
+    },
+    {
+      "path": "assets/items/item-rusty-sabre.png",
+      "bytes": 12154,
+      "sha256": "566c002ab48db7affac63ecba6281435b0540c60e40fd8387584581f58e8f12a"
+    },
+    {
+      "path": "assets/items/item-scouts-trousers.png",
+      "bytes": 19859,
+      "sha256": "df33de8011bd48e28d1300677e9583314ee0952362dfda6b2df27c8a2ded738c"
+    },
+    {
+      "path": "assets/items/item-short-crossbow.png",
+      "bytes": 19432,
+      "sha256": "f41e541cc8f2a038fbed8467b645bb650c9e26f68f975c0b8e7562bc7cf9352f"
+    },
+    {
+      "path": "assets/items/item-soul-locket.png",
+      "bytes": 18603,
+      "sha256": "06977b994bd463a7361bf99253486df612bba4ee5a3f02921b1dec09bef5d0ec"
+    },
+    {
+      "path": "assets/items/item-thickblood-ring.png",
+      "bytes": 24742,
+      "sha256": "d50e35072207f7eab449aeb7e8bcafa319232bbc6cb1404b818c9ddbd1541709"
+    },
+    {
+      "path": "assets/items/item-unexpectedly-comfortable-jacket.png",
+      "bytes": 26859,
+      "sha256": "8a228048e88e78f581f4939c03f1d382457fd3fa61ce06e1e38388f1101d6d7b"
+    },
+    {
+      "path": "assets/items/item-wanderers-gambeson.png",
+      "bytes": 22246,
+      "sha256": "e5ef4bf2753c9ae86b43bbf0216d27a40a618ca04c162c21ae62c8b12b0b730a"
+    },
+    {
+      "path": "assets/items/item-watchmans-cap.png",
+      "bytes": 17120,
+      "sha256": "325b3f446a08b703040b1739fc99d7dbf8dd05c0885f960ad672a334c7f372b3"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-almost-human.png",
+      "bytes": 152599,
+      "sha256": "fda0f44e4f5370cbd2e4b98873ec9b47d777e3f140daf536212029b065daf4ee"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-ghoul.png",
+      "bytes": 139424,
+      "sha256": "b0caeb4b7707e0504e64d2e6d07b9e2aaa0695a1225f2375b1b6e2f203714c59"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-revenant.png",
+      "bytes": 137665,
+      "sha256": "c32a6993660aac0bcfda8270dda839452761d2ef8bfd190d8e34ed2f36bb806b"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-skeleton.png",
+      "bytes": 129975,
+      "sha256": "b5ead841022281f7ac1dea1e45561301a9bf0e78ccd326488acd9c580c6c1c98"
+    },
+    {
+      "path": "assets/ui/character-fullbody/female/form-zombie.png",
+      "bytes": 130303,
+      "sha256": "be6f015ef3f5fb100f2dcd2ce429562567f6a21ee25b564c1b80221a3dd0d84c"
+    },
+    {
+      "path": "assets/ui/character-fullbody/form-almost-human.png",
+      "bytes": 234470,
+      "sha256": "c41ec12f65f464baa990c1dd6b2fb80885bc5b2c2ab29d0b266963acbea155d4"
+    },
+    {
+      "path": "assets/ui/character-fullbody/form-ghoul.png",
+      "bytes": 263017,
+      "sha256": "1fb4c3e2015b125192ae8df29ffc09003825cb8f0a723205098d5e2160585e6f"
+    },
+    {
+      "path": "assets/ui/character-fullbody/form-revenant.png",
+      "bytes": 248956,
+      "sha256": "f73e0b91a4a48381b43097979e72aa52baf7e4f368d359beecc2d76e9128cf14"
+    },
+    {
+      "path": "assets/ui/character-fullbody/form-skeleton.png",
+      "bytes": 234125,
+      "sha256": "b1e8f3622eacc7b2fbce6b8a4410728005e964a6c0bd83968f217c0834e72fbb"
+    },
+    {
+      "path": "assets/ui/character-fullbody/form-zombie.png",
+      "bytes": 263441,
+      "sha256": "b528022b22cdcd1fe2c09ff491aedb08d0f6184f6521fa9e84902ff62520580f"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-almost-human.png",
+      "bytes": 159760,
+      "sha256": "4f740d4bc992c4490b72927c54ae7fecc063d88e50d67027d767e22823de8db1"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-ghoul.png",
+      "bytes": 137921,
+      "sha256": "2fe78d6272f1c07316dd1739f2337406d2aa965d08d1d8378dbfd5219d41bff2"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-revenant.png",
+      "bytes": 135046,
+      "sha256": "f6e9ee77dbb2b12030c93b38653120b0bd7cf20b5d8c2494be8fb5567d3c721a"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-skeleton.png",
+      "bytes": 131596,
+      "sha256": "092f9df5f9ef4cb8665c98f1b77614671466c6372662bee53f63976af3c4895c"
+    },
+    {
+      "path": "assets/ui/character-fullbody/male/form-zombie.png",
+      "bytes": 149002,
+      "sha256": "768b119baf7bfef09bf6ebb91bdce0c90127dd91307dfdb8ca1023c7bba6ba1a"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/choose_appearance.png",
+      "bytes": 6534,
+      "sha256": "d2ed5f845956de8957b9126b8d8c438237cdfd47503b8932c80f0e7b2bf81929"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/ears.png",
+      "bytes": 5748,
+      "sha256": "56791f88387de269f97249e0619cdfc1d89960bd52eeb087c49923686976a70d"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/flesh_regeneration.png",
+      "bytes": 6985,
+      "sha256": "37c5994c2a513b8bcb348d03e7425d0d5c69c479ff21e634b8779c59e23e2097"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/flexible_joints.png",
+      "bytes": 4319,
+      "sha256": "037a7988760317f23a5a68345d8be538e2858cc09bbb8ac5fde6408700b4513e"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/fundamentals.png",
+      "bytes": 5008,
+      "sha256": "92da29b6eec0cdb1d54c6fd8413fe7554af44611481e4ea62f5316187efd4d46"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/muscle_fibers.png",
+      "bytes": 7689,
+      "sha256": "7c63a9adf487ebad141a2730dd8f82aa64268319be5af6742a2baa77768c871d"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/nervous_system.png",
+      "bytes": 7164,
+      "sha256": "90e04f86c4c6f02d163e11d5210b6c1036b849d1602017c83e8c9d3aa98d54a7"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/sharp_vision.png",
+      "bytes": 5995,
+      "sha256": "3b6d86b2d8433f87d8630708ffc52e174e6f776b3a850641c0ac4a2e83e0ff99"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/stomach.png",
+      "bytes": 3548,
+      "sha256": "31711c297faad2df1e9827d975f824d891292ce1b742668d12dafcb8309ed4d8"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/strong_bones.png",
+      "bytes": 6275,
+      "sha256": "3950e489b95f270b9dad02aa8ffe5142e49250f88f9cb00168e6c2104059c895"
+    },
+    {
+      "path": "assets/ui/skill-icons/body/strong_spine.png",
+      "bytes": 3850,
+      "sha256": "e2cdbfd63c82111757c18c502cbf66d64d283050ee72cd4c3e15cadf6f8130f5"
+    },
+    {
+      "path": "assets/portraits/female/form-almost-human.png",
+      "bytes": 63266,
+      "sha256": "de3b97db54c1d2180c449b7324784dbb6f0988957228e4d685137edee10282ad"
+    },
+    {
+      "path": "assets/portraits/female/form-ghoul.png",
+      "bytes": 71405,
+      "sha256": "fd2e8f0047bdcdfae2403308ac294dd99f0658f3b46b22e12c47aa322e1315dd"
+    },
+    {
+      "path": "assets/portraits/female/form-revenant.png",
+      "bytes": 52485,
+      "sha256": "dc9d2af9c6ad584b8374c8753ca5b95fc1d8e76d85a985d0130f13ddad87c55d"
+    },
+    {
+      "path": "assets/portraits/female/form-skeleton.png",
+      "bytes": 27839,
+      "sha256": "5caa6e95335887eb7f30f84cd0871dc167f296d4fdf3f7555b698e239bfc9fa7"
+    },
+    {
+      "path": "assets/portraits/female/form-zombie.png",
+      "bytes": 48633,
+      "sha256": "10fe33fb47393508c4322ef513c34805ab84396e4d57723b3cf07dcf042650f9"
+    },
+    {
+      "path": "assets/portraits/form-almost-human.png",
+      "bytes": 101704,
+      "sha256": "09aa1029fe191ae9e83fe4f52d18861cfcfa3a354162ee43409d1d206f4bb83f"
+    },
+    {
+      "path": "assets/portraits/form-ghoul.png",
+      "bytes": 97883,
+      "sha256": "3a6e45fd6ad401edb219567b6e9d93c1714d489e8831fd2b236c19835db2081c"
+    },
+    {
+      "path": "assets/portraits/form-revenant.png",
+      "bytes": 105351,
+      "sha256": "04a6f0f73d4eb8556f45d88416022842de902668df74ad90d99f80bdc3cd3235"
+    },
+    {
+      "path": "assets/portraits/form-skeleton.png",
+      "bytes": 85697,
+      "sha256": "cd55138036e905dacfe2da2e46395d5b486ffa9d7a031ba86a4640972601840b"
+    },
+    {
+      "path": "assets/portraits/form-zombie.png",
+      "bytes": 86709,
+      "sha256": "be54f3889da183e2e4775ff1c28f361b2009dabf91bd95fbf53c6242a62a336d"
+    },
+    {
+      "path": "assets/portraits/male/form-almost-human.png",
+      "bytes": 42934,
+      "sha256": "ea3bcb78f6abbc31632a00b2f2990a37bc87d35a0eae2b8c144a72238681fb22"
+    },
+    {
+      "path": "assets/portraits/stage1c-fringe-manifest.json",
+      "bytes": 2657,
+      "sha256": "5c7705551570a643b42451c2a47eece56ac34d23c330d976cf33fe83be9a1118"
+    },
+    {
+      "path": "assets/ui/soul-icon.png",
+      "bytes": 4165,
+      "sha256": "584d86b87dfff9c5d9b64badf273a561a5359a41adeb44e444e2961c3eaf32db"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ func run(tree: SceneTree) -> Array[String]:
 	await _test_doors_and_isolation(tree)
 	await _test_first_sight(tree)
 	await _test_auto_and_camera(tree)
+	await _test_auto_chest_cleanup(tree)
 	await _test_generated_auto(tree)
 	_test_boss_rewards()
 	return failures
@@ -205,6 +206,78 @@ func _test_boss_rewards() -> void:
 	_expect(GridNavigation.find_path(data["tiles"], data["start"], data["exit"], {}, false, {}, true).is_empty(), "Ordinary player door permissions must never unlock the boss gate")
 	for x in range(7, 14):
 		_expect(data["tiles"][Vector2i(x, 1)] == "floor", "Reward room must be seven tiles wide")
+
+
+func _test_auto_chest_cleanup(tree: SceneTree) -> void:
+	var main = await _new_main(tree)
+	main.floor_data = _fixture(false)
+	main.player_pos = Vector2i(3, 3)
+	var known := {}
+	for cell_variant in main.floor_data["tiles"]:
+		known[cell_variant] = true
+	main.floor_data["visible_cells"] = known.duplicate(true)
+	main.floor_data["explored_cells"] = known.duplicate(true)
+	main.floor_data["observed_cells"] = known.duplicate(true)
+	# Keep one observed floor cell physically isolated for the unreachable case.
+	for wall in [Vector2i(6, 1), Vector2i(6, 2), Vector2i(7, 2)]:
+		main.floor_data["tiles"][wall] = "wall"
+	var tie_yx := {"uid": "tie-yx", "id": "bone_knife", "pos": Vector2i(2, 2)}
+	var tie_other := {"uid": "tie-other", "id": "bone_knife", "pos": Vector2i(4, 2)}
+	var unknown := {"uid": "unknown", "id": "bone_knife", "pos": Vector2i(5, 5)}
+	var unreachable := {"uid": "unreachable", "id": "bone_knife", "pos": Vector2i(7, 1)}
+	main.floor_data["items"] = [tie_other, unknown, unreachable, tie_yx]
+	main.floor_data["observed_cells"].erase(unknown.pos)
+	main.floor_data["observed_cells"][Vector2i(1, 4)] = true # stale memory, no live item
+
+	# A farther frontier must win over both closer known chests.
+	main.floor_data["explored_cells"].erase(Vector2i(7, 5))
+	var frontier_path: Array[Vector2i] = main._find_nearest_exploration_path()
+	_expect(
+		frontier_path.size() >= 2
+		and frontier_path.back() not in [tie_yx.pos, tie_other.pos]
+		and main._can_reveal_unexplored_geometry(frontier_path.back()),
+		"AUTO must never detour to a chest while an exploration frontier remains",
+	)
+
+	# Manual exploration or an interrupted AUTO leaves no special chest state:
+	# the next selector derives cleanup goals from current observed live items.
+	main._cancel_automatic_actions()
+	main.floor_data["explored_cells"][Vector2i(7, 5)] = true
+	main.floor_data["items"] = [unknown, unreachable]
+	_expect(
+		main._find_nearest_exploration_path().is_empty(),
+		"An unobserved live chest and an observed unreachable chest must not become AUTO goals",
+	)
+	# Restore only the observed reachable pair. The remembered empty cell and the
+	# removed unknown item are both stale knowledge and must not become goals.
+	main.floor_data["items"] = [tie_other, unreachable, tie_yx]
+	var first_chest_path: Array[Vector2i] = main._find_nearest_exploration_path()
+	_expect(
+		first_chest_path.back() == tie_yx.pos,
+		"Known chest tie-break must be path length, then y, then x",
+	)
+	var turns_before: int = main.state.total_turns
+	var walked_steps := 0
+	for _step in range(32):
+		var path: Array[Vector2i] = main._find_nearest_exploration_path()
+		if path.size() < 2:
+			break
+		var expected: Vector2i = path[1]
+		main._attempt_player_action(expected - main.player_pos)
+		walked_steps += 1
+		_expect(main.player_pos == expected, "AUTO chest cleanup step must follow its known-only path")
+	var remaining_uids := PackedStringArray()
+	for item in main.floor_data["items"]:
+		remaining_uids.append(String(item.uid))
+	remaining_uids.sort()
+	_expect(
+		remaining_uids == PackedStringArray(["unreachable"])
+		and main.state.total_turns == turns_before + walked_steps
+		and main._find_nearest_exploration_path().is_empty(),
+		"AUTO must collect every reachable observed chest once, spend ordinary turns, and ignore unknown/stale/unreachable goals",
+	)
+	main.queue_free()
+	await tree.process_frame
 
 
 func _test_generated_auto(tree: SceneTree) -> void:

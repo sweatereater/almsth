@@ -14,6 +14,9 @@ func run(tree: SceneTree) -> Array[String]:
 	tree.root.add_child(main)
 	await tree.process_frame
 	await _test_manual_command_matrix(main, tree)
+	await _test_physical_direction_sources(main, tree)
+	_test_two_direction_chords(main)
+	_test_held_retaliation(main)
 	await _test_pointer_and_hud_parity(main, tree)
 	_test_stop_only_and_ignored_inputs(main)
 	await _test_no_stale_step_after_manual_cancel(main, tree)
@@ -214,6 +217,225 @@ func _test_pointer_and_hud_parity(main, tree: SceneTree) -> void:
 		)
 
 
+func _test_two_direction_chords(main) -> void:
+	_prepare_dungeon(main)
+	var tiles := {}
+	for y in range(5):
+		for x in range(6):
+			tiles[Vector2i(x, y)] = "wall"
+	for floor_cell in [
+		Vector2i(1, 1), Vector2i(2, 1), Vector2i(3, 1), Vector2i(3, 2),
+	]:
+		tiles[floor_cell] = "floor"
+	main.floor_data["tiles"] = tiles
+	main.floor_data["start"] = Vector2i(1, 1)
+	main.floor_data["base_gate"] = Vector2i(0, 0)
+	main.floor_data["exit"] = Vector2i(5, 4)
+	main.floor_data["visible_cells"] = {}
+	main.floor_data["explored_cells"] = {}
+	main.floor_data["observed_cells"] = {}
+	for cell_variant in tiles:
+		main.floor_data["visible_cells"][cell_variant] = true
+		main.floor_data["explored_cells"][cell_variant] = true
+		main.floor_data["observed_cells"][cell_variant] = true
+	main.player_pos = Vector2i(1, 1)
+	var turns_before: int = main.state.total_turns
+	main._unhandled_input(_action("move_right"))
+	main._unhandled_input(_action("move_down"))
+	_expect(
+		main.player_pos == Vector2i(3, 1)
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT, Vector2i.DOWN]
+		and main.state.total_turns == turns_before + 2
+		and main.message != Loc.text("MSG_WALL"),
+		"Newest held direction must lead, then geometry-only fallback must use the previous orthogonal direction without a wall action",
+	)
+	main._attempt_held_movement()
+	_expect(
+		main.player_pos == Vector2i(3, 2)
+		and main.held_direction == Vector2i.DOWN
+		and main.state.total_turns == turns_before + 3,
+		"A successful fallback must become lead and switch back at the next obstacle",
+	)
+	var corner_turns: int = main.state.total_turns
+	var corner_message: String = main.message
+	_expect(
+		not main._attempt_held_movement()
+		and main.state.total_turns == corner_turns
+		and main.message == corner_message
+		and main.held_directions.size() == 2,
+		"Two blocked held directions must spend no turn, add no wall log, and remain tracked until release",
+	)
+
+	# A creature is an ordinary attack target, never a geometry fallback signal.
+	_prepare_dungeon(main)
+	main.player_pos = Vector2i(3, 3)
+	var enemy_rules: Dictionary = GameRules.ENEMIES["hollow_guard"]
+	main.floor_data["enemies"] = [{
+		"uid": "held-target", "id": "hollow_guard", "pos": Vector2i(4, 3),
+		"hp": 50, "max_hp": 50, "damage": 0, "accuracy": 0, "dodge": -100,
+		"vision": 0, "souls": int(enemy_rules.souls), "attack_type": "melee", "range": 1,
+	}]
+	main._register_held_direction(Vector2i.DOWN)
+	main._register_held_direction(Vector2i.RIGHT)
+	turns_before = main.state.total_turns
+	main._attempt_held_movement()
+	_expect(
+		main.player_pos == Vector2i(3, 3)
+		and main.state.total_turns == turns_before + 1
+		and bool(main.floor_data["enemies"][0].get("has_seen_player", false)),
+		"A live enemy in the leading cell must be attacked instead of triggering fallback",
+	)
+
+	# Releasing the lead changes only the lead; movement resumes on the next repeat.
+	_prepare_dungeon(main)
+	turns_before = main.state.total_turns
+	main._unhandled_input(_action("move_right"))
+	main._unhandled_input(_action("move_down"))
+	var position_before_release: Vector2i = main.player_pos
+	var turns_before_release: int = main.state.total_turns
+	main._unhandled_input(_action("move_down", false))
+	_expect(
+		main.player_pos == position_before_release
+		and main.state.total_turns == turns_before_release
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT],
+		"Releasing the lead must retain the remaining direction without an immediate extra step",
+	)
+	main._attempt_held_movement()
+	_expect(
+		main.player_pos == position_before_release + Vector2i.RIGHT
+		and main.state.total_turns == turns_before_release + 1,
+		"The remaining held direction must continue on the next repeat",
+	)
+	main._begin_automatic_action(true)
+	main._cancel_automatic_actions_for_manual_command()
+	_expect(
+		main.held_direction == Vector2i.ZERO and main.held_directions.is_empty()
+		and is_equal_approx(main.MOVE_REPEAT_INITIAL_DELAY, 0.28)
+		and is_equal_approx(main.MOVE_REPEAT_INTERVAL, 0.11),
+		"Stopping transient movement must clear the full held set without changing repeat timing",
+	)
+
+
+func _test_physical_direction_sources(main, tree: SceneTree) -> void:
+	# A cardinal stick event releases the opposite axis binding and presses its
+	# intended binding at once. Run the complete neutral/cardinal matrix through
+	# Godot's real Input singleton so both halves reach production dispatch.
+	for fixture in [
+		{"axis": JOY_AXIS_LEFT_X, "value": 1.0, "direction": Vector2i.RIGHT},
+		{"axis": JOY_AXIS_LEFT_X, "value": -1.0, "direction": Vector2i.LEFT},
+		{"axis": JOY_AXIS_LEFT_Y, "value": 1.0, "direction": Vector2i.DOWN},
+		{"axis": JOY_AXIS_LEFT_Y, "value": -1.0, "direction": Vector2i.UP},
+	]:
+		_prepare_dungeon(main)
+		main.get_viewport().gui_release_focus()
+		var before_position: Vector2i = main.player_pos
+		var before_turns: int = main.state.total_turns
+		await _parse_input(tree, _joy_motion(fixture.axis, fixture.value))
+		_expect(
+			main.player_pos == before_position + fixture.direction
+			and main.state.total_turns == before_turns + 1
+			and main.held_direction == fixture.direction
+			and main.held_directions == [fixture.direction],
+			"Stick cardinal %s must survive its simultaneous opposite release and move once"
+			% fixture.direction,
+		)
+		await _parse_input(tree, _joy_motion(fixture.axis, 0.0))
+		_expect(
+			main.held_direction == Vector2i.ZERO and main.held_directions.is_empty(),
+			"Stick neutral must release the active cardinal on axis %s" % fixture.axis,
+		)
+
+	_prepare_dungeon(main)
+	main.get_viewport().gui_release_focus()
+	await _parse_input(tree, _joy_motion(JOY_AXIS_LEFT_X, 1.0))
+	await _parse_input(tree, _joy_motion(JOY_AXIS_LEFT_Y, -1.0))
+	var cross_position: Vector2i = main.player_pos
+	var cross_turns: int = main.state.total_turns
+	await _parse_input(tree, _joy_motion(JOY_AXIS_LEFT_Y, 0.0))
+	_expect(
+		main.player_pos == cross_position
+		and main.state.total_turns == cross_turns
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT],
+		"Neutral on one stick axis must retain the held cardinal on the other axis",
+	)
+	main._attempt_held_movement()
+	_expect(
+		main.player_pos == cross_position + Vector2i.RIGHT
+		and main.state.total_turns == cross_turns + 1,
+		"The retained cross-axis cardinal must continue on the next repeat",
+	)
+	await _parse_input(tree, _joy_motion(JOY_AXIS_LEFT_X, 0.0))
+
+	# Move Right has two default keyboard sources (D and Right Arrow). Releasing
+	# one must not erase the unique cardinal while the action stays held by the other.
+	_prepare_dungeon(main)
+	main.get_viewport().gui_release_focus()
+	await _parse_input(tree, _key_state(KEY_D, true))
+	await _parse_input(tree, _key_state(KEY_RIGHT, true))
+	var duplicate_position: Vector2i = main.player_pos
+	var duplicate_turns: int = main.state.total_turns
+	await _parse_input(tree, _key_state(KEY_D, false))
+	_expect(
+		main.player_pos == duplicate_position
+		and main.state.total_turns == duplicate_turns
+		and Input.is_action_pressed("move_right")
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT],
+		"Releasing one physical binding must retain a direction held by another binding",
+	)
+	main._attempt_held_movement()
+	_expect(
+		main.player_pos == duplicate_position + Vector2i.RIGHT
+		and main.state.total_turns == duplicate_turns + 1,
+		"The duplicate-bound action must continue on the next repeat",
+	)
+	await _parse_input(tree, _key_state(KEY_RIGHT, false))
+	_expect(
+		not Input.is_action_pressed("move_right")
+		and main.held_direction == Vector2i.ZERO
+		and main.held_directions.is_empty(),
+		"Releasing the final physical binding must clear the unique cardinal",
+	)
+
+
+func _test_held_retaliation(main) -> void:
+	_prepare_dungeon(main)
+	var rules: Dictionary = GameRules.ENEMIES.hollow_guard
+	main.floor_data.enemies = [{
+		"uid": "held-retaliator", "id": "hollow_guard", "pos": Vector2i(4, 3),
+		"hp": 50, "max_hp": 50, "damage": 1, "accuracy": 100, "dodge": -100,
+		"vision": 8, "souls": int(rules.souls), "attack_type": "melee", "range": 1,
+		"has_seen_player": true, "last_seen_player": main.player_pos,
+	}]
+	var hp_before: int = main.state.hp
+	var turns_before: int = main.state.total_turns
+	main._unhandled_input(_action("move_right"))
+	var enemy_hp_after_first: int = main.floor_data.enemies[0].hp
+	_expect(
+		main.player_pos == Vector2i(3, 3)
+		and main.state.total_turns == turns_before + 1
+		and main.state.hp == hp_before - 1
+		and enemy_hp_after_first < 50
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT]
+		and is_equal_approx(main.movement_repeat_timer, main.MOVE_REPEAT_INITIAL_DELAY),
+		"A surviving adjacent retaliator must not clear the held attack or its timing",
+	)
+	main._attempt_held_movement()
+	_expect(
+		main.state.total_turns == turns_before + 2
+		and main.state.hp == hp_before - 2
+		and int(main.floor_data.enemies[0].hp) < enemy_hp_after_first
+		and main.held_direction == Vector2i.RIGHT
+		and main.held_directions == [Vector2i.RIGHT],
+		"The next held repeat must attack and allow retaliation again",
+	)
+	main._stop_held_movement()
+
+
 func _test_stop_only_and_ignored_inputs(main) -> void:
 	for explore_mode in [true, false]:
 		for action in ["auto_explore", "ascend_floor"]:
@@ -311,8 +533,7 @@ func _prepare_dungeon(main, exit_known := false) -> void:
 	main.screen = main.Screen.DUNGEON
 	main.floor_data = _open_floor(exit_known)
 	main.player_pos = Vector2i(3, 3)
-	main.held_direction = Vector2i.ZERO
-	main.movement_repeat_timer = 0.0
+	main._stop_held_movement()
 	main.wait_turn_count = 1
 	main.action_history.clear()
 	main.message = ""
@@ -404,6 +625,19 @@ func _joy_motion(axis: JoyAxis, value: float) -> InputEventJoypadMotion:
 	event.axis = axis
 	event.axis_value = value
 	return event
+
+
+func _key_state(keycode: Key, pressed: bool) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = pressed
+	return event
+
+
+func _parse_input(tree: SceneTree, event: InputEvent) -> void:
+	Input.parse_input_event(event)
+	await tree.process_frame
 
 
 func _device_command(

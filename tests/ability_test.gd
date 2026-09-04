@@ -13,6 +13,7 @@ func run(tree: SceneTree) -> Array[String]:
 	_test_save_migration_and_sanitation()
 	_test_dash_geometry()
 	await _test_dash_targeting_and_commit(tree)
+	await _test_multi_recipient_awareness(tree)
 	await _test_attack_dispatch_and_multi_hit_rewards(tree)
 	await _test_passive_attack_thresholds(tree)
 	await _test_circular_attack_and_boss_reward(tree)
@@ -259,6 +260,8 @@ func _test_dash_geometry() -> void:
 
 func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
+	var lunge_starts := 0
+	main.melee_lunge_started.connect(func(_actor: String, _from: Vector2i, _target: Vector2i): lunge_starts += 1)
 	_configure_form(main, "ghoul")
 	main.state.skill_levels["dash"] = 1
 	main.state.assign_ability("active_1", "dash")
@@ -272,6 +275,7 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 		and main.state.total_turns == turns_before,
 		"Entering Dash targeting must consume zero turns",
 	)
+	_expect(lunge_starts == 0 and main.melee_lunges.is_empty(), "Real Dash slot dispatch must enter targeting without melee-lunge presentation")
 	main._cancel_ability_targeting()
 	_expect(
 		main.ability_targeting_id.is_empty() and main.state.total_turns == turns_before,
@@ -294,13 +298,16 @@ func _test_dash_targeting_and_commit(tree: SceneTree) -> void:
 	}]
 	main.player_map_presentation.activate("female", "ghoul")
 	main.player_map_presentation.begin_step(Vector2i.LEFT, 0.2)
+	main._start_melee_lunge("dash-player", main.player_pos, main.player_pos + Vector2i.RIGHT)
+	main._start_melee_lunge("dash-enemy", main.player_pos + Vector2i.RIGHT, main.player_pos)
 	_expect(
 		main._confirm_dash(target)
 		and main.player_pos == target
 		and main.state.total_turns == turns_before + 1
 		and main.state.inventory.has(GameRules.make_item_key("bone_knife"))
 		and not main.player_map_presentation.moving
-		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,
+		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO
+		and main.melee_lunges.is_empty() and lunge_starts == 0,
 		"Confirming a three-cell Dash must reset unfinished walk presentation, spend one turn and collect only its endpoint chest",
 	)
 	var diagonal_turns: int = main.state.total_turns
@@ -383,6 +390,83 @@ func _test_attack_dispatch_and_multi_hit_rewards(tree: SceneTree) -> void:
 		int(main.floor_data["enemies"][0]["hp"]) == 4
 		and main._effective_attack_ability() == "basic_attack",
 		"F must safely fall back to Basic Attack when the preserved physical slot needs a later form",
+	)
+	main.queue_free()
+	await tree.process_frame
+
+
+func _test_multi_recipient_awareness(tree: SceneTree) -> void:
+	var main = await _new_main(tree)
+	main.floor_data = _floor_fixture()
+	main.player_pos = Vector2i(3, 3)
+	_reveal_floor(main)
+	var melee_target := _enemy("melee-intent", Vector2i(4, 3), 50, "hollow_guard")
+	var melee_ally := _enemy("melee-ally", Vector2i(3, 4), 50, "hollow_guard")
+	for enemy in [melee_target, melee_ally]:
+		enemy.erase("has_seen_player")
+		enemy.erase("last_seen_player")
+		enemy["dodge"] = 100
+	main.floor_data["enemies"] = [melee_target, melee_ally]
+	var miss: Dictionary = main._perform_melee_strike("melee-intent", 1)
+	_expect(
+		not bool(miss.get("hit", true))
+		and bool(melee_target.get("has_seen_player", false))
+		and melee_target.get("last_seen_player") == main.player_pos
+		and not bool(melee_ally.get("has_seen_player", false)),
+		"A melee miss must alert only the enemy receiving that strike",
+	)
+
+	var double_target := _enemy("double-intent", Vector2i(4, 3), 50, "hollow_guard")
+	double_target.erase("has_seen_player")
+	double_target.erase("last_seen_player")
+	double_target["dodge"] = 100
+	main.floor_data["enemies"] = [double_target, melee_ally]
+	_expect(
+		main._execute_attack_ability(
+			"double_attack", "double-intent", {"attack_rolls": [1, 1]},
+		)
+		and bool(double_target.get("has_seen_player", false))
+		and not bool(melee_ally.get("has_seen_player", false)),
+		"Double Attack must use the same per-recipient attack intent without waking allies",
+	)
+
+	var circle_a := _enemy("circle-a", Vector2i(4, 3), 50, "hollow_guard")
+	var circle_b := _enemy("circle-b", Vector2i(3, 4), 50, "hollow_guard")
+	var circle_outside := _enemy("circle-outside", Vector2i(5, 5), 50, "hollow_guard")
+	for enemy in [circle_a, circle_b, circle_outside]:
+		enemy.erase("has_seen_player")
+		enemy.erase("last_seen_player")
+		enemy["dodge"] = 100
+	main.floor_data["enemies"] = [circle_a, circle_b, circle_outside]
+	_expect(
+		main._execute_attack_ability("circular_attack", "", {"attack_rolls": [1, 1]})
+		and bool(circle_a.get("has_seen_player", false))
+		and bool(circle_b.get("has_seen_player", false))
+		and not bool(circle_outside.get("has_seen_player", false)),
+		"Circular Attack must alert every actual strike recipient and no outside bystander",
+	)
+
+	main.state.skill_levels["magic_awakening"] = 1
+	main.state.skill_levels["magic_missile"] = 1
+	main.state.skill_levels["magic_ricochet"] = 1
+	main.state.mana = main.state.get_max_mana()
+	main.player_pos = Vector2i(2, 3)
+	var magic_primary := _enemy("magic-primary", Vector2i(4, 3), 50, "hollow_guard")
+	var magic_ricochet := _enemy("magic-ricochet", Vector2i(4, 4), 50, "hollow_guard")
+	var magic_bystander := _enemy("magic-bystander", Vector2i(6, 6), 50, "hollow_guard")
+	for enemy in [magic_primary, magic_ricochet, magic_bystander]:
+		enemy.erase("has_seen_player")
+		enemy.erase("last_seen_player")
+	main.floor_data["enemies"] = [magic_primary, magic_ricochet, magic_bystander]
+	main.inspected_target = {
+		"kind": "enemy", "uid": "magic-primary", "entity": magic_primary,
+	}
+	_expect(
+		main._cast_magic_missile(0.0)
+		and bool(magic_primary.get("has_seen_player", false))
+		and bool(magic_ricochet.get("has_seen_player", false))
+		and not bool(magic_bystander.get("has_seen_player", false)),
+		"Magic Missile must alert its primary and successful ricochet recipients only",
 	)
 	main.queue_free()
 	await tree.process_frame
@@ -512,6 +596,8 @@ func _test_minotaur_dash(tree: SceneTree) -> void:
 
 func _test_magic_dispatch_and_ui_contracts(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
+	var lunge_starts := 0
+	main.melee_lunge_started.connect(func(_actor: String, _from: Vector2i, _target: Vector2i): lunge_starts += 1)
 	main.state.skill_levels["magic_awakening"] = 1
 	main.state.skill_levels["magic_missile"] = 1
 	main.state.assign_ability("active_1", "magic_missile")
@@ -539,6 +625,7 @@ func _test_magic_dispatch_and_ui_contracts(tree: SceneTree) -> void:
 		and main.magic_traces.size() == 1,
 		"Magic Missile must retain its damage, mana, visibility, trace and one-turn dispatcher contract",
 	)
+	_expect(lunge_starts == 0 and main.melee_lunges.is_empty(), "Real Magic Missile slot dispatch must create its trace without melee-lunge presentation")
 	_expect(
 		not main.player_map_presentation.moving
 		and main.player_map_presentation.visual().offset_cells == Vector2.ZERO,

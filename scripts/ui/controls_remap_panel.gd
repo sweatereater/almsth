@@ -7,6 +7,8 @@ signal bindings_changed
 const Loc := preload("res://scripts/localization/localization.gd")
 const InputProfile := preload("res://scripts/system/input_bindings.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 const ROW_START_Y := 136.0
 const ROW_HEIGHT := 32.0
@@ -22,6 +24,8 @@ var keyboard_buttons: Dictionary = {}
 var gamepad_buttons: Dictionary = {}
 var reset_button: Button
 var back_button: Button
+var confirm_conflict_button: Button
+var cancel_conflict_button: Button
 
 var capture_action := ""
 var capture_device := ""
@@ -33,6 +37,7 @@ var reset_confirmation := false
 func _ready() -> void:
 	position = Vector2.ZERO
 	size = Vector2(1280, 720)
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_interface()
 	apply_locale()
@@ -69,7 +74,13 @@ func apply_locale() -> void:
 	reset_button.text = Loc.text(
 		"CONTROLS_RESET_CONFIRM" if reset_confirmation else "CONTROLS_RESET"
 	)
+	reset_button.theme_type_variation = "DangerButton"
 	back_button.text = Loc.text("CONTROLS_BACK")
+	confirm_conflict_button.text = Loc.text("CONTROLS_CONFLICT_CONFIRM")
+	cancel_conflict_button.text = Loc.text("CONTROLS_CONFLICT_CANCEL")
+	confirm_conflict_button.accessibility_name = confirm_conflict_button.text
+	confirm_conflict_button.accessibility_description = Loc.text("CONTROLS_CONFLICT_CONFIRM")
+	cancel_conflict_button.accessibility_name = cancel_conflict_button.text
 	_refresh_status()
 	refresh_bindings()
 
@@ -82,8 +93,8 @@ func refresh_bindings() -> void:
 		var gamepad_button: Button = gamepad_buttons[action]
 		keyboard_button.text = _binding_text(action, InputProfile.DEVICE_KEYBOARD)
 		gamepad_button.text = _binding_text(action, InputProfile.DEVICE_GAMEPAD)
-		Ui.fit_button_text(keyboard_button, 14, 10)
-		Ui.fit_button_text(gamepad_button, 14, 10)
+		Ui.fit_button_text(keyboard_button, 14, 12)
+		Ui.fit_button_text(gamepad_button, 14, 12)
 
 
 func handle_input(event: InputEvent) -> bool:
@@ -95,7 +106,9 @@ func handle_input(event: InputEvent) -> bool:
 	if reset_confirmation and _is_cancel_event(event):
 		reset_confirmation = false
 		reset_button.text = Loc.text("CONTROLS_RESET")
-		status_label.text = Loc.text("CONTROLS_CANCELLED")
+		reset_button.theme_type_variation = "DangerButton"
+		_refresh_status()
+		_set_status_feedback(Loc.text("CONTROLS_CANCELLED"))
 		reset_button.grab_focus()
 		return true
 
@@ -104,27 +117,35 @@ func handle_input(event: InputEvent) -> bool:
 			_cancel_capture(true)
 			return true
 		if pending_event != null:
+			if event is InputEventScreenTouch:
+				return _handle_pending_conflict_touch(event)
 			if _is_confirm_event(event):
 				_apply_pending_conflict()
+				return true
+			if _is_focus_direction_event(event):
+				var focused := get_viewport().gui_get_focus_owner()
+				(confirm_conflict_button if focused == cancel_conflict_button else cancel_conflict_button).grab_focus()
+				return true
 			return _is_keyboard_or_gamepad_event(event)
 
 		var normalized := InputProfile.normalize_binding_event(event)
 		if normalized == null:
 			return _is_keyboard_or_gamepad_event(event)
 		if InputProfile.event_device(normalized) != capture_device:
-			status_label.text = Loc.text("CONTROLS_WRONG_DEVICE", [
+			_set_status_feedback(Loc.text("CONTROLS_WRONG_DEVICE", [
 				Loc.text(
 					"CONTROLS_KEYBOARD_HEADER"
 					if capture_device == InputProfile.DEVICE_KEYBOARD
 					else "CONTROLS_GAMEPAD_HEADER"
 				),
-			])
+			]), true)
 			return true
 		var result := InputProfile.replace_device_binding(capture_action, normalized)
 		if String(result.get("reason", "")) == "conflict":
 			pending_event = normalized
 			pending_conflicts.assign(result.get("conflicts", []))
 			_refresh_status()
+			confirm_conflict_button.call_deferred("grab_focus")
 			return true
 		if bool(result.get("ok", false)):
 			_finish_capture(true)
@@ -145,19 +166,22 @@ func _build_interface() -> void:
 	var overlay := ColorRect.new()
 	overlay.position = Vector2.ZERO
 	overlay.size = Vector2(1280, 720)
-	overlay.color = Color("0c1118f7")
+	overlay.color = Palette.OVERLAY_SCRIM
 	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(overlay)
 
 	var card := Panel.new()
 	card.position = Vector2(70, 24)
 	card.size = Vector2(1140, 672)
-	card.add_theme_stylebox_override("panel", Ui.make_panel_style(Color("52647b")))
+	card.add_theme_stylebox_override(
+		"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "panel", "normal")
+	)
 	add_child(card)
 
 	title_label = Ui.make_label(self, Vector2(110, 42), Vector2(1060, 42), 28)
+	Ui.apply_heading(title_label, 28)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle_label = Ui.make_label(self, Vector2(120, 82), Vector2(1040, 36), 15)
+	subtitle_label = Ui.make_label(self, Vector2(120, 82), Vector2(1040, 36), 16)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -179,6 +203,7 @@ func _build_interface() -> void:
 			Vector2(330, 27),
 		)
 		keyboard_button.name = "Keyboard_%s" % action
+		keyboard_button.toggle_mode = true
 		keyboard_button.pressed.connect(
 			_begin_capture.bind(action, InputProfile.DEVICE_KEYBOARD, keyboard_button)
 		)
@@ -192,6 +217,7 @@ func _build_interface() -> void:
 			Vector2(330, 27),
 		)
 		gamepad_button.name = "Gamepad_%s" % action
+		gamepad_button.toggle_mode = true
 		gamepad_button.pressed.connect(
 			_begin_capture.bind(action, InputProfile.DEVICE_GAMEPAD, gamepad_button)
 		)
@@ -202,23 +228,35 @@ func _build_interface() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	status_label.add_theme_color_override("font_color", Color("d4ad62"))
+	status_label.theme_type_variation = "SecondaryLabel"
 
 	reset_button = Ui.make_button(self, Vector2(250, 628), "", Vector2(360, 44))
 	reset_button.name = "ResetControls"
+	reset_button.theme_type_variation = "DangerButton"
 	reset_button.pressed.connect(_on_reset_pressed)
 	Ui.enable_keyboard_focus(reset_button)
 	back_button = Ui.make_button(self, Vector2(670, 628), "", Vector2(360, 44))
 	back_button.name = "BackFromControls"
 	back_button.pressed.connect(_on_back_pressed)
 	Ui.enable_keyboard_focus(back_button)
+	confirm_conflict_button = Ui.make_button(self, Vector2(250, 628), "", Vector2(360, 44))
+	confirm_conflict_button.name = "ConfirmBindingConflict"
+	confirm_conflict_button.theme_type_variation = "DangerButton"
+	confirm_conflict_button.pressed.connect(_apply_pending_conflict)
+	Ui.enable_keyboard_focus(confirm_conflict_button)
+	cancel_conflict_button = Ui.make_button(self, Vector2(670, 628), "", Vector2(360, 44))
+	cancel_conflict_button.name = "CancelBindingConflict"
+	cancel_conflict_button.pressed.connect(_cancel_capture.bind(true))
+	Ui.enable_keyboard_focus(cancel_conflict_button)
+	confirm_conflict_button.visible = false
+	cancel_conflict_button.visible = false
 	_configure_focus_navigation()
 
 
 func _make_header(position_value: Vector2, size_value: Vector2) -> Label:
 	var label := Ui.make_label(self, position_value, size_value, 14)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", Color("72d7cf"))
+	label.add_theme_color_override("font_color", Palette.color(Palette.WARM_ARCHIVE, "soul"))
 	return label
 
 
@@ -250,6 +288,10 @@ func _configure_focus_navigation() -> void:
 	back_button.focus_neighbor_left = reset_button.get_path()
 	back_button.focus_neighbor_right = reset_button.get_path()
 	back_button.focus_neighbor_bottom = gamepad_buttons[actions[0]].get_path()
+	confirm_conflict_button.focus_neighbor_left = cancel_conflict_button.get_path()
+	confirm_conflict_button.focus_neighbor_right = cancel_conflict_button.get_path()
+	cancel_conflict_button.focus_neighbor_left = confirm_conflict_button.get_path()
+	cancel_conflict_button.focus_neighbor_right = confirm_conflict_button.get_path()
 
 
 func _begin_capture(action: String, device: String, source_button: Button) -> void:
@@ -259,6 +301,8 @@ func _begin_capture(action: String, device: String, source_button: Button) -> vo
 	capture_device = device
 	pending_event = null
 	pending_conflicts.clear()
+	_clear_capture_selection()
+	source_button.set_pressed_no_signal(true)
 	source_button.grab_focus()
 	_refresh_status()
 
@@ -280,12 +324,14 @@ func _finish_capture(changed: bool) -> void:
 	capture_device = ""
 	pending_event = null
 	pending_conflicts.clear()
+	_clear_capture_selection()
 	refresh_bindings()
+	_refresh_status()
 	if changed:
-		status_label.text = Loc.text("CONTROLS_APPLIED", [
+		_set_status_feedback(Loc.text("CONTROLS_APPLIED", [
 			_event_text(changed_event),
 			Loc.text(String(InputProfile.ACTION_LABEL_KEYS[changed_action])),
-		])
+		]), false, true)
 		bindings_changed.emit()
 
 
@@ -296,8 +342,10 @@ func _cancel_capture(show_feedback: bool) -> void:
 	capture_device = ""
 	pending_event = null
 	pending_conflicts.clear()
+	_clear_capture_selection()
+	_refresh_status()
 	if show_feedback and status_label != null:
-		status_label.text = Loc.text("CONTROLS_CANCELLED")
+		_set_status_feedback(Loc.text("CONTROLS_CANCELLED"))
 	if not action.is_empty():
 		var button: Button = (
 			keyboard_buttons[action]
@@ -312,13 +360,16 @@ func _on_reset_pressed() -> void:
 		_cancel_capture(false)
 		reset_confirmation = true
 		reset_button.text = Loc.text("CONTROLS_RESET_CONFIRM")
-		status_label.text = Loc.text("CONTROLS_RESET_WARNING")
+		reset_button.theme_type_variation = "DangerButton"
+		_refresh_status()
 		return
 	InputProfile.reset_to_defaults()
 	reset_confirmation = false
 	reset_button.text = Loc.text("CONTROLS_RESET")
+	reset_button.theme_type_variation = "DangerButton"
 	refresh_bindings()
-	status_label.text = Loc.text("CONTROLS_RESET_DONE")
+	_refresh_status()
+	_set_status_feedback(Loc.text("CONTROLS_RESET_DONE"))
 	reset_button.grab_focus()
 	bindings_changed.emit()
 
@@ -333,11 +384,20 @@ func _on_back_pressed() -> void:
 func _refresh_status() -> void:
 	if status_label == null:
 		return
+	status_label.remove_theme_color_override("font_color")
+	status_label.theme_type_variation = "SecondaryLabel"
+	var conflict_pending := not capture_action.is_empty() and pending_event != null
+	confirm_conflict_button.visible = conflict_pending
+	cancel_conflict_button.visible = conflict_pending
+	reset_button.visible = not conflict_pending
+	back_button.visible = not conflict_pending
 	if reset_confirmation:
+		status_label.theme_type_variation = "DangerLabel"
 		status_label.text = Loc.text("CONTROLS_RESET_WARNING")
 		return
 	if not capture_action.is_empty():
 		if pending_event != null:
+			status_label.theme_type_variation = "DangerLabel"
 			var conflict_names: Array[String] = []
 			for action in pending_conflicts:
 				conflict_names.append(Loc.text(String(InputProfile.ACTION_LABEL_KEYS[action])))
@@ -345,14 +405,57 @@ func _refresh_status() -> void:
 				_event_text(pending_event),
 				", ".join(conflict_names),
 			])
+			confirm_conflict_button.accessibility_description = status_label.text
 			return
+		status_label.theme_type_variation = "SecondaryLabel"
+		status_label.add_theme_color_override("font_color", Palette.color(Palette.WARM_ARCHIVE, "focus"))
 		status_label.text = Loc.text(
 			"CONTROLS_WAIT_KEYBOARD"
 			if capture_device == InputProfile.DEVICE_KEYBOARD
 			else "CONTROLS_WAIT_GAMEPAD"
 		)
 		return
+	status_label.theme_type_variation = "SecondaryLabel"
+	status_label.remove_theme_color_override("font_color")
 	status_label.text = Loc.text("CONTROLS_NAV_HINT")
+
+
+func _set_status_feedback(text: String, danger := false, soul := false) -> void:
+	status_label.remove_theme_color_override("font_color")
+	status_label.theme_type_variation = "DangerLabel" if danger else "SecondaryLabel"
+	if soul:
+		status_label.add_theme_color_override(
+			"font_color", Palette.color(Palette.WARM_ARCHIVE, "soul")
+		)
+	status_label.text = text
+
+
+func _handle_pending_conflict_touch(event: InputEventScreenTouch) -> bool:
+	# The conflict state is modal: only the explicit Replace/Cancel controls can
+	# resolve it. A second tap on a binding never clears or restarts capture.
+	if not event.pressed:
+		return true
+	if confirm_conflict_button.get_global_rect().has_point(event.position):
+		_apply_pending_conflict()
+	elif cancel_conflict_button.get_global_rect().has_point(event.position):
+		_cancel_capture(true)
+	return true
+
+
+func _is_focus_direction_event(event: InputEvent) -> bool:
+	return (
+		event.is_action_pressed("ui_left")
+		or event.is_action_pressed("ui_right")
+		or event.is_action_pressed("ui_up")
+		or event.is_action_pressed("ui_down")
+	)
+
+
+func _clear_capture_selection() -> void:
+	for button in keyboard_buttons.values():
+		(button as Button).set_pressed_no_signal(false)
+	for button in gamepad_buttons.values():
+		(button as Button).set_pressed_no_signal(false)
 
 
 func _binding_text(action: String, device: String) -> String:

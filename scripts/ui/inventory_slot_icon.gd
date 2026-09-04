@@ -3,10 +3,10 @@ extends Control
 
 ## Code-drawn quiet equipment silhouette used only for empty Character slots.
 
-const CONTAINER := Color("171c25")
-const BORDER := Color("293445")
-const BORDER_ACTIVE := Color("354052")
-const GLYPH := Color(0.478, 0.510, 0.565, 0.66)
+const CONTAINER := Color("111310")
+const BORDER := Color("514b3e")
+const BORDER_ACTIVE := Color("665a46")
+const GLYPH := Color(0.65, 0.61, 0.52, 0.76)
 const FOCUS := Color("72d7cf")
 const PERMANENT_BORDER := Color("a97845")
 const PERMANENT_GLYPH := Color(0.70, 0.57, 0.40, 0.86)
@@ -14,6 +14,7 @@ const PERMANENT_GLYPH := Color(0.70, 0.57, 0.40, 0.86)
 var slot_id := ""
 var locked := false
 var permanent := false
+var linked_two_handed := false
 
 
 func _ready() -> void:
@@ -24,18 +25,26 @@ func _ready() -> void:
 		owner.focus_exited.connect(queue_redraw)
 
 
-func set_slot(value: String, is_locked := false, is_permanent := false) -> void:
+func set_slot(
+	value: String,
+	is_locked := false,
+	is_permanent := false,
+	is_two_handed_link := false,
+) -> void:
 	slot_id = value
 	locked = is_locked
 	permanent = is_permanent
+	linked_two_handed = is_two_handed_link
 	queue_redraw()
 
 
 func _draw() -> void:
 	var rect := Rect2(Vector2.ZERO, size)
-	var alpha := 0.30 if locked else 1.0
+	var alpha := 0.55 if locked else 1.0
 	var owner := get_parent() as Button
-	var icon_overlay_only := permanent and owner != null and owner.icon != null
+	var icon_overlay_only := linked_two_handed or (
+		permanent and owner != null and owner.icon != null
+	)
 	if not icon_overlay_only:
 		draw_rect(rect, Color(CONTAINER, alpha))
 	var border_color := PERMANENT_BORDER if permanent else (BORDER_ACTIVE if locked else BORDER)
@@ -46,6 +55,8 @@ func _draw() -> void:
 		_draw_glyph(rect.get_center(), glyph)
 	if locked or permanent:
 		_draw_lock(Vector2(size.x - 10.0, 10.0), Color(0.62, 0.66, 0.72, 0.62))
+	if linked_two_handed:
+		_draw_two_handed_link()
 	owner = get_parent() as Button
 	if owner != null and owner.has_focus():
 		draw_rect(rect.grow(-1.0), FOCUS, false, 2.0)
@@ -143,3 +154,17 @@ func _draw_focus_notches(rect: Rect2) -> void:
 		var sy := 1.0 if corner.y < rect.get_center().y else -1.0
 		draw_line(corner, corner + Vector2(sx * 6.0, 0), FOCUS, 2.0)
 		draw_line(corner, corner + Vector2(0, sy * 6.0), FOCUS, 2.0)
+
+
+func _draw_two_handed_link() -> void:
+	var color := Palette.color(Palette.WARM_ARCHIVE, "soul")
+	var center := Vector2(size.x * 0.5, size.y * 0.5)
+	draw_arc(center + Vector2(-6, 2), 7.0, -0.8, 2.35, 18, color, 2.2, true)
+	draw_arc(center + Vector2(6, -2), 7.0, 2.35, 5.5, 18, color, 2.2, true)
+	draw_line(center + Vector2(-3, 3), center + Vector2(3, -3), color, 2.2, true)
+	draw_string(
+		ThemeController.functional_font("semibold"), Vector2(34, 15), "2H",
+		HORIZONTAL_ALIGNMENT_CENTER, 26.0, 12, color,
+	)
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")

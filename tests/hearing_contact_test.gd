@@ -351,7 +351,7 @@ func _test_locked_and_purchase_contract(tree: SceneTree) -> void:
 	_expect(
 		main.hearing_contacts.event_revision == 0
 		and main.hearing_contacts.attack_memory_count() == 0
-		and not main.action_history.has(Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
+		and not _history_contains(main, Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
 		and main.held_direction == Vector2i.RIGHT
 		and not main.auto_explore_active and main.auto_travel_active,
 		"A locked hidden miss must keep normal ranged interruption but add no hearing snapshot, log, or route stop",
@@ -366,9 +366,9 @@ func _test_locked_and_purchase_contract(tree: SceneTree) -> void:
 	_expect(
 		main.state.total_turns == turns_before_locked_hit + 1
 		and main.state.hp == hp_before_locked_hit - 1
-		and main.action_history[0] == Loc.text("MSG_WAIT_INTERRUPTED_HP", [1])
+		and _latest_history_text(main) == Loc.text("MSG_WAIT_INTERRUPTED_HP", [1])
 		and main.hearing_contacts.event_revision == 0
-		and not main.action_history.has(Loc.text("MSG_HEARING_HIDDEN_ATTACK")),
+		and not _history_contains(main, Loc.text("MSG_HEARING_HIDDEN_ATTACK")),
 		"Locked hearing must not change real damage or HP-loss interruption from a hidden hit",
 	)
 	main.hearing_contacts.record_hidden_attack("stale-locked", Vector2i(7, 3), main.state.total_turns)
@@ -388,7 +388,7 @@ func _test_locked_and_purchase_contract(tree: SceneTree) -> void:
 	main._on_wait_pressed()
 	_expect(
 		main.state.total_turns == turns_before_locked_wait + 10
-		and main.action_history[0] == Loc.text("MSG_WAIT_COMPLETED", [10])
+		and _latest_history_text(main) == Loc.text("MSG_WAIT_COMPLETED", [10])
 		and main.hearing_contacts.event_revision == 0,
 		"Locked long wait must ignore and clear stale hearing revision without a hearing interruption",
 	)
@@ -403,7 +403,7 @@ func _test_locked_and_purchase_contract(tree: SceneTree) -> void:
 		and main.state.has_hearing() and main.state.get_hearing_radius() == 5
 		and main.hearing_contacts.event_revision == 1
 		and main.hearing_contacts.presentation_positions() == [Vector2i(7, 3)]
-		and main.action_history.has(Loc.text("MSG_HEARING_MOVEMENT")),
+		and _history_contains(main, Loc.text("MSG_HEARING_MOVEMENT")),
 		"Buying Ears in a dungeon must cost 20 souls and immediately sync current nearby noise",
 	)
 	var restored := RunState.new()
@@ -450,9 +450,10 @@ func _test_main_turn_input_and_automation(tree: SceneTree) -> void:
 		"A hidden attack during Wait 10 must finish exactly the current turn and then interrupt",
 	)
 	_expect(
-		main.action_history.has(Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
-		and main.action_history[0] == Loc.text("MSG_WAIT_INTERRUPTED_RANGED", [1]),
-		"A hidden ranged miss must preserve the incoming-ranged wait priority",
+		_history_contains(main, Loc.text("MSG_HEARING_HIDDEN_ATTACK"))
+		and _history_semantic_for_text(main, Loc.text("MSG_HEARING_HIDDEN_ATTACK")) == "incoming"
+		and _latest_history_text(main) == Loc.text("MSG_WAIT_INTERRUPTED_RANGED", [1]),
+		"A hidden ranged miss must preserve incoming semantics and the ranged wait priority",
 	)
 	main.action_history.clear()
 	main.floor_data["enemies"][0]["accuracy"] = 100
@@ -464,7 +465,7 @@ func _test_main_turn_input_and_automation(tree: SceneTree) -> void:
 	_expect(
 		main.state.total_turns == turns_before_hundred_wait + 1
 		and main.state.get_effective_health() == hp_before_hit_wait - 1
-		and main.action_history[0] == Loc.text("MSG_WAIT_INTERRUPTED_HP", [1]),
+		and _latest_history_text(main) == Loc.text("MSG_WAIT_INTERRUPTED_HP", [1]),
 		"A hidden ranged hit must preserve HP-loss priority over ranged and hearing reasons",
 	)
 
@@ -481,7 +482,7 @@ func _test_main_turn_input_and_automation(tree: SceneTree) -> void:
 	_expect(
 		main.state.total_turns == turns_before_hearing_wait + 1
 		and main.state.get_effective_health() == hp_before_hearing_wait
-		and main.action_history[0] == Loc.text("MSG_WAIT_INTERRUPTED_HEARING", [1]),
+		and _latest_history_text(main) == Loc.text("MSG_WAIT_INTERRUPTED_HEARING", [1]),
 		"A pure newly-heard movement event must retain the hearing wait reason",
 	)
 	main.floor_data["enemies"] = [_game_enemy("hidden_archer", Vector2i(8, 3), 0, 10, 10)]
@@ -762,6 +763,28 @@ func _send_viewport_touch_cell(main, tree: SceneTree, cell: Vector2i) -> void:
 
 func _enemy(uid: String, pos: Vector2i, hp := 1) -> Dictionary:
 	return {"uid": uid, "pos": pos, "hp": hp}
+
+
+func _latest_history_text(main) -> String:
+	return (
+		"" if main.action_history.is_empty()
+		else main.action_entry_plain_text(main.action_history[0])
+	)
+
+
+func _history_contains(main, text: String) -> bool:
+	for entry in main.action_history:
+		if main.action_entry_plain_text(entry).contains(text):
+			return true
+	return false
+
+
+func _history_semantic_for_text(main, text: String) -> String:
+	for entry in main.action_history:
+		for segment in main.action_entry_segments(entry):
+			if String(segment.get("text", "")).contains(text):
+				return String(segment.get("semantic", ""))
+	return ""
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -1,0 +1,104 @@
+{
+  "schema": 1,
+  "method": "exterior-connected alpha-only Chebyshev rim <= 2 source pixels",
+  "rgb_threshold": null,
+  "alpha_radius_source_px": 2,
+  "sources": {
+    "female": {
+      "path": "art/characters/female/sources/almost-human-original.png",
+      "sha256": "d20a535161689e23ba1a973bf9c3a3aeb860aec02fbce6f5e823c204bb8f0479"
+    },
+    "male": {
+      "path": "art/characters/male/sources/five-stages-approved.png",
+      "sha256": "74ed2961886fe021c6c63b305d17ea403d6f74d15c655e2f3690bf241c1bab04"
+    }
+  },
+  "outputs": [
+    {
+      "sex": "female",
+      "output": "assets/portraits/female/form-almost-human.png",
+      "size": [
+        264,
+        264
+      ],
+      "eye": [
+        115,
+        105
+      ],
+      "eye_to_chin": 56,
+      "alpha_bounds": [
+        48,
+        25,
+        234,
+        225
+      ],
+      "protected_rects": [
+        [
+          68,
+          70,
+          174,
+          182
+        ]
+      ],
+      "removed_partial_alpha_pixels": 943,
+      "source_pixel_sha256": "9af42e9256f97accefc0efae8d40b860e3f5bafb2172a4413ce59e5a31177eb4",
+      "output_pixel_sha256": "f5c66f49ee69bc1b02083acc89b8c7ae135af72dc2c643d314742aeaaeea715e",
+      "output_sha256": "de3b97db54c1d2180c449b7324784dbb6f0988957228e4d685137edee10282ad"
+    },
+    {
+      "sex": "male",
+      "output": "assets/portraits/male/form-almost-human.png",
+      "size": [
+        264,
+        264
+      ],
+      "eye": [
+        115,
+        105
+      ],
+      "eye_to_chin": 56,
+      "alpha_bounds": [
+        51,
+        21,
+        197,
+        190
+      ],
+      "protected_rects": [
+        [
+          62,
+          20,
+          184,
+          94
+        ],
+        [
+          66,
+          78,
+          174,
+          180
+        ]
+      ],
+      "removed_partial_alpha_pixels": 599,
+      "source_pixel_sha256": "597132f3f10c2b267cab4164805211a8f0ea0f99ebf915e3bdbee6ddf006aed6",
+      "output_pixel_sha256": "c8436bd889032eee60f60715b4a5d76b26c9983a96721d89ba2918d23f21fc68",
+      "output_sha256": "ea3bcb78f6abbc31632a00b2f2990a37bc87d35a0eae2b8c144a72238681fb22"
+    }
+  ],
+  "previews": [
+    {
+      "path": ".tmp/stage1c-portrait-previews/portraits-112.png",
+      "size": [
+        700,
+        316
+      ],
+      "sha256": "ce8817d513284debed321e0094052a7530591d351543c2e4ee3013e55d1aaa92"
+    },
+    {
+      "path": ".tmp/stage1c-portrait-previews/portraits-84.png",
+      "size": [
+        560,
+        260
+      ],
+      "sha256": "76992324af90cffe17070faa57fdbb21df0d892152c3eff231a626d4d725e797"
+    }
+  ]
+}

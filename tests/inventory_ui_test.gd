@@ -12,22 +12,52 @@ func run(tree: SceneTree) -> Array[String]:
 	failures.clear()
 	_test_presentation_model()
 	await _test_panel_state(tree)
+	await _test_main_mark_input_routing(tree)
 	await _test_main_integration(tree)
 	Loc.set_locale("ru")
 	return failures
 
 
 func _test_presentation_model() -> void:
-	var expected_filters: Array[String] = ["all"]
-	expected_filters.append_array(GameRules.EQUIPMENT_CATEGORY_ORDER)
+	var expected_filters: Array[String] = [
+		"all", "weapons", "offhand", "armor", "accessories", "backpack",
+	]
 	_expect(
 		PanelClass.available_filter_order() == expected_filters,
-		"Inventory filter order must derive from the centralized equipment-category registry",
+		"Character inventory must expose the exact six aggregate presentation filters",
+	)
+	var expected_service_filters: Array[String] = ["all"]
+	expected_service_filters.append_array(GameRules.EQUIPMENT_CATEGORY_ORDER)
+	_expect(
+		PanelClass.service_filter_order() == expected_service_filters,
+		"Service modes must retain the centralized internal category IDs",
+	)
+	_expect(
+		PanelClass.CHARACTER_FILTER_CATEGORIES == {
+			"all": [],
+			"weapons": ["weapon"],
+			"offhand": ["offhand"],
+			"armor": ["head", "body", "hands", "legs", "feet"],
+			"accessories": ["talisman", "ring"],
+			"backpack": ["back"],
+		},
+		"Aggregate filters must map to existing serialized/internal category IDs",
 	)
 	var panel_source := FileAccess.get_file_as_string("res://scripts/ui/inventory_panel.gd")
 	_expect(
 		not panel_source.contains("const FILTER_ORDER"),
 		"InventoryPanel must not duplicate the central equipment-category order",
+	)
+	var mark_overlay_source := FileAccess.get_file_as_string(
+		"res://scripts/ui/inventory_mark_overlay.gd"
+	)
+	_expect(
+		not mark_overlay_source.contains(".lightened(")
+		and not mark_overlay_source.contains(".darkened(")
+		and mark_overlay_source.contains(
+			'Palette.color(Palette.WARM_ARCHIVE, "raised")'
+		),
+		"Card mark hover must use the exact raised token without derived UI colors",
 	)
 	_expect(
 		Loc.STRINGS["ru"]["ITEM_UNEXPECTEDLY_COMFORTABLE_JACKET"] == "Уютный пиджак"
@@ -58,12 +88,33 @@ func _test_presentation_model() -> void:
 			"Knife +2 card must show melee damage 3 and accuracy 3 in %s" % locale,
 		)
 		for key in [
-			"INVENTORY_FILTER_ALL", "INVENTORY_SELECTED_PANEL", "INVENTORY_EQUIPPED_PANEL",
+			"INVENTORY_FILTER_ALL", "INVENTORY_FILTER_WEAPONS", "INVENTORY_FILTER_OFFHAND",
+			"INVENTORY_FILTER_ARMOR", "INVENTORY_FILTER_ACCESSORIES", "INVENTORY_FILTER_BACKPACK",
+			"INVENTORY_SELECTED_PANEL", "INVENTORY_EQUIPPED_PANEL",
 			"INVENTORY_EMPTY", "INVENTORY_SERVICE_CRUSHER", "INVENTORY_SERVICE_WHETSTONE",
 			"INVENTORY_CLOSE_SERVICE", "INVENTORY_UPGRADE_SELECT_SHORT", "INVENTORY_UPGRADE_WEAPON_ONLY",
+			"INVENTORY_SELECTION_STALE", "MSG_EQUIP_ITEM_MISSING", "MSG_EQUIP_SLOT_CHOICE_REQUIRED", "MSG_EQUIP_SLOT_LOCKED",
 			"CAMP_OBJECT_CRUSHER_TOOLTIP", "CAMP_OBJECT_WHETSTONE_TOOLTIP",
 		]:
 			_expect(Loc.STRINGS[locale].has(key), "Inventory UI localization %s missing in %s" % [key, locale])
+	var pagination_state := RunState.new()
+	for item_id in [
+		"rusty_sabre", "short_crossbow", "bone_buckler", "gravediggers_lamp",
+		"watchmans_cap", "archivists_mask", "wanderers_gambeson", "lamellar_vest",
+		"scouts_trousers", "heavy_leg_wraps", "pilgrims_boots", "aiming_ring", "expedition_backpack",
+	]:
+		pagination_state.add_item(item_id)
+	var pagination_keys: Array = pagination_state.inventory.keys()
+	for amount in [0, 1, 6, 7, 12, 13]:
+		var subset := RunState.new()
+		for index in range(amount):
+			var key := String(pagination_keys[index])
+			subset.inventory[key] = pagination_state.inventory[key]
+		var page_count := maxi(1, ceili(
+			PanelClass.build_entries(subset, PanelClass.Mode.CHARACTER, "all").size()
+			/ float(PanelClass.PAGE_SIZE)
+		))
+		_expect(page_count == maxi(1, ceili(amount / 6.0)), "Six-card pagination must be exact for %d entries" % amount)
 
 
 func _test_panel_state(tree: SceneTree) -> void:
@@ -81,7 +132,9 @@ func _test_panel_state(tree: SceneTree) -> void:
 	var state_before_jacket_selection: Dictionary = state.to_save_data()
 	panel.select_equipment_slot("jacket", true)
 	var only_all_pressed: bool = bool(panel.filter_buttons["all"].button_pressed)
-	for category_id in GameRules.EQUIPMENT_CATEGORY_ORDER:
+	for category_id in PanelClass.available_filter_order():
+		if category_id == "all":
+			continue
 		only_all_pressed = only_all_pressed and not panel.filter_buttons[category_id].button_pressed
 	_expect(
 		panel.filter_id == "all"
@@ -94,9 +147,9 @@ func _test_panel_state(tree: SceneTree) -> void:
 		"Selecting the occupied permanent jacket must preserve selection/state while forcing only All pressed",
 	)
 	panel.select_equipment_slot("head", false)
-	_expect(panel.filter_id == "head" and panel.filter_buttons["head"].button_pressed, "Ordinary head slot must retain the Helmets category filter")
+	_expect(panel.filter_id == "armor" and panel.filter_buttons["armor"].button_pressed, "Head must map to the aggregate Armor filter")
 	panel.select_equipment_slot("back", false)
-	_expect(panel.filter_id == "back" and panel.filter_buttons["back"].button_pressed, "Ordinary back slot must retain the Backpack category filter")
+	_expect(panel.filter_id == "backpack" and panel.filter_buttons["backpack"].button_pressed, "Back must map to the aggregate Backpack filter")
 	panel.set_filter("all")
 	var keys := PackedStringArray()
 	for entry in panel.entries:
@@ -105,22 +158,22 @@ func _test_panel_state(tree: SceneTree) -> void:
 		keys == PackedStringArray(["bone_bow@2", "bone_knife@3", "rotting_mail@0", "soul_locket@0"]),
 		"Inventory rows must use stable explicit slot/key order",
 	)
-	_expect("×2" in panel.row_buttons[0].text, "One stack key must render as one row with its count")
-	panel.set_filter("hands")
+	_expect("×2" in panel.row_property_labels[0].text, "One stack key must render as one card with its count")
+	panel.set_filter("offhand")
 	_expect(panel.entries.is_empty() and panel.page_label.text == Loc.text("INVENTORY_EMPTY_FILTER"), "Empty filters need an explicit state")
-	panel.set_filter("body")
-	panel.select_visible_index(0)
+	panel.set_filter("armor")
+	panel.select_item("rotting_mail@0", "inventory")
 	_expect(
 		panel.equipped_detail_label.text.contains(Loc.text("INVENTORY_SLOT_LOCKED")),
 		"An inventory item targeting a locked form slot must show Locked in the comparison panel",
 	)
 	panel.select_equipment_slot("body", false)
 	_expect(
-		panel.filter_id == "body"
+		panel.filter_id == "armor"
 		and panel.selected_detail_label.text.contains(Loc.text("INVENTORY_SLOT_LOCKED")),
-		"Selecting a locked mannequin slot must switch its filter and explain that it is locked",
+		"Selecting a locked mannequin slot must switch to Armor and explain that it is locked",
 	)
-	panel.set_filter("weapon")
+	panel.set_filter("weapons")
 	panel.select_visible_index(0)
 	state.remove_item("bone_knife@3")
 	state.loadout["right_hand"] = "bone_knife@3"
@@ -184,36 +237,324 @@ func _test_panel_state(tree: SceneTree) -> void:
 	_expect(not panel.close_button.visible, "Embedded Character inventory must not show the service close button")
 	_expect(
 		panel.size == CharacterSheetLayout.INVENTORY_PANEL_RECT.size
-		and panel.row_buttons[0].position == Vector2(0, 92)
+		and panel.row_buttons[0].position == Vector2(0, 48)
 		and panel.row_buttons[0].size == PanelClass.CHARACTER_ROW_SIZE,
-		"Embedded Character inventory must use its isolated compact right-column geometry",
+		"Embedded Character inventory must use six 270x84 cards in its isolated 549x546 region",
 	)
 	var filter_order := PanelClass.available_filter_order()
 	for index in range(filter_order.size()):
 		var filter_button: Button = panel.filter_buttons[filter_order[index]]
 		_expect(
-			filter_button.position.y == (0.0 if index < 6 else 44.0)
+			filter_button.position.y == 0.0
+			and filter_button.size.y == 40.0
 			and filter_button.position.x + filter_button.size.x <= PanelClass.CHARACTER_PANEL_SIZE.x + 0.1,
-			"Character inventory filters must fit in measured 6+5 rows",
+			"Six aggregate Character inventory filters must fit in one measured row",
 		)
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
 		panel.apply_locale()
 		for current_filter in filter_order:
 			var filter_button: Button = panel.filter_buttons[current_filter]
+			var normal_style := filter_button.get_theme_stylebox("normal")
 			var text_width := filter_button.get_theme_font("font").get_string_size(
 				filter_button.text, HORIZONTAL_ALIGNMENT_LEFT, -1,
 				filter_button.get_theme_font_size("font_size"),
 			).x
-			_expect(text_width <= filter_button.size.x - 6.0, "Character filter %s must not clip in %s" % [current_filter, locale])
+			var usable_width := filter_button.size.x - normal_style.get_content_margin(SIDE_LEFT) - normal_style.get_content_margin(SIDE_RIGHT)
+			_expect(
+				filter_button.theme_type_variation == "CompactButton"
+				and filter_button.get_theme_font_size("font_size") >= 12
+				and text_width <= usable_width,
+				"Character filter %s must not clip inside cached compact margins in %s" % [current_filter, locale],
+			)
+		if locale == "ru":
+			_expect(
+				panel.filter_buttons["offhand"].text == "Вторая рука",
+				"The RU Off-hand aggregate tab must render its exact synchronized label",
+			)
 	Loc.set_locale("ru")
 	panel.apply_locale()
+	var card_state := RunState.new()
+	var card_item_ids := [
+		"rusty_sabre", "short_crossbow", "bone_buckler", "gravediggers_lamp",
+		"watchmans_cap", "archivists_mask", "wanderers_gambeson", "lamellar_vest",
+		"scouts_trousers", "heavy_leg_wraps", "pilgrims_boots", "aiming_ring", "expedition_backpack",
+	]
+	for item_id in card_item_ids:
+		card_state.add_item(String(item_id))
+	var upgraded_bound_key := GameRules.make_item_key("old_claymore", 3, true)
+	card_state.add_item_key(upgraded_bound_key, 2)
+	card_state.set_item_mark("rusty_sabre@0", "keep")
+	card_state.set_item_mark("short_crossbow@0", "salvage")
+	panel.bind_state(card_state, true)
+	panel.set_filter("all")
+	_expect(
+		panel.entries.size() == 14
+		and panel.row_buttons.all(func(button: Button) -> bool: return button.visible)
+		and panel.previous_button.disabled
+		and not panel.next_button.disabled,
+		"Character inventory must render exactly six cards on the first page and enable deterministic paging",
+	)
+	for index in range(6):
+		var expected_position := Vector2((index % 2) * 279, 48 + (index / 2) * 88)
+		_expect(
+			panel.row_buttons[index].position == expected_position
+			and panel.row_buttons[index].size == Vector2(270, 84)
+			and panel.row_icons[index].size == Vector2(44, 44)
+			and panel.row_name_labels[index].get_theme_font_size("font_size") == 14
+			and panel.row_property_labels[index].get_theme_font_size("font_size") >= 12,
+			"Card %d must follow the two-column/three-row 44px-icon typography contract" % index,
+		)
+	var interactive_overlay_count := 0
+	var active_mark_count := 0
+	for overlay in panel.row_mark_overlays:
+		if overlay.visible:
+			interactive_overlay_count += 1
+			if not overlay.mark.is_empty():
+				active_mark_count += 1
+			_expect(
+				overlay.interactive
+				and overlay.size == overlay.INTERACTIVE_SIZE
+				and overlay.custom_minimum_size == overlay.INTERACTIVE_SIZE
+				and overlay.keep_button.visible
+				and overlay.salvage_button.visible
+				and overlay.keep_button.mouse_filter == Control.MOUSE_FILTER_STOP
+				and overlay.salvage_button.mouse_filter == Control.MOUSE_FILTER_STOP,
+				"Each visible Character card needs two independent corner controls",
+			)
+	_expect(
+		interactive_overlay_count == 6
+		and active_mark_count == 2
+		and not panel.keep_button.visible
+		and not panel.salvage_mark_button.visible,
+		"Keep/Salvage must live on all six cards, with no global Character mark controls",
+	)
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		panel.apply_locale()
+		for overlay in panel.row_mark_overlays:
+			if not overlay.visible:
+				continue
+			_expect(
+				overlay.keep_button.tooltip_text == Loc.text("INVENTORY_MARK_KEEP")
+				and overlay.keep_button.accessibility_name == Loc.text("INVENTORY_MARK_KEEP")
+				and overlay.salvage_button.tooltip_text == Loc.text("INVENTORY_MARK_SALVAGE")
+				and overlay.salvage_button.accessibility_name == Loc.text("INVENTORY_MARK_SALVAGE"),
+				"Card mark tooltip/accessibility copy must stay synchronized in %s" % locale,
+			)
+	Loc.set_locale("ru")
+	panel.apply_locale()
+	panel.select_item(upgraded_bound_key, "inventory")
+	var full_long_name := "Старинный церемониальный клеймор архивариуса +3"
+	var long_name_contract := false
+	for index in range(panel.row_buttons.size()):
+		var row: Button = panel.row_buttons[index]
+		var name_label: Label = panel.row_name_labels[index]
+		var absolute_index: int = panel.page * PanelClass.PAGE_SIZE + index
+		if (
+			not row.visible
+			or absolute_index >= panel.entries.size()
+			or String(panel.entries[absolute_index].get("key", "")) != upgraded_bound_key
+		):
+			continue
+		name_label.text = full_long_name
+		row.tooltip_text = "%s\n%s" % [full_long_name, row.tooltip_text]
+		row.accessibility_name = "%s. %s" % [full_long_name, row.accessibility_name]
+		var measured_width := name_label.get_theme_font("font").get_string_size(
+			full_long_name, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			name_label.get_theme_font_size("font_size"),
+		).x
+		long_name_contract = (
+			measured_width > name_label.size.x
+			and name_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS
+			and row.tooltip_text.contains(full_long_name)
+			and row.accessibility_name.contains(full_long_name)
+			and row.tooltip_text.contains(Loc.text("INVENTORY_BOUND_STATUS"))
+		)
+		break
+	_expect(
+		long_name_contract,
+		"A long bound +3 name must ellipsize visually while preserving its full tooltip/accessibility",
+	)
+	panel.refresh()
+	panel.set_filter("all")
+	panel.select_item("rusty_sabre@0", "inventory")
+	var rusty_index := _visible_card_index(panel, "rusty_sabre@0")
+	var rusty_overlay = panel.row_mark_overlays[rusty_index]
+	rusty_overlay.keep_button.grab_focus()
+	await tree.process_frame
+	var selected_card := panel._selected_row_button()
+	_expect(
+		selected_card != null
+		and selected_card.button_pressed
+		and rusty_overlay.keep_button.button_pressed
+		and panel.get_viewport().gui_get_focus_owner() == rusty_overlay.keep_button,
+		"Selected card and focused active Keep control geometry must coexist",
+	)
+	var keyboard_accept := InputEventAction.new()
+	keyboard_accept.action = "ui_accept"
+	keyboard_accept.pressed = true
+	_expect(
+		panel.handle_input(keyboard_accept)
+		and card_state.item_mark("rusty_sabre@0").is_empty(),
+		"Keyboard ui_accept on an active card Keep control must toggle it off",
+	)
+	rusty_overlay = panel.row_mark_overlays[_visible_card_index(panel, "rusty_sabre@0")]
+	var touch_salvage := InputEventScreenTouch.new()
+	touch_salvage.index = 31
+	touch_salvage.pressed = true
+	touch_salvage.position = rusty_overlay.salvage_button.get_global_rect().get_center()
+	_expect(
+		panel.handle_input(touch_salvage)
+		and card_state.item_mark("rusty_sabre@0") == "salvage",
+		"ScreenTouch must activate the exact card-corner Salvage control",
+	)
+	panel.select_item("short_crossbow@0", "inventory")
+	rusty_overlay = panel.row_mark_overlays[_visible_card_index(panel, "rusty_sabre@0")]
+	await _click_mouse(panel, tree, rusty_overlay.keep_button.get_global_rect().get_center())
+	_expect(
+		card_state.item_mark("rusty_sabre@0") == "keep"
+		and panel.selected_item_key() == "short_crossbow@0",
+		"Mouse must promote Salvage to Keep atomically without selecting the parent card",
+	)
+	rusty_overlay = panel.row_mark_overlays[_visible_card_index(panel, "rusty_sabre@0")]
+	var keep_state_before_rejected_salvage: Dictionary = card_state.to_save_data()
+	_expect(
+		not rusty_overlay.activate_action("salvage")
+		and card_state.to_save_data() == keep_state_before_rejected_salvage,
+		"Keep -> Salvage must be rejected until Keep is explicitly removed",
+	)
+	rusty_overlay.keep_button.grab_focus()
+	_expect(
+		panel.handle_input(keyboard_accept)
+		and card_state.item_mark("rusty_sabre@0").is_empty(),
+		"The focused Keep control must explicitly remove Keep",
+	)
+	rusty_overlay = panel.row_mark_overlays[_visible_card_index(panel, "rusty_sabre@0")]
+	rusty_overlay.keep_button.grab_focus()
+	var dpad_right := InputEventJoypadButton.new()
+	dpad_right.button_index = JOY_BUTTON_DPAD_RIGHT
+	dpad_right.pressed = true
+	_expect(
+		panel.handle_input(dpad_right)
+		and panel.get_viewport().gui_get_focus_owner() == rusty_overlay.salvage_button,
+		"Gamepad D-pad must move focus between the card's two corner controls",
+	)
+	var gamepad_accept := InputEventJoypadButton.new()
+	gamepad_accept.button_index = JOY_BUTTON_A
+	gamepad_accept.pressed = true
+	_expect(
+		panel.handle_input(gamepad_accept)
+		and card_state.item_mark("rusty_sabre@0") == "salvage",
+		"Gamepad ui_accept/A must activate the focused exact-card Salvage control",
+	)
+	panel.select_item("short_crossbow@0", "inventory")
+	card_state.set_item_mark("short_crossbow@0", "keep")
+	_expect(
+		panel.validated_selected_identity().is_empty()
+		and panel.selected_item_key().is_empty(),
+		"A stale immutable selection fingerprint must still clear after an external mark change",
+	)
+	panel.select_item("rusty_sabre@0", "inventory")
+	panel.selection_generation -= 1
+	_expect(
+		panel.validated_selected_identity().is_empty()
+		and panel.selected_item_key().is_empty(),
+		"A stale selection generation must clear rather than retarget",
+	)
+	rusty_overlay = panel.row_mark_overlays[_visible_card_index(panel, "rusty_sabre@0")]
+	var stale_overlay = rusty_overlay
+	var stale_identity: Dictionary = stale_overlay.bound_identity.duplicate(true)
+	var stale_generation: int = stale_overlay.bound_generation
+	var stale_row_index := _visible_card_index(panel, "rusty_sabre@0")
+	panel.change_page(1)
+	var reused_overlay = panel.row_mark_overlays[stale_row_index]
+	var marks_before_stale_request: Dictionary = card_state.inventory_marks.duplicate(true)
+	stale_overlay.mark_requested.emit("keep", stale_identity, stale_generation)
+	stale_overlay.mark_requested.emit("keep", stale_identity, panel.refresh_generation)
+	_expect(
+		panel.page == 1
+		and not panel.previous_button.disabled
+		and reused_overlay == stale_overlay
+		and reused_overlay.bound_identity != stale_identity
+		and card_state.inventory_marks == marks_before_stale_request,
+		"A reused card must reject both stale generation and stale identity without retargeting",
+	)
+	var current_identity: Dictionary = reused_overlay.bound_identity.duplicate(true)
+	var current_key := String(current_identity.get("key", ""))
+	var current_previous_mark := card_state.item_mark(current_key)
+	reused_overlay.activate_action("keep")
+	_expect(
+		card_state.item_mark(current_key) == ("" if current_previous_mark == "keep" else "keep"),
+		"After paging, a fresh control must still apply only to its current identity",
+	)
+	for key_to_remove in ["watchmans_cap@0", "archivists_mask@0", "wanderers_gambeson@0", "lamellar_vest@0", "scouts_trousers@0", "heavy_leg_wraps@0", "pilgrims_boots@0", "aiming_ring@0", "expedition_backpack@0", upgraded_bound_key]:
+		card_state.remove_item(String(key_to_remove), int(card_state.inventory.get(key_to_remove, 0)))
+	panel.refresh()
+	_expect(panel.page == 0 and panel.next_button.disabled, "Removing the last page must clamp to the remaining first page")
+	panel.set_filter("backpack")
+	_expect(
+		panel.entries.is_empty()
+		and panel.page_label.text == Loc.text("INVENTORY_EMPTY_FILTER")
+		and panel.previous_button.disabled and panel.next_button.disabled
+		and panel.equip_button.disabled
+		and not panel.keep_button.visible and not panel.salvage_mark_button.visible
+		and panel.row_mark_overlays.all(func(overlay) -> bool: return not overlay.visible),
+		"An empty aggregate group must expose a localized empty state with disabled pager/actions",
+	)
 	var character_direction := InputEventAction.new()
 	character_direction.action = "ui_right"
 	character_direction.pressed = true
 	_expect(
-		not panel.handle_input(character_direction),
-		"Embedded Character inventory must leave D-pad direction routing to the global spatial graph",
+		panel.handle_input(character_direction),
+		"Embedded Character inventory must consume D-pad navigation through its focus graph",
+	)
+	panel.set_filter("all")
+	for service_mode in [
+		PanelClass.Mode.CRUSHER,
+		PanelClass.Mode.WHETSTONE,
+		PanelClass.Mode.RITUAL,
+	]:
+		panel.set_mode(service_mode)
+		panel.bind_state(card_state, true)
+		var marked_service_overlays := 0
+		for row_index in range(panel.row_buttons.size()):
+			var row: Button = panel.row_buttons[row_index]
+			if not row.visible:
+				continue
+			var overlay = panel.row_mark_overlays[row_index]
+			var overlay_rect := Rect2(overlay.position, overlay.size)
+			var overlay_center := overlay_rect.get_center()
+			if overlay.visible:
+				marked_service_overlays += 1
+			_expect(
+				overlay.size == overlay.PASSIVE_SIZE
+				and overlay.custom_minimum_size == Vector2.ZERO
+				and not overlay.interactive
+				and not overlay.keep_button.visible
+				and not overlay.salvage_button.visible
+				and Rect2(Vector2.ZERO, row.size).encloses(overlay_rect)
+				and Rect2(Vector2.ZERO, row.size).has_point(overlay_center)
+				and overlay_center == Vector2(604, 13),
+				"Service mode %d must keep its passive mark at exact 20x20 in-row geometry" % service_mode,
+			)
+		_expect(
+			marked_service_overlays >= 1,
+			"Service mode %d must exercise at least one visible passive mark" % service_mode,
+		)
+	panel.set_mode(PanelClass.Mode.CHARACTER)
+	panel.bind_state(card_state, true)
+	panel.set_filter("all")
+	var restored_character_overlay = panel.row_mark_overlays[0]
+	_expect(
+		restored_character_overlay.size == restored_character_overlay.INTERACTIVE_SIZE
+		and restored_character_overlay.custom_minimum_size
+		== restored_character_overlay.INTERACTIVE_SIZE
+		and Rect2(Vector2.ZERO, panel.row_buttons[0].size).encloses(Rect2(
+			restored_character_overlay.position,
+			restored_character_overlay.size,
+		)),
+		"Returning from services must restore exact 58x28 Character corner controls",
 	)
 	var forge := RunState.new()
 	forge.camp_upgrades["whetstone"] = true
@@ -232,6 +573,136 @@ func _test_panel_state(tree: SceneTree) -> void:
 		"The 5% failure branch must return the transformed downgraded key without duplication",
 	)
 	panel.queue_free()
+
+
+func _test_main_mark_input_routing(tree: SceneTree) -> void:
+	var main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	main.persistence_enabled = false
+	main.audio_playback_enabled = false
+	tree.root.add_child(main)
+	await tree.process_frame
+	main.state.character_name = "Mark Input QA"
+	main.state.add_item("rusty_sabre")
+	main.state.add_item("short_crossbow")
+	main._show_base("", "none")
+	main._show_character()
+	main._select_character_panel("inventory")
+	await tree.process_frame
+	var panel = main.inventory_panel
+	panel.set_filter("all")
+	var target_key := "rusty_sabre@0"
+	var sibling_key := "short_crossbow@0"
+	var target_index := _visible_card_index(panel, target_key)
+	var sibling_index := _visible_card_index(panel, sibling_key)
+	_expect(
+		target_index >= 0 and sibling_index >= 0,
+		"Integrated mark routing fixture must expose both exact physical cards",
+	)
+	if target_index < 0 or sibling_index < 0:
+		main.queue_free()
+		return
+
+	var mark_signal_count: Array[int] = [0]
+	panel.mark_changed.connect(func(): mark_signal_count[0] += 1)
+	panel.select_item(sibling_key, "inventory")
+	var target_overlay = panel.row_mark_overlays[target_index]
+	target_overlay.keep_button.grab_focus()
+	await tree.process_frame
+	var signal_before := mark_signal_count[0]
+	await _push_key_cycle(main, tree, KEY_ENTER)
+	_expect(
+		main.state.inventory_marks.size() == 1
+		and main.state.inventory_marks.get(target_key, "") == "keep"
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main raw Enter down/up must mutate exactly one mark once without selecting its card",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	target_overlay.keep_button.grab_focus()
+	await tree.process_frame
+	signal_before = mark_signal_count[0]
+	await _push_key_cycle(main, tree, KEY_SPACE)
+	_expect(
+		main.state.inventory_marks.is_empty()
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main raw Space down/up must mutate exactly one mark once without selecting its card",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	target_overlay.keep_button.grab_focus()
+	await tree.process_frame
+	signal_before = mark_signal_count[0]
+	await _push_action_cycle(main, tree, "ui_accept")
+	_expect(
+		main.state.inventory_marks.size() == 1
+		and main.state.inventory_marks.get(target_key, "") == "keep"
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main keyboard ui_accept must mutate exactly one mark once without selecting its card",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	signal_before = mark_signal_count[0]
+	await _tap_touch(main, tree, target_overlay.keep_button.get_global_rect().get_center())
+	_expect(
+		main.state.inventory_marks.is_empty()
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main ScreenTouch press/release must toggle exactly one active Keep mark off",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	target_overlay.keep_button.grab_focus()
+	await tree.process_frame
+	var marks_before_dpad: Dictionary = main.state.inventory_marks.duplicate(true)
+	signal_before = mark_signal_count[0]
+	await _push_joy_cycle(main, tree, JOY_BUTTON_DPAD_RIGHT)
+	_expect(
+		main.get_viewport().gui_get_focus_owner() == target_overlay.salvage_button
+		and main.state.inventory_marks == marks_before_dpad
+		and mark_signal_count[0] == signal_before,
+		"Viewport/Main gamepad D-pad press/release must move focus without mutating a mark",
+	)
+	await _push_joy_cycle(main, tree, JOY_BUTTON_A)
+	_expect(
+		main.state.inventory_marks.size() == 1
+		and main.state.inventory_marks.get(target_key, "") == "salvage"
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main gamepad A press/release must mutate exactly one focused Salvage mark once",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	signal_before = mark_signal_count[0]
+	await _tap_touch(main, tree, target_overlay.keep_button.get_global_rect().get_center())
+	_expect(
+		main.state.inventory_marks.size() == 1
+		and main.state.inventory_marks.get(target_key, "") == "keep"
+		and mark_signal_count[0] == signal_before + 1
+		and panel.selected_item_key() == sibling_key,
+		"Viewport/Main touch must replace Salvage with exactly one Keep mutation",
+	)
+
+	target_index = _visible_card_index(panel, target_key)
+	target_overlay = panel.row_mark_overlays[target_index]
+	var marks_before_rejected_touch: Dictionary = main.state.inventory_marks.duplicate(true)
+	signal_before = mark_signal_count[0]
+	await _tap_touch(main, tree, target_overlay.salvage_button.get_global_rect().get_center())
+	_expect(
+		main.state.inventory_marks == marks_before_rejected_touch
+		and mark_signal_count[0] == signal_before
+		and panel.selected_item_key() == sibling_key,
+		"Disabled Keep -> Salvage touch must be consumed without mutation, signal, or parent-card click-through",
+	)
+	main.queue_free()
+	await tree.process_frame
 
 
 func _test_main_integration(tree: SceneTree) -> void:
@@ -493,8 +964,8 @@ func _test_main_integration(tree: SceneTree) -> void:
 		)
 	Loc.set_locale("ru")
 	main._apply_locale()
-	main.inventory_panel.set_filter("body")
-	main.inventory_panel.select_visible_index(0)
+	main.inventory_panel.set_filter("armor")
+	main.inventory_panel.select_item("rotting_mail@0", "inventory")
 	var shortcut_cloth_before := int(main.state.resources["cloth"])
 	main._on_inventory_dismantle_pressed()
 	_expect(
@@ -611,10 +1082,76 @@ func _test_character_focus_and_close(main, tree: SceneTree) -> void:
 		and main.state.to_save_data() == state_before_jacket_accept,
 		"Gamepad A on the Cozy Jacket slot must select the exact physical slot and force All without gameplay mutation",
 	)
-	await _click_mouse(
-		main, tree,
-		main.skills_mode_button.global_position + main.skills_mode_button.size * 0.5,
+	# Regression: selecting a physical item after the permanent jacket must discard
+	# the incompatible stale Cloak destination and resolve the item's real slot.
+	var knife_key: String = main.state.add_item("bone_knife")
+	var displaced_weapon := String(main.state.loadout.get("right_hand", ""))
+	main.inventory_panel.refresh()
+	main.inventory_panel.set_filter("all")
+	var knife_visible_index := -1
+	for entry_index in range(main.inventory_panel.entries.size()):
+		var entry: Dictionary = main.inventory_panel.entries[entry_index]
+		if String(entry.get("key", "")) == knife_key and String(entry.get("source", "")) == "inventory":
+			knife_visible_index = entry_index - main.inventory_panel.page * main.inventory_panel.PAGE_SIZE
+			break
+	_expect(knife_visible_index >= 0, "Jacket-to-knife regression fixture must expose the knife row")
+	if knife_visible_index >= 0:
+		main.inventory_panel.select_visible_index(knife_visible_index)
+		main._sync_inventory_panel_state()
+		_expect(
+			main.inventory_panel.selected_equipped_slot().is_empty()
+			and main.inventory_panel.selected_destination_slot().is_empty()
+			and (
+				displaced_weapon.is_empty()
+				or main.inventory_panel.equipped_detail_label.text.contains(
+					PanelClass.display_name(displaced_weapon)
+				)
+			),
+			"Inventory selection must clear stale jacket state and compare against the actual Main Hand",
+		)
+		main._on_inventory_equip_pressed()
+		_expect(
+			main.state.loadout.get("right_hand", "") == knife_key
+			and (
+				displaced_weapon.is_empty()
+				or int(main.state.inventory.get(displaced_weapon, 0)) >= 1
+			),
+			"Jacket → Bone Knife → Equip must equip the knife in the real Main Hand",
+		)
+	var locked_item_key: String = main.state.add_item("rotting_mail")
+	var locked_result: Dictionary = main.state.equip_from_inventory(locked_item_key)
+	_expect(
+		not bool(locked_result.get("ok", true))
+		and locked_result.get("reason", "") == "slot_locked"
+		and locked_result.get("slot", "") == "body"
+		and int(main.state.inventory.get(locked_item_key, 0)) >= 1,
+		"Skeleton + Rotting Mail must return the exact locked physical Body slot without mutation",
 	)
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		var locked_reason: String = main._inventory_equip_failure_text(
+			locked_result, locked_item_key,
+		)
+		var choice_reason: String = main._inventory_equip_failure_text(
+			{"reason": "slot_choice_required", "slots": ["ring_1", "ring_2"]},
+			"aiming_ring@0",
+		)
+		_expect(
+			locked_reason == Loc.text("MSG_EQUIP_SLOT_LOCKED", [
+				PanelClass.display_name(locked_item_key),
+				Loc.text("SLOT_BODY"),
+				Loc.text(String(main.state.get_form().name)),
+			])
+			and choice_reason.contains(Loc.text("SLOT_RING_1"))
+			and choice_reason.contains(Loc.text("SLOT_RING_2")),
+			"Structured equip failures must retain exact localized physical-slot reasons in %s" % locale,
+		)
+	Loc.set_locale("ru")
+	main._apply_locale()
+	var skills_click_position: Vector2 = (
+		main.skills_mode_button.global_position + main.skills_mode_button.size * 0.5
+	)
+	await _click_mouse(main, tree, skills_click_position)
 	_expect(main.character_panel_mode == "skills", "Mouse must switch Character to the Skills tab")
 	await _tap_touch(
 		main, tree,
@@ -686,8 +1223,8 @@ func _test_service_close_matrix(main, tree: SceneTree) -> void:
 				and main.crusher_object_button.visible
 				and main.whetstone_object_button.visible
 				and main.ritual_table_object_button.visible
-				and main.get_viewport().gui_get_focus_owner() == main.start_button,
-				"%s close via %s must symmetrically restore the complete Base UI and deferred focus" % [spec[0], close_method],
+				and main.get_viewport().gui_get_focus_owner() == spec[1],
+				"%s close via %s must symmetrically restore the complete Base UI and source-service focus" % [spec[0], close_method],
 			)
 			_expect(
 				close_signal_count[0] == close_count_before + 1,
@@ -722,7 +1259,7 @@ func _test_programmatic_menu_from_service(main, tree: SceneTree) -> void:
 	_expect(
 		not main.main_menu_open
 		and main.screen == main.Screen.BASE
-		and main.get_viewport().gui_get_focus_owner() == main.start_button
+		and main.get_viewport().gui_get_focus_owner() == main.ritual_table_object_button
 		and main.state.to_save_data() == state_before,
 		"Resume after service-to-menu transition must restore exact in-memory Base state and focus",
 	)
@@ -752,6 +1289,11 @@ func _push_key(
 	await tree.process_frame
 
 
+func _push_key_cycle(main, tree: SceneTree, keycode: Key) -> void:
+	for pressed in [true, false]:
+		await _push_key(main, tree, keycode, pressed)
+
+
 func _push_joy_button(main, tree: SceneTree, button: JoyButton, pressed := true) -> void:
 	var event := InputEventJoypadButton.new()
 	event.button_index = button
@@ -768,7 +1310,31 @@ func _push_action(main, tree: SceneTree, action: String) -> void:
 	await tree.process_frame
 
 
+func _push_action_cycle(main, tree: SceneTree, action: String) -> void:
+	for pressed in [true, false]:
+		var event := InputEventAction.new()
+		event.action = action
+		event.pressed = pressed
+		event.strength = 1.0 if pressed else 0.0
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
+func _push_joy_cycle(main, tree: SceneTree, button: JoyButton) -> void:
+	for pressed in [true, false]:
+		var event := InputEventJoypadButton.new()
+		event.button_index = button
+		event.pressed = pressed
+		event.pressure = 1.0 if pressed else 0.0
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
 func _click_mouse(main, tree: SceneTree, position: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = position
+	main.get_viewport().push_input(motion, true)
+	await tree.process_frame
 	for pressed in [true, false]:
 		var event := InputEventMouseButton.new()
 		event.button_index = MOUSE_BUTTON_LEFT
@@ -786,6 +1352,19 @@ func _tap_touch(main, tree: SceneTree, position: Vector2) -> void:
 		event.position = position
 		main.get_viewport().push_input(event, true)
 		await tree.process_frame
+
+
+func _visible_card_index(panel, item_key: String) -> int:
+	for index in range(panel.row_buttons.size()):
+		if not panel.row_buttons[index].visible:
+			continue
+		var absolute_index: int = panel.page * panel.PAGE_SIZE + index
+		if (
+			absolute_index < panel.entries.size()
+			and String(panel.entries[absolute_index].get("key", "")) == item_key
+		):
+			return index
+	return -1
 
 
 func _expect(condition: bool, message: String) -> void:

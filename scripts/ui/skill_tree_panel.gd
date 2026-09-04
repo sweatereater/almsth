@@ -6,18 +6,20 @@ const GameRules := preload("res://scripts/game/game_rules.gd")
 const AbilitySystem := preload("res://scripts/game/skill_system.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
 const SkillTreeIconClass := preload("res://scripts/ui/skill_tree_icon.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 signal skill_selected(skill_id: String)
 signal purchase_requested(skill_id: String)
 signal stage_requested(stage_id: String)
 signal loadout_requested(slot_id: String)
 
-const COLOR_PANEL := Color("1c2330")
-const COLOR_DEEP := Color("111720")
-const COLOR_BORDER := Color("344258")
-const COLOR_SOUL := Color("72d7cf")
-const COLOR_TEXT := Color("e6e2d8")
-const COLOR_MUTED := Color("8d98aa")
+const COLOR_PANEL := Color("2a251e")
+const COLOR_DEEP := Color("18140f")
+const COLOR_BORDER := Color("806f53")
+const COLOR_SOUL := Color("67cdc5")
+const COLOR_TEXT := Color("f2e8d4")
+const COLOR_MUTED := Color("baab91")
 const COLOR_SHADOW := Color(0.0, 0.0, 0.0, 0.36)
 
 const CARD_RECT := Rect2(16, 76, 1248, 570)
@@ -82,13 +84,14 @@ var action_button: Button
 func _ready() -> void:
 	set_process_unhandled_key_input(false)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	_build_interface()
 	refresh()
 
 
 func _build_interface() -> void:
 	title_label = _make_label(Rect2(36, 90, 300, 26), 20)
-	meta_label = _make_label(Rect2(816, 92, 424, 22), 13)
+	meta_label = _make_label(Rect2(816, 92, 424, 22), 14)
 	meta_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 	for index in range(STAGE_ORDER.size()):
@@ -107,7 +110,7 @@ func _build_interface() -> void:
 			self, Vector2(36 + 164 * index, 124), "", Vector2(154, 36),
 		)
 		loadout.name = "AbilityLoadout_%s" % slot_id
-		loadout.add_theme_font_size_override("font_size", 10)
+		loadout.add_theme_font_size_override("font_size", 12)
 		loadout.pressed.connect(_on_loadout_pressed.bind(slot_id))
 		Ui.enable_keyboard_focus(loadout)
 		loadout_buttons[slot_id] = loadout
@@ -124,7 +127,9 @@ func _build_interface() -> void:
 			branch_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			branch_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			branch_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			branch_label.add_theme_color_override("font_color", COLOR_MUTED)
+			branch_label.add_theme_color_override(
+				"font_color", Palette.color(Palette.WARM_ARCHIVE, "secondary")
+			)
 			branch_labels[stage_id].append(branch_label)
 			for node_index in range(branch["nodes"].size()):
 				var node_id := String(branch["nodes"][node_index])
@@ -145,9 +150,11 @@ func _build_interface() -> void:
 	detail_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(detail_icon)
 	detail_icon.focus_mode = Control.FOCUS_NONE
-	detail_title_label = _make_label(Rect2(138, 470, 680, 24), 18)
+	detail_title_label = _make_label(Rect2(138, 470, 680, 24), 20)
 	detail_meta_label = _make_label(Rect2(138, 494, 680, 20), 12)
-	detail_meta_label.add_theme_color_override("font_color", COLOR_MUTED)
+	detail_meta_label.add_theme_color_override(
+		"font_color", Palette.color(Palette.WARM_ARCHIVE, "secondary")
+	)
 	detail_description_label = _make_label(Rect2(138, 516, 680, 46), 12)
 	detail_description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_description_label.add_theme_constant_override("line_spacing", 0)
@@ -156,10 +163,12 @@ func _build_interface() -> void:
 	status_label = _make_label(Rect2(60, 568, 760, 42), 12)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	status_label.add_theme_color_override("font_color", COLOR_SOUL)
+	status_label.add_theme_color_override(
+		"font_color", Palette.color(Palette.WARM_ARCHIVE, "soul")
+	)
 	action_button = Ui.make_button(self, Vector2(840, 568), "", Vector2(376, 38))
 	action_button.name = "SkillPurchaseAction"
-	action_button.add_theme_font_size_override("font_size", 13)
+	action_button.add_theme_font_size_override("font_size", 14)
 	action_button.pressed.connect(_on_purchase_pressed)
 	Ui.enable_keyboard_focus(action_button)
 
@@ -221,6 +230,7 @@ func refresh() -> void:
 	_refresh_loadout()
 	_refresh_branches()
 	_refresh_details()
+	_refresh_focus_graph()
 	queue_redraw()
 
 
@@ -234,44 +244,41 @@ func _refresh_tabs() -> void:
 			if unlocked
 			else Loc.text("SKILL_TAB_LOCKED", [Loc.text(STAGE_NAME_KEYS[stage_id])])
 		)
-		tab.disabled = not unlocked
+		# Locked stages remain inspectable; only their purchase action is disabled.
+		tab.disabled = false
 		var active := selected_stage == stage_id
 		tab.button_pressed = active
 		tab.position = Vector2(TAB_X[index], 164 if active else 168)
 		tab.size = Vector2(236, 42 if active else 36)
 		_apply_stage_tab_style(tab, active)
-		Ui.fit_button_text(tab, 12, 8)
+		Ui.fit_button_text(tab, 12, 12)
 		if active:
 			tab.move_to_front()
 
 
 func _apply_stage_tab_style(tab: Button, active: bool) -> void:
 	if active:
-		var selected_style := StyleBoxFlat.new()
-		selected_style.bg_color = COLOR_PANEL
-		selected_style.border_color = COLOR_SOUL
-		selected_style.border_width_left = 2
-		selected_style.border_width_top = 2
-		selected_style.border_width_right = 2
-		selected_style.border_width_bottom = 0
-		selected_style.corner_radius_top_left = 6
-		selected_style.corner_radius_top_right = 6
-		selected_style.corner_radius_bottom_left = 0
-		selected_style.corner_radius_bottom_right = 0
-		selected_style.content_margin_top = 5.0
-		selected_style.content_margin_left = 8.0
-		selected_style.content_margin_right = 8.0
+		var selected_style := ThemeController.style_for(
+			Palette.WARM_ARCHIVE, "skill_tab_active", "selected",
+		)
 		for state_name in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-			tab.add_theme_stylebox_override(state_name, selected_style.duplicate())
+			tab.add_theme_stylebox_override(state_name, selected_style)
 		return
-	var normal := Ui.make_button_style(Color("171c25"), COLOR_BORDER)
-	var hover := Ui.make_button_style(Color("222b39"), Color("52647b"))
-	var pressed := Ui.make_button_style(Color("20363b"), COLOR_SOUL, 2)
-	tab.add_theme_stylebox_override("normal", normal)
-	tab.add_theme_stylebox_override("hover", hover)
-	tab.add_theme_stylebox_override("pressed", pressed)
-	tab.add_theme_stylebox_override("hover_pressed", pressed.duplicate())
-	tab.add_theme_stylebox_override("focus", pressed.duplicate())
+	tab.add_theme_stylebox_override(
+		"normal", ThemeController.style_for(Palette.WARM_ARCHIVE, "button", "normal")
+	)
+	tab.add_theme_stylebox_override(
+		"hover", ThemeController.style_for(Palette.WARM_ARCHIVE, "button", "hover")
+	)
+	tab.add_theme_stylebox_override(
+		"pressed", ThemeController.style_for(Palette.WARM_ARCHIVE, "button", "selected")
+	)
+	tab.add_theme_stylebox_override(
+		"hover_pressed", ThemeController.style_for(Palette.WARM_ARCHIVE, "button", "selected_hover")
+	)
+	tab.add_theme_stylebox_override(
+		"focus", ThemeController.style_for(Palette.WARM_ARCHIVE, "button", "focus")
+	)
 
 
 func _refresh_loadout() -> void:
@@ -307,8 +314,12 @@ func _refresh_branches() -> void:
 				String(presentation["state"]),
 				node_id == selected_node_id,
 				_can_purchase_node(node_id),
+				false,
+				_node_has_next_level(node_id),
 			)
-			node.accessibility_description = _node_status(node_id)
+			node.accessibility_description = "%s · %s" % [
+				_state_label(String(presentation["state"])), _node_status(node_id),
+			]
 
 
 func _id_for_node(node) -> String:
@@ -330,6 +341,7 @@ func _refresh_details() -> void:
 		false,
 		_can_purchase_node(selected_node_id),
 		true,
+		_node_has_next_level(selected_node_id),
 	)
 	detail_title_label.text = String(presentation["name"])
 	detail_meta_label.text = _detail_meta(selected_node_id)
@@ -452,6 +464,25 @@ func _can_purchase_node(node_id: String) -> bool:
 	)
 
 
+func _node_has_next_level(node_id: String) -> bool:
+	if not GameRules.SKILLS.has(node_id):
+		return false
+	var rules: Dictionary = GameRules.SKILLS[node_id]
+	return (
+		_stage_unlocked(String(rules["stage"]))
+		and _prerequisites_met(node_id)
+		and _skill_level(node_id) < int(rules["max_level"])
+	)
+
+
+func _state_label(state_id: String) -> String:
+	match state_id:
+		"locked": return Loc.text("SKILL_STATE_LOCKED")
+		"learned": return Loc.text("SKILL_STATE_LEARNED")
+		"max": return Loc.text("SKILL_STATE_MAX")
+	return Loc.text("SKILL_STATE_AVAILABLE")
+
+
 func _prerequisites_met(skill_id: String) -> bool:
 	if not GameRules.SKILLS.has(skill_id):
 		return false
@@ -520,14 +551,64 @@ func _on_purchase_pressed() -> void:
 		purchase_requested.emit(selected_node_id)
 
 
+func _refresh_focus_graph() -> void:
+	var controls := focusable_controls()
+	if controls.size() < 2:
+		return
+	for source_index in range(controls.size()):
+		var source: Control = controls[source_index]
+		var source_center := source.position + source.size * 0.5
+		for direction_name in ["left", "right", "top", "bottom"]:
+			var best: Control = null
+			var best_score := INF
+			for target in controls:
+				if target == source:
+					continue
+				var delta := target.position + target.size * 0.5 - source_center
+				var primary := 0.0
+				var secondary := 0.0
+				match direction_name:
+					"left":
+						if delta.x >= 0.0: continue
+						primary = -delta.x
+						secondary = absf(delta.y)
+					"right":
+						if delta.x <= 0.0: continue
+						primary = delta.x
+						secondary = absf(delta.y)
+					"top":
+						if delta.y >= 0.0: continue
+						primary = -delta.y
+						secondary = absf(delta.x)
+					"bottom":
+						if delta.y <= 0.0: continue
+						primary = delta.y
+						secondary = absf(delta.x)
+				var score := primary + secondary * 1.65
+				if score < best_score:
+					best = target
+					best_score = score
+			if best == null:
+				best = controls[
+					(source_index - 1 + controls.size()) % controls.size()
+					if direction_name in ["left", "top"]
+					else (source_index + 1) % controls.size()
+				]
+			match direction_name:
+				"left": source.focus_neighbor_left = best.get_path()
+				"right": source.focus_neighbor_right = best.get_path()
+				"top": source.focus_neighbor_top = best.get_path()
+				"bottom": source.focus_neighbor_bottom = best.get_path()
+
+
 func _draw() -> void:
 	draw_rect(Rect2(CARD_RECT.position + Vector2(0, 5), CARD_RECT.size), COLOR_SHADOW)
-	draw_rect(CARD_RECT, COLOR_PANEL)
-	draw_rect(CARD_RECT, COLOR_BORDER, false, 2.0)
-	draw_rect(SURFACE_RECT, COLOR_PANEL)
-	draw_rect(SURFACE_RECT, COLOR_BORDER, false, 2.0)
-	draw_rect(DETAIL_RECT, COLOR_DEEP)
-	draw_rect(DETAIL_RECT, COLOR_BORDER, false, 1.0)
+	draw_rect(CARD_RECT, Palette.color(Palette.WARM_ARCHIVE, "panel"))
+	draw_rect(CARD_RECT, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), false, 2.0)
+	draw_rect(SURFACE_RECT, Palette.color(Palette.WARM_ARCHIVE, "panel"))
+	draw_rect(SURFACE_RECT, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), false, 2.0)
+	draw_rect(DETAIL_RECT, Palette.color(Palette.WARM_ARCHIVE, "inset"))
+	draw_rect(DETAIL_RECT, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), false, 1.0)
 	_draw_connectors()
 
 
@@ -544,11 +625,11 @@ func _draw_connectors() -> void:
 			var target_state := String(_node_presentation(target_id)["state"])
 			var connector_style := connector_style_for_states(source_state, target_state)
 			if connector_style == "learned":
-				draw_line(from, to, COLOR_SOUL, 3.0, true)
+				draw_line(from, to, Palette.color(Palette.WARM_ARCHIVE, "soul"), 3.0, true)
 			elif connector_style == "locked":
-				draw_dashed_line(from, to, COLOR_BORDER, 2.0, 8.0, true)
+				draw_dashed_line(from, to, Palette.color(Palette.WARM_ARCHIVE, "disabled"), 2.0, 8.0, true)
 			else:
-				draw_line(from, to, COLOR_BORDER, 2.0, true)
+				draw_line(from, to, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), 2.0, true)
 
 
 static func connector_style_for_states(source_state: String, target_state: String) -> String:

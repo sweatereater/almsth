@@ -5,6 +5,31 @@ Mode: built-in image_gen. No CLI fallback.
 Final delivered pair: camp-furnished-v2.png and camp-empty-v2.png, both 1639×959 RGB.
 The v1 pair is retained as iteration history. Every output is copied unmodified from the built-in tool.
 
+## Storage chest — independent thirteenth runtime layer
+
+Output master: `storage-chest-master.png`, 1536×1024 RGBA.
+
+Method/provenance: fresh original generated with the built-in `image_gen` tool using only
+project-owned camp images as visual references; no CLI, API fallback, old 4×3 atlas crop,
+external source, background removal or repaint. The available final tool/result ID is
+`exec-f4220fc7-adab-4c44-9243-6cd76a83e082`; the tool exposed no separate call ID or custom
+tool-call ID. Source SHA-256:
+`9FC7C1D961E2A9B0D13EA967866C3C6B4E91422E044D1EB7E894770238C3D1A3`.
+
+```text
+Use case: stylized-concept
+Asset type: original game environment prop master for the Almsth underground camp
+Primary request: create one low, broad, CLOSED storage chest as a standalone transparent-background cutout.
+Visual reference context: match the project's own underground camp assets already inspected: realistic painterly dark-fantasy materials, elevated three-quarter camp camera, compact readable silhouette, subdued detail and grounded lighting. Do not copy or include any existing prop.
+Scene/backdrop: none; genuine transparent background across the entire canvas outside the prop.
+Subject: a sturdy low broad storage chest, weathered dark wood, restrained aged-iron bands and corner guards, one small dull iron latch, clearly readable closed lid seam.
+Composition/framing: single chest centered, elevated 3/4 view consistent with looking slightly down into the camp; broad horizontal silhouette; tight but complete cutout with modest transparent padding; bottom-center grounding reference; no cropping.
+Lighting/mood: cool ambient stone-room light with only a subtle warm hearth edge light; quiet utilitarian camp storage, not treasure.
+Materials/textures: worn dark timber grain, matte oxidized iron, subtle age and scuffs; one tight local contact shadow directly under the chest contained within the cutout.
+Constraints: brand-new original project-owned design suitable for future commercial sale without royalties; actual alpha transparency; closed lid; readable at small game scale; no text; no logo; no watermark.
+Avoid: open lid, visible loot, coins, gems, runes, glow, magic, text, labels, UI symbols, arrows, rugs, sacks, loose containers, broad floor patches, room/background pixels, neighboring props, halo, outline, bloom, dramatic treasure-light, ornate fantasy excess.
+```
+
 ## Final correction: furnished v2
 
 Edit target: camp-furnished-v1.png. Output: camp-furnished-v2.png.

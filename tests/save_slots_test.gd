@@ -4,6 +4,7 @@ extends RefCounted
 const SaveSystem := preload("res://scripts/system/persistence.gd")
 const Snapshot := preload("res://scripts/system/run_snapshot.gd")
 const Loc := preload("res://scripts/localization/localization.gd")
+const SaveMenuPanel := preload("res://scripts/ui/save_menu_panel.gd")
 
 const ROOT := "res://.tmp/nightly/save-slots-regression"
 const LEGACY_PATH := ROOT + "/legacy.json"
@@ -17,9 +18,10 @@ func run(tree: SceneTree) -> Array[String]:
 	_cleanup()
 	_test_lifetime_counter()
 	_test_atomic_backup_and_listing()
-	_test_strict_v17_state_only_validation()
-	await _test_main_rejects_invalid_v17_state_only(tree)
-	await _test_strict_v17_full_run_validation(tree)
+	_test_strict_v18_state_only_validation()
+	await _test_main_rejects_invalid_v18_state_only(tree)
+	await _test_strict_v18_full_run_validation(tree)
+	await _test_corrupt_reason_diagnostics(tree)
 	_test_legacy_import_once()
 	_test_failure_does_not_publish_slot()
 	_test_permanent_slot_deletion()
@@ -28,9 +30,9 @@ func run(tree: SceneTree) -> Array[String]:
 	return failures
 
 
-func _test_strict_v17_state_only_validation() -> void:
-	var strict_dir := ROOT + "/strict-v17"
-	var source := _state("Strict v17", 4)
+func _test_strict_v18_state_only_validation() -> void:
+	var strict_dir := ROOT + "/strict-v18"
+	var source := _state("Strict v18", 4)
 	var source_before := source.to_snapshot_data()
 	var fixtures := [
 		{"id": "missing-soul", "kind": "erase", "field": "soul_level"},
@@ -65,7 +67,7 @@ func _test_strict_v17_state_only_validation() -> void:
 		var slot_id := String(fixture.id)
 		_expect(
 			bool(SaveSystem.save_slot(source, slot_id, "overwrite", strict_dir, 710).get("ok", false)),
-			"Strict v17 fixture must begin as a valid state-only slot: %s" % slot_id,
+			"Strict v18 fixture must begin as a valid state-only slot: %s" % slot_id,
 		)
 		var path := strict_dir.path_join(slot_id + ".json")
 		var envelope := _read_json(path)
@@ -150,7 +152,7 @@ func _test_strict_v17_state_only_validation() -> void:
 			not bool(SaveSystem.load_slot(slot_id, strict_dir).get("ok", false))
 			and _snapshot_family_bytes(path) == before_family
 			and source.to_snapshot_data() == source_before,
-			"Invalid v17 state-only disk payload must reject with exact file/runtime preservation: %s"
+			"Invalid v18 state-only disk payload must reject with exact file/runtime preservation: %s"
 			% slot_id,
 		)
 
@@ -167,11 +169,11 @@ func _test_strict_v17_state_only_validation() -> void:
 		SaveSystem.load_game(legacy_path).is_empty()
 		and FileAccess.get_file_as_bytes(legacy_path) == legacy_bytes
 		and source.to_snapshot_data() == source_before,
-		"Legacy-path v17 state-only missing soul_level must reject without mutation",
+		"Legacy-path v18 state-only missing soul_level must reject without mutation",
 	)
 
 
-func _test_main_rejects_invalid_v17_state_only(tree: SceneTree) -> void:
+func _test_main_rejects_invalid_v18_state_only(tree: SceneTree) -> void:
 	var strict_dir := ROOT + "/strict-main"
 	var invalid_source := _state("Invalid on disk", 3)
 	_expect(
@@ -211,7 +213,7 @@ func _test_main_rejects_invalid_v17_state_only(tree: SceneTree) -> void:
 		and main.state.to_snapshot_data() == live_before
 		and main.active_save_slot_id == "live-sentinel"
 		and main.screen == main.Screen.BASE
-		and main.last_save_error == Loc.text("MSG_LOAD_FAILED")
+		and main.last_save_error == Loc.text("MSG_LOAD_CORRUPT_FAMILY", [ERR_FILE_CORRUPT])
 		and _snapshot_family_bytes(path) == before_family,
 		"Main must reject missing soul_level before restore with exact live/file preservation",
 	)
@@ -219,7 +221,7 @@ func _test_main_rejects_invalid_v17_state_only(tree: SceneTree) -> void:
 	await tree.process_frame
 
 
-func _test_strict_v17_full_run_validation(tree: SceneTree) -> void:
+func _test_strict_v18_full_run_validation(tree: SceneTree) -> void:
 	var strict_dir := ROOT + "/strict-full-run"
 	var invalid_families := {}
 	for fixture in [
@@ -312,7 +314,7 @@ func _test_strict_v17_full_run_validation(tree: SceneTree) -> void:
 			and (not snapshot_rejected if metadata_only else snapshot_rejected)
 			and not bool(SaveSystem.load_slot(slot_id, strict_dir).get("ok", false))
 			and _snapshot_family_bytes(path) == before_family,
-			"Current v17 full-run schema must reject without file mutation: %s"
+			"Current v18 full-run schema must reject without file mutation: %s"
 			% slot_id,
 		)
 
@@ -365,7 +367,9 @@ func _test_strict_v17_full_run_validation(tree: SceneTree) -> void:
 			and main.state.to_snapshot_data() == live_before
 			and main.active_save_slot_id == "full-live-sentinel"
 			and main.screen == main.Screen.BASE
-			and main.last_save_error == Loc.text("MSG_LOAD_FAILED")
+			and main.last_save_error == Loc.text(
+				"MSG_LOAD_CORRUPT_FAMILY", [ERR_FILE_CORRUPT],
+			)
 			and _snapshot_family_bytes(path) == invalid_families[slot_id],
 			"Main must reject invalid full-run nested schema with exact live/file preservation: %s"
 			% slot_id,
@@ -379,6 +383,314 @@ func _test_strict_v17_full_run_validation(tree: SceneTree) -> void:
 		and _snapshot_family_bytes(fallback_path) == fallback_family_before,
 		"Main must restore a valid full-run backup without rewriting the corrupt family",
 	)
+	main.queue_free()
+	await tree.process_frame
+
+
+func _test_corrupt_reason_diagnostics(tree: SceneTree) -> void:
+	_expect(ERR_FILE_CORRUPT == 16, "Godot corrupt-file diagnostics must retain numeric error code 16")
+	var diagnostics_dir := ROOT + "/corrupt-reasons"
+	var live_state := _state("Live Fraction", 8)
+	live_state.mana = 0
+	live_state.mana_regeneration_progress = 0.37500000000000006
+	var live_before := live_state.to_snapshot_data()
+	var random := RandomNumberGenerator.new()
+	random.seed = 170001
+	var rng_before := random.state
+	var valid_snapshot := Snapshot.capture("base", {}, Vector2i.ZERO, random, {})
+	var invalid_snapshot := valid_snapshot.duplicate(true)
+	invalid_snapshot.rng_state = "not-an-int64"
+
+	var free_result := SaveSystem.save_slot(
+		live_state, "invalid-free", "overwrite", diagnostics_dir, 800,
+		Callable(), {}, Callable(), invalid_snapshot,
+	)
+	var free_path := diagnostics_dir.path_join("invalid-free.json")
+	_expect(
+		not bool(free_result.get("ok", true))
+		and int(free_result.get("error", OK)) == ERR_FILE_CORRUPT
+		and String(free_result.get("reason", "")) == "invalid_live_snapshot"
+		and _snapshot_family_bytes(free_path) == {
+			"": {"exists": false, "bytes": PackedByteArray()},
+			".bak": {"exists": false, "bytes": PackedByteArray()},
+			".tmp": {"exists": false, "bytes": PackedByteArray()},
+		}
+		and live_state.to_snapshot_data() == live_before
+		and random.state == rng_before,
+		"Invalid live snapshot on a free family must return error 16 before any file/runtime/RNG mutation",
+	)
+
+	var existing_id := "invalid-existing"
+	_expect(
+		bool(SaveSystem.save_slot(
+			live_state, existing_id, "overwrite", diagnostics_dir, 801,
+			Callable(), {}, Callable(), valid_snapshot,
+		).get("ok", false)),
+		"Invalid-live existing-family fixture must publish a valid exact snapshot",
+	)
+	var existing_path := diagnostics_dir.path_join(existing_id + ".json")
+	var existing_before := _snapshot_family_bytes(existing_path)
+	var existing_result := SaveSystem.save_slot(
+		live_state, existing_id, "overwrite", diagnostics_dir, 802,
+		Callable(), {}, Callable(), invalid_snapshot,
+	)
+	_expect(
+		not bool(existing_result.get("ok", true))
+		and int(existing_result.get("error", OK)) == ERR_FILE_CORRUPT
+		and String(existing_result.get("reason", "")) == "invalid_live_snapshot"
+		and _snapshot_family_bytes(existing_path) == existing_before
+		and not FileAccess.file_exists(existing_path + ".tmp")
+		and live_state.to_snapshot_data() == live_before
+		and random.state == rng_before,
+		"Invalid live snapshot on a valid family must preserve exact bytes, runtime state and RNG",
+	)
+	var fractional_load := SaveSystem.load_slot(existing_id, diagnostics_dir)
+	_expect(
+		bool(fractional_load.get("ok", false))
+		and var_to_bytes((fractional_load.state as Dictionary).mana_regeneration_progress)
+		== var_to_bytes(live_state.mana_regeneration_progress),
+		"Raw live preflight and disk verification must preserve valid fractional field bits",
+	)
+
+	var corrupt_id := "bad-primary-and-backup"
+	_expect(
+		bool(_save_full_run(_state("Corrupt Old", 1), corrupt_id, diagnostics_dir, 810).get("ok", false))
+		and bool(_save_full_run(_state("Corrupt New", 2), corrupt_id, diagnostics_dir, 811).get("ok", false)),
+		"Corrupt-family fixture must begin with a valid primary and backup",
+	)
+	var corrupt_path := diagnostics_dir.path_join(corrupt_id + ".json")
+	_write_text(corrupt_path, "{bad-primary")
+	_write_text(corrupt_path + ".bak", "{bad-backup")
+	var corrupt_before := _snapshot_family_bytes(corrupt_path)
+	var corrupt_save := _save_full_run(
+		_state("Must Stay In Memory", 3), corrupt_id, diagnostics_dir, 812,
+	)
+	var corrupt_load := SaveSystem.load_slot(corrupt_id, diagnostics_dir)
+	var corrupt_row := {}
+	for row in SaveSystem.list_slots(diagnostics_dir):
+		if row.get("slot_id") == corrupt_id:
+			corrupt_row = row
+			break
+	_expect(
+		not bool(corrupt_save.get("ok", true))
+		and int(corrupt_save.get("error", OK)) == ERR_FILE_CORRUPT
+		and String(corrupt_save.get("reason", "")) == "occupied_incompatible"
+		and not bool(corrupt_load.get("ok", true))
+		and int(corrupt_load.get("error", OK)) == ERR_FILE_CORRUPT
+		and String(corrupt_load.get("reason", "")) == "corrupt_family"
+		and bool(corrupt_row.get("corrupt", false))
+		and String(corrupt_row.get("reason", "")) == "corrupt_family"
+		and _snapshot_family_bytes(corrupt_path) == corrupt_before
+		and not FileAccess.file_exists(corrupt_path + ".tmp"),
+		"Bad primary plus backup must remain a visible corrupt family and reject writes without mutation",
+	)
+
+	var backup_fallback_id := "bad-primary-valid-backup"
+	_expect(
+		bool(_save_full_run(
+			_state("Backup Source", 4), backup_fallback_id, diagnostics_dir, 820,
+		).get("ok", false))
+		and bool(_save_full_run(
+			_state("Primary Source", 5), backup_fallback_id, diagnostics_dir, 821,
+		).get("ok", false)),
+		"Valid-backup fallback fixture must publish twice",
+	)
+	var backup_fallback_path := diagnostics_dir.path_join(backup_fallback_id + ".json")
+	_write_text(backup_fallback_path, "{bad-primary")
+	var backup_fallback_before := _snapshot_family_bytes(backup_fallback_path)
+	var backup_fallback := SaveSystem.load_slot(backup_fallback_id, diagnostics_dir)
+	var backup_fallback_row := SaveSystem.list_slots(diagnostics_dir).filter(
+		func(row: Dictionary) -> bool: return row.get("slot_id") == backup_fallback_id
+	)
+	_expect(
+		bool(backup_fallback.get("ok", false))
+		and bool(backup_fallback.get("recovered_from_backup", false))
+		and bool(backup_fallback.get("write_locked", false))
+		and String((backup_fallback.state as Dictionary).character_name) == "Backup Source"
+		and backup_fallback_row.size() == 1
+		and bool(backup_fallback_row[0].get("compatible", false))
+		and not bool(backup_fallback_row[0].get("corrupt", false))
+		and _snapshot_family_bytes(backup_fallback_path) == backup_fallback_before,
+		"Bad primary with valid backup must load the exact backup read-only without family mutation",
+	)
+
+	var primary_fallback_id := "valid-primary-bad-backup"
+	_expect(
+		bool(_save_full_run(
+			_state("Backup To Corrupt", 6), primary_fallback_id, diagnostics_dir, 830,
+		).get("ok", false))
+		and bool(_save_full_run(
+			_state("Valid Primary", 7), primary_fallback_id, diagnostics_dir, 831,
+		).get("ok", false)),
+		"Valid-primary fallback fixture must publish twice",
+	)
+	var primary_fallback_path := diagnostics_dir.path_join(primary_fallback_id + ".json")
+	_write_text(primary_fallback_path + ".bak", "{bad-backup")
+	var primary_fallback_before := _snapshot_family_bytes(primary_fallback_path)
+	var primary_fallback := SaveSystem.load_slot(primary_fallback_id, diagnostics_dir)
+	var primary_fallback_row := SaveSystem.list_slots(diagnostics_dir).filter(
+		func(row: Dictionary) -> bool: return row.get("slot_id") == primary_fallback_id
+	)
+	_expect(
+		bool(primary_fallback.get("ok", false))
+		and not bool(primary_fallback.get("recovered_from_backup", true))
+		and bool(primary_fallback.get("write_locked", false))
+		and String((primary_fallback.state as Dictionary).character_name) == "Valid Primary"
+		and primary_fallback_row.size() == 1
+		and bool(primary_fallback_row[0].get("compatible", false))
+		and not bool(primary_fallback_row[0].get("corrupt", false))
+		and _snapshot_family_bytes(primary_fallback_path) == primary_fallback_before,
+		"Valid primary with bad backup must load the exact primary read-only without family mutation",
+	)
+	_expect(
+		bool(_save_full_run(
+			_state("Diagnostic Fifth", 8), "diagnostic-fifth", diagnostics_dir, 840
+		).get("ok", false))
+		and bool(_save_full_run(
+			_state("Diagnostic Sixth", 9), "diagnostic-sixth", diagnostics_dir, 841
+		).get("ok", false)),
+		"Diagnostic layout fixture must publish two additional valid families",
+	)
+	var diagnostic_slots := SaveSystem.list_slots(diagnostics_dir)
+	_expect(
+		diagnostic_slots.size() == SaveMenuPanel.PAGE_SIZE,
+		"Diagnostic fixture must contain exactly PAGE_SIZE=6 families",
+	)
+
+	var main = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+	main.persistence_enabled = false
+	main.audio_playback_enabled = false
+	main.save_slots_directory = diagnostics_dir
+	main.settings_path = ROOT + "/corrupt-reasons-settings.cfg"
+	main.legacy_save_path = ROOT + "/corrupt-reasons-missing-legacy.json"
+	tree.root.add_child(main)
+	await tree.process_frame
+	await tree.process_frame
+	for locale in ["ru", "en"]:
+		Loc.set_locale(locale)
+		main._apply_locale()
+		_expect(
+			main._save_failure_text({
+				"error": ERR_FILE_CORRUPT, "reason": "occupied_incompatible",
+			}) == Loc.text("MSG_SAVE_OCCUPIED_INCOMPATIBLE", [ERR_FILE_CORRUPT])
+			and main._save_failure_text({
+				"error": ERR_FILE_CORRUPT, "reason": "invalid_live_snapshot",
+			}) == Loc.text("MSG_SAVE_INVALID_LIVE_SNAPSHOT", [ERR_FILE_CORRUPT])
+			and main._save_failure_text({
+				"error": ERR_FILE_CORRUPT, "reason": "write_verification_failed",
+			}) == Loc.text("MSG_SAVE_WRITE_VERIFICATION_FAILED", [ERR_FILE_CORRUPT])
+			and main._load_failure_text(corrupt_load)
+			== Loc.text("MSG_LOAD_CORRUPT_FAMILY", [ERR_FILE_CORRUPT]),
+			"RU/EN error-16 diagnostics must map stable runtime reasons to exact localized guidance",
+		)
+		main.save_menu_panel.set_slots(diagnostic_slots)
+		main.save_menu_panel.show_menu(false)
+		main.save_menu_panel.show_load_list()
+		await tree.process_frame
+		_expect(
+			main.save_menu_panel.slot_buttons.size() == main.save_menu_panel.PAGE_SIZE
+			and main.save_menu_panel.trash_buttons.size() == main.save_menu_panel.PAGE_SIZE,
+			"%s diagnostics must render exactly all six load/trash rows" % locale,
+		)
+		var last_six_row: Button = main.save_menu_panel.slot_buttons[-1]
+		var last_six_trash: Button = main.save_menu_panel.trash_buttons[-1]
+		main.save_menu_panel.back_button.grab_focus()
+		await _push_physical_key(main, tree, KEY_UP)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_row
+			and last_six_row.focus_neighbor_right == last_six_trash.get_path()
+			and last_six_trash.focus_neighbor_left == last_six_row.get_path(),
+			"%s keyboard Up from Back must reach the sixth row with Trash horizontally reachable" % locale,
+		)
+		await _push_physical_key(main, tree, KEY_RIGHT)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_trash,
+			"%s keyboard Right from the sixth row must reach its Trash action" % locale,
+		)
+		await _push_physical_key(main, tree, KEY_LEFT)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_row,
+			"%s keyboard Left from Trash must return to the sixth row" % locale,
+		)
+		main.save_menu_panel.back_button.grab_focus()
+		await _push_gamepad(main, tree, JOY_BUTTON_DPAD_UP)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_row,
+			"%s physical D-pad Up from Back must reach the sixth row when paging is hidden" % locale,
+		)
+		await _push_gamepad(main, tree, JOY_BUTTON_DPAD_RIGHT)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_trash,
+			"%s physical D-pad Right from the sixth row must reach its Trash action" % locale,
+		)
+		await _push_gamepad(main, tree, JOY_BUTTON_DPAD_LEFT)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == last_six_row,
+			"%s physical D-pad Left from Trash must return to the sixth row" % locale,
+		)
+		main.save_menu_panel.back_button.grab_focus()
+		await _push_physical_key(main, tree, KEY_DOWN)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.slot_buttons[0],
+			"%s Down from Back must wrap sensibly to the first six-row entry" % locale,
+		)
+		main.save_menu_panel.back_button.grab_focus()
+		await _push_gamepad(main, tree, JOY_BUTTON_DPAD_DOWN)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.slot_buttons[0],
+			"%s physical D-pad Down from Back must wrap to the first six-row entry" % locale,
+		)
+		last_six_row.grab_focus()
+		await _push_physical_key(main, tree, KEY_DOWN)
+		_expect(
+			main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.back_button,
+			"%s Down from the sixth load row must reach Back when paging is hidden" % locale,
+		)
+		for diagnostic in [
+			Loc.text("MSG_SAVE_WRITE_VERIFICATION_FAILED", [ERR_FILE_CORRUPT]),
+			Loc.text("SAVE_MENU_DELETE_ERROR", [ERR_CANT_CREATE]),
+		]:
+			main.save_menu_panel.set_error(diagnostic)
+			await tree.process_frame
+			_expect(
+				_error_banner_fits(main.save_menu_panel),
+				"%s save diagnostic must fit the real 72px banner above all six rows" % locale,
+			)
+			main.save_menu_panel.trash_buttons[-1].grab_focus()
+			await tree.process_frame
+			_expect(
+				main.get_viewport().gui_get_focus_owner()
+				== main.save_menu_panel.trash_buttons[-1]
+				and main.save_menu_panel.back_button.visible
+				and not main.save_menu_panel.previous_button.visible
+				and not main.save_menu_panel.next_button.visible,
+				"%s six-row diagnostics must retain trash focus and one-page Back semantics" % locale,
+			)
+		main.save_menu_panel.set_error("")
+		var corrupt_index := -1
+		for index in range(main.save_menu_panel.slots.size()):
+			if main.save_menu_panel.slots[index].get("slot_id") == corrupt_id:
+				corrupt_index = index
+				break
+		_expect(corrupt_index >= 0, "Corrupt list row must remain visible in %s" % locale)
+		if corrupt_index >= 0:
+			main.save_menu_panel.page = floori(
+				float(corrupt_index) / float(main.save_menu_panel.PAGE_SIZE),
+			)
+			main.save_menu_panel._rebuild_slot_buttons()
+			main.save_menu_panel._refresh_state()
+			var local_index: int = (
+				corrupt_index - main.save_menu_panel.page * main.save_menu_panel.PAGE_SIZE
+			)
+			_expect(
+				main.save_menu_panel.slot_buttons[local_index].disabled
+				and main.save_menu_panel.slot_buttons[local_index].tooltip_text
+				== Loc.text("SAVE_MENU_CORRUPT_TOOLTIP", [
+					Loc.text("SAVE_MENU_CORRUPT_NAME"), ERR_FILE_CORRUPT,
+				]),
+				"RU/EN corrupt row must be disabled and name confirmed error 16 without inventing a field",
+			)
+	Loc.set_locale("ru")
 	main.queue_free()
 	await tree.process_frame
 
@@ -737,7 +1049,7 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 
 	# Keyboard and gamepad directions move startup focus; mouse opens the list.
 	main.save_menu_panel.continue_button.grab_focus()
-	await _push_key(main, tree, KEY_DOWN)
+	await _push_physical_key(main, tree, KEY_DOWN)
 	_expect(main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.new_game_button, "Keyboard arrows must navigate startup controls")
 	main.save_menu_panel.continue_button.grab_focus()
 	await _push_gamepad(main, tree, JOY_BUTTON_DPAD_DOWN)
@@ -745,14 +1057,38 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	await _click(main, tree, main.save_menu_panel.load_button.get_global_rect().get_center())
 	_expect(main.save_menu_panel.list_mode, "Mouse input must open the explicit save list")
 	main.save_menu_panel.slot_buttons[-1].grab_focus()
-	await _push_key(main, tree, KEY_DOWN)
+	await _push_physical_key(main, tree, KEY_DOWN)
 	_expect(main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.next_button, "Keyboard focus must reach the next-page control")
 	main.save_menu_panel.slot_buttons[-1].grab_focus()
 	await _push_gamepad(main, tree, JOY_BUTTON_DPAD_DOWN)
 	_expect(main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.next_button, "Gamepad focus must reach the next-page control")
+	main.save_menu_panel.back_button.grab_focus()
+	await _push_physical_key(main, tree, KEY_UP)
+	_expect(
+		main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.next_button,
+		"Keyboard Up from Back must preserve the enabled Next target on page one",
+	)
+	main.save_menu_panel.back_button.grab_focus()
+	await _push_gamepad(main, tree, JOY_BUTTON_DPAD_UP)
+	_expect(
+		main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.next_button,
+		"Physical D-pad Up from Back must preserve the enabled Next target on page one",
+	)
 	await _click(main, tree, main.save_menu_panel.next_button.get_global_rect().get_center())
 	await tree.process_frame
 	_expect(main.save_menu_panel.page == 1 and main.save_menu_panel.slot_buttons.size() == 2, "Mouse pagination must expose the seventh and eighth saves")
+	main.save_menu_panel.back_button.grab_focus()
+	await _push_physical_key(main, tree, KEY_UP)
+	_expect(
+		main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.previous_button,
+		"Keyboard Up from Back must preserve the enabled Previous target on the final page",
+	)
+	main.save_menu_panel.back_button.grab_focus()
+	await _push_gamepad(main, tree, JOY_BUTTON_DPAD_UP)
+	_expect(
+		main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.previous_button,
+		"Physical D-pad Up from Back must preserve the enabled Previous target on the final page",
+	)
 	_expect(main.save_menu_panel.slot_buttons[0].tooltip_text.contains("Page Hero 6") and main.save_menu_panel.slot_buttons[1].tooltip_text.contains("Page Hero 7"), "Second page must retain deterministic slot order")
 	main.save_menu_panel.slot_buttons[0].pressed.emit()
 	_expect(main.state.character_name == "Page Hero 6", "The seventh save must be loadable from page two")
@@ -811,11 +1147,11 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	_expect(main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.trash_buttons[0], "A real mouse No must restore Trash focus")
 	_expect(delete_signals.size() == delete_signal_count_before_no and load_signals.is_empty(), "A real mouse No must not delete or load")
 	await _click(main, tree, main.save_menu_panel.trash_buttons[0].get_global_rect().get_center())
-	await _panel_action(main.save_menu_panel, tree, "ui_cancel")
+	await _push_gamepad(main, tree, JOY_BUTTON_B)
 	_expect(
 		not main.save_menu_panel.delete_modal_open
 		and main.get_viewport().gui_get_focus_owner() == main.save_menu_panel.trash_buttons[0],
-		"Esc/B must cancel deletion and restore the original Trash focus",
+		"Physical gamepad B must cancel deletion and restore the original Trash focus",
 	)
 	await _touch(main, tree, main.save_menu_panel.trash_buttons[0].get_global_rect().get_center())
 	_expect(main.save_menu_panel.delete_modal_open and load_signals.is_empty(), "ScreenTouch on Trash must open the same modal without loading")
@@ -888,6 +1224,7 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 		"In-game Continue must resume the exact in-memory state without save/load",
 	)
 	main._open_main_menu()
+	main.save_menu_panel.settings_button.grab_focus()
 	main.save_menu_panel.settings_button.pressed.emit()
 	_expect(
 		main.settings_open and not main.save_menu_panel.visible
@@ -896,9 +1233,13 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 		"Settings opened from the main menu must replace only the top menu layer",
 	)
 	main._close_settings()
+	await tree.process_frame
 	_expect(
-		main.main_menu_open and main.save_menu_panel.visible and not main.settings_open,
-		"Settings Back must return to the main menu rather than gameplay",
+		main.main_menu_open
+		and main.save_menu_panel.visible
+		and not main.settings_open
+		and main.save_menu_panel.settings_button.has_focus(),
+		"Settings Back must return to the exact main-menu trigger rather than gameplay",
 	)
 	main.save_menu_panel.show_load_list()
 	main.save_menu_panel.back_button.pressed.emit()
@@ -1072,6 +1413,7 @@ func _test_main_and_panel(_tree: SceneTree) -> void:
 	_expect(
 		main.save_menu_panel.list_mode and main.save_menu_panel.error_label.visible
 		and main.save_menu_panel.error_label.text.contains(str(ERR_CANT_CREATE))
+		and _error_banner_fits(main.save_menu_panel)
 		and FileAccess.file_exists(ui_slots + "/delete-error.json")
 		and main.save_menu_panel.slots.any(func(row: Dictionary) -> bool: return row.get("slot_id") == "delete-error"),
 		"Deletion errors must remain visible in list mode and refresh from authoritative disk state",
@@ -1300,6 +1642,57 @@ func _snapshot_family_bytes(primary_path: String) -> Dictionary:
 	return result
 
 
+func _error_banner_fits(panel: Control) -> bool:
+	if not panel.error_banner.visible or not panel.error_label.visible:
+		return false
+	var label: Label = panel.error_label
+	var measured := label.get_theme_font("font").get_multiline_string_size(
+		label.text,
+		HORIZONTAL_ALIGNMENT_CENTER,
+		label.size.x,
+		label.get_theme_font_size("font_size"),
+	)
+	if measured.y > label.size.y or panel.error_banner.size.y < 64.0 or panel.error_banner.size.y > 72.0:
+		return false
+	if (
+		panel.slot_buttons.size() != panel.PAGE_SIZE
+		or panel.trash_buttons.size() != panel.PAGE_SIZE
+	):
+		return false
+	var banner_rect := Rect2(panel.error_banner.position, panel.error_banner.size)
+	var paging_and_back := [
+		Rect2(panel.previous_button.position, panel.previous_button.size),
+		Rect2(panel.page_label.position, panel.page_label.size),
+		Rect2(panel.next_button.position, panel.next_button.size),
+		Rect2(panel.back_button.position, panel.back_button.size),
+	]
+	for index in range(panel.PAGE_SIZE):
+		var row: Control = panel.slot_buttons[index]
+		var trash: Control = panel.trash_buttons[index]
+		var row_rect := Rect2(row.position, row.size)
+		var trash_rect := Rect2(trash.position, trash.size)
+		if banner_rect.intersects(row_rect) or banner_rect.intersects(trash_rect):
+			return false
+		for lower_rect in paging_and_back:
+			if lower_rect.intersects(row_rect) or lower_rect.intersects(trash_rect):
+				return false
+		if (
+			row.focus_neighbor_right != trash.get_path()
+			or trash.focus_neighbor_left != row.get_path()
+			or row.focus_neighbor_top.is_empty()
+			or row.focus_neighbor_bottom.is_empty()
+			or trash.focus_neighbor_top.is_empty()
+			or trash.focus_neighbor_bottom.is_empty()
+		):
+			return false
+	return (
+		panel.slot_buttons[0].position.y
+		>= panel.error_banner.position.y + panel.error_banner.size.y + 4.0
+		and panel.slot_buttons[-1].position.y + panel.slot_buttons[-1].size.y
+		<= panel.previous_button.position.y - 2.0
+	)
+
+
 func _push_action(main, tree: SceneTree, action: String) -> void:
 	var press := InputEventAction.new()
 	press.action = action
@@ -1323,13 +1716,18 @@ func _panel_action(panel: Control, tree: SceneTree, action: String) -> void:
 	await tree.process_frame
 
 
-func _push_key(main, tree: SceneTree, keycode: Key) -> void:
-	var action := "ui_down" if keycode == KEY_DOWN else "ui_up"
-	var press := InputEventAction.new()
-	press.action = action
+func _push_physical_key(main, tree: SceneTree, keycode: Key) -> void:
+	var press := InputEventKey.new()
+	press.keycode = keycode
+	press.physical_keycode = keycode
 	press.pressed = true
-	var handled: bool = main.save_menu_panel.handle_input(press)
-	_expect(handled, "Startup panel must consume synthetic keyboard navigation")
+	main.get_viewport().push_input(press, true)
+	await tree.process_frame
+	var release := InputEventKey.new()
+	release.keycode = keycode
+	release.physical_keycode = keycode
+	release.pressed = false
+	main.get_viewport().push_input(release, true)
 	await tree.process_frame
 
 

@@ -26,7 +26,8 @@
 минимум 4 px прозрачного поля; почти человеческая голова подключена к выбору пола. Полнофигурные эталонные вырезки
 сохраняют исходное разрешение и фон и **не являются runtime-спрайтами**. Существующие
 игровые ассеты и их SHA-контракты не изменены. Новые прозрачные runtime-вырезки для обоих
-полов находятся в `assets/ui/character-fullbody/{female,male}/` и используются листом персонажа.
+полов сохраняются в `assets/ui/character-fullbody/{female,male}/`. Лист персонажа использует
+нативные прозрачные копии в `assets/ui/character-sheet/{female,male}/` по контракту ниже.
 
 The approved canonical female art set (2026-08-31) lives separately in
 [`art/characters/female/`](../art/characters/female/README.md): two unchanged masters,
@@ -35,30 +36,33 @@ explicit request, `assets/portraits/female/form-*.png` provides 264×264 RGBA8 i
 at least 4 px transparent padding; the almost-human head is used by sex selection. Reference full-body crops
 retain source resolution and background and **are not runtime sprites**. Existing
 game assets and SHA contracts remain unchanged. The new transparent runtime figures in
-`assets/ui/character-fullbody/{female,male}/` are used by the character sheet.
+`assets/ui/character-fullbody/{female,male}/` remain protected. The sheet now uses native
+transparent copies in `assets/ui/character-sheet/{female,male}/` under the contract below.
 
 ### Выбор пола / Sex selection
 
 В создании используются две карточки 156×160 с интервалом 20 px; область головы
-112×112, при окне 960×540 — 84×84. Женская голова слева смотрит влево,
-мужская справа отражается только в UI. Выбор — бирюзовая рамка и галочка,
-фокус — отдельная золотая рамка. Мужская голова и десять фигур локально вырезаны из
+120×120, при окне 960×540 — 90×90. Женская голова слева смотрит влево,
+мужская справа отражается только в UI. По умолчанию выбрана женщина; выбор обозначен
+левой бирюзовой меткой, фокус использует штатную подсветку карточки. Видимые подписи
+скрыты; локализованные tooltip/accessibility-имена сохранены. Мужская голова и десять фигур локально вырезаны из
 утверждённых оригиналов без перерисовки; рецепт и контрольные SHA хранятся в
 [`art/characters/sex-selection/`](../art/characters/sex-selection/README.md).
 Головы 264×264: общий глаз `(115,105)`, расстояние глаз–подбородок 56 px.
-Фигуры 264×704: единый анатомический масштаб внутри каждого пола, опора `(132,696)`;
-широкие позы и одежда целиком помещаются в существующий crop без растяжения.
+Защищённые старые фигуры 264×704 сохраняют опору `(132,696)`.
+Нативный лист использует отдельный анатомический fit без растяжения (см. ниже).
 Выбор пола определяет и фигуру листа, и активный набор кадров на карте; логика формы,
 характеристики и доступность экипировки от пола не зависят.
 
-Creation uses two 156×160 cards separated by 20 px, with 112×112 head regions
-(84×84 at 960×540). Female faces left; male is flipped only in this UI.
-Selection uses teal plus a check mark; focus has a separate gold border.
+Creation uses two 156×160 cards separated by 20 px, with 120×120 head regions
+(90×90 at 960×540). Female is selected by default and faces left; male is UI-flipped.
+The left teal marker conveys selection, while focus uses the card highlight.
+Visible captions are hidden; localized tooltips and accessibility names remain.
 The male head and ten figures were locally extracted from approved originals without
 repainting; the shared archive stores the recipe and SHA checks. Heads use 264×264
-canvases, eye anchor `(115,105)` and 56 px eye-to-chin distance. Figures use 264×704
-canvases, one anatomical scale per sex and foot anchor `(132,696)`; wide poses and coats
-fit the existing crop without stretching. Sex selects both the sheet figure and the map
+canvases, eye anchor `(115,105)` and 56 px eye-to-chin distance. Protected legacy figures
+retain their 264×704 canvases and `(132,696)` anchor; the native sheet uses the separate
+anatomical fit below. Sex selects both the sheet figure and the map
 gait set without changing form rules, stats or equipment access.
 
 ### Карта: матрица пола и формы / Map sex × form matrix
@@ -105,8 +109,8 @@ runtime-холст. Размер отображения не следует вы
 | Текстура одной клетки | 1056×1056 | 264×264 | 1×1 клетки | Бесшовные края; world-space плотность узора | цель замены |
 | Бесшовный участок окружения | 2112×2112 | 528×528 | 2×2 клетки | Бесшовные края | цель замены |
 | Атлас / поле вариаций окружения | 4224×4224 | 1056×1056 | 4×4 клетки или поле выборок рендера | Отступы между независимыми областями, если их требует фильтрация | цель замены |
-| Полнофигурный герой в окне персонажа | 1056×2816 | 264×704 RGBA | Source crop `(7, 8, 250, 692)`; вывод 178×493; baseline `y=612`, низ альфы `y=696` | Опора `(132, 696)`; непрозрачный рисунок минимум в 8 px от внешнего края и минимум в 4 px от границы crop | действует |
-| Квадратный портрет лица | 1056×1056 | 264×264 RGBA | Две почти человеческие головы в создании: 112×112 (84×84 при 960×540); это **не** фигура в листе | Глаз `(115,105)`, глаз–подбородок 56 px, минимум 4 px поля; отражение мужчины только в UI | действует |
+| Полнофигурный герой в окне персонажа | Нативные прозрачные вырезки | 10 PNG, 285–749×817–1452 RGBA, без повторного уменьшения | Ниша `(350,102,245,530)`; весь силуэт высотой не менее 470 px; baseline `y=620` | Общая eye-to-foot шкала внутри пола; опора x=484 female / 472,5 male; минимум 4 px от ниши, без растяжения | действует |
+| Квадратный портрет лица | 1056×1056 | 264×264 RGBA | Две почти человеческие головы в создании: 120×120 (90×90 при 960×540); это **не** фигура в листе | Глаз `(115,105)`, глаз–подбородок 56 px, минимум 4 px поля; отражение мужчины только в UI | действует |
 | Иконка предмета / экипировки | 528×528 | 132×132 RGBA | 44×44 в списке; слот экипировки 64×64, фактический рисунок до ≈48×48 из-за полей темы | По центру; предпочтительно 8 px прозрачной рамки, минимум 4 px | действует |
 | Растровая иконка навыка | 512×512 | 128×128 RGBA | Рисунок в safe rect 96×96; вывод 54 px в узле 96×76 и 64 px в деталях | Без встроенных рамок, замков, цены и состояния выбора | действует |
 | Маленькая HUD-иконка (душа) | 256×256 | 64×64 RGBA | 22×22 | Плотный центрированный символ | действует |
@@ -114,20 +118,21 @@ runtime-холст. Размер отображения не следует вы
 | Фон смерти | Старый runtime-источник | `death-camp-background.png`, 818×480 RGB8 | Растяжение на виртуальный экран 1280×720 | Явный отдельный потребитель `DEATH_CAMP_BACKGROUND_ART`; SHA закреплён | действует |
 | Костяная накладка смерти | 3040×1440 | 760×360 RGBA | 760×360 поверх фона смерти; потребитель уже существует | Прозрачный холст, совмещённый с композицией сцены смерти | цель замены |
 | Фон лагеря | Утверждённый v2, нормализованный 1636×960 | 818×480 RGB8 | 818×480 | Точная половина; отдельный от фона смерти | действует |
-| Накладки лагеря | Тот же нормализованный v2 | 12 независимых tight RGBA8 | Индивидуальные rect из manifest | Только собственный реквизит, контактная тень и локальный свет; hitbox лишь у услуг | действует |
+| Накладки лагеря | Нормализованный v2 для первых 12; отдельный transparent master для Хранилища | 13 независимых tight RGBA8 | Индивидуальные rect из manifest | Только собственный реквизит, контактная тень и локальный свет; hitbox лишь у услуг | действует |
 | Полнофигурные накладки экипировки | Тот же master-холст, что у героя | 264×704 RGBA | Тот же crop, вывод и baseline, что у полнофигурного героя | Полное совпадение холста, crop и опоры героя | запланировано |
 
 Все размеры отображения в таблице — виртуальные координаты макета 1280×720, а не
 гарантированные физические пиксели. При физическом окне 960×540 равномерный коэффициент
 равен ×0,75: клетки 44/66/88 становятся 33/49,5/66 px; предел обычного существа
-40/62/84 — 30/46,5/63 px; герой 178×493 — 133,5×369,75 px; предмет в списке 44 —
+40/62/84 — 30/46,5/63 px; ниша героя 245×530 — 183,75×397,5 px; предмет в списке 44 —
 33 px; слот экипировки 64 — 48 px, а рисунок внутри около 36 px; навык 54/64 —
 40,5/48 px; душа 22 — 16,5 px;
 лагерь 818×480 — 613,5×360 px.
 
-Двенадцать лагерных накладок имеют собственные tight runtime-холсты и draw rect; общего
+Тринадцать лагерных накладок имеют собственные tight runtime-холсты и draw rect; общего
 универсального размера для них нет. Интерактивные hitbox имеют только Дробилка, Точильный
-камень, Ритуальный стол и Котёл. Остальные слои декоративны и не получают невидимых кнопок.
+камень, Ритуальный стол, Котёл и Хранилище. Остальные слои декоративны и не получают
+невидимых кнопок.
 
 Текущий renderer пола и стен использует исходные поля 1254 px и выборки 176/950 px.
 Слепая замена такого поля на 264×264 изменит плотность узора. Для текущего поля целевой
@@ -146,8 +151,10 @@ baseline `y=112`, палитру `#59677A`/`#E35D63`, lossless-импорт и �
 накладки экипировки не надо генерировать ради drop-in замены до подключения потребителей.
 Рамки, замки, цена и выделение навыка остаются интерфейсом, а не запекаются в картинку.
 
-Лагерь и смерть разделены до замены `CAMP_ART`: лагерь использует новый RGB8 base и 12
+Лагерь и смерть разделены до замены `CAMP_ART`: лагерь использует новый RGB8 base и 13
 слоёв, а смерть — явный `DEATH_CAMP_BACKGROUND_ART`, побайтовую копию прежней композиции.
+Base и первые 12 слоёв сохраняют прежние SHA; тринадцатый `storage_chest` создан из
+независимого transparent master и не заявляется производным старого 4×3 atlas.
 Регрессионный SHA старого фона: `84D4ABB92AD0610CFF86C0947718FB2C6825CC52A4F6C2856AA790870D28ECCF`.
 
 ## Сетка масштаба
@@ -227,6 +234,97 @@ Master-изображение допускается создавать круп
 - Рамки наведения, выбора и целей принадлежат интерфейсу. Их толщина остаётся примерно
   постоянной в экранных пикселях и не удваивается вместе с размером клетки.
 - Тени и сами существа принадлежат миру и масштабируются вместе с клеткой.
+
+### Stage 1C: semantic chrome / Семантическая оболочка
+
+Две темы интерфейса не являются фильтрами изображения. `Warm Archive` применяется к
+экранам вне подземелья и ко всем полноэкранным меню/диалогам; `Cold Dungeon` — только
+к подлежащей оболочке активного подземелья. Чёрная alpha-подложка может равномерно
+затемнить мир, но цветная модуляция мира, лагеря, предметов, существ и портретов запрещена.
+Канонические токены, состояния и измерения контраста зафиксированы в
+`docs/ui-theme-stage1c.md`.
+
+The two UI themes are not image filters. Warm Archive covers every non-dungeon screen
+and all fullscreen menus/dialogs; Cold Dungeon belongs only to the underlying active
+dungeon chrome. A black-alpha scrim may attenuate the world equally by channel, while
+colored modulation of world, camp, item, creature or portrait art is forbidden.
+
+Карточки пола остаются ровно 156×160 virtual px с промежутком 20 px; портрет внутри —
+120×120, женский слева, мужской отражается только UI-свойством. Левая метка
+показывает выбор; карточки скрывают подпись, сохраняя локализованное доступное имя.
+Runtime-портреты почти
+человека сохраняют 264×264, глаз `(115,105)`, глаз–подбородок 56 и минимум 4 px
+прозрачного поля. Рецепт `tools/prepare_stage1c_portrait_rims.py` очищает только alpha
+в связанном снаружи ободке не глубже двух исходных пикселей; RGB, opaque-пиксели,
+лицо/белые волосы и все master-файлы под `art/` остаются неизменными.
+
+Sex cards remain exactly 156×160 virtual px with a 20 px gap and a 120×120 portrait.
+The female is left; only the male is UI-flipped. A left marker conveys selection;
+hidden captions retain localized accessible names. The deterministic Stage 1C rim
+recipe changes alpha only within the exterior-connected two-source-pixel rim.
+
+В пределах semantic chrome опасное действие сохраняет danger surface/border при
+normal, hover и pressed; бирюзовый selected к нему не применяется. Ползунки и
+кастомные чипы статусов используют только кэшируемые ресурсы темы и отдельную золотую
+рамку фокуса. Заголовок персонажа — Cormorant 28, пока строка помещается; иначе Noto
+Sans SemiBold 20 с многоточием. Полноэкранный лист, открытый из подземелья, остаётся
+тёплым, но закрытие обязано вернуть холодную оболочку того же неизменённого мира.
+
+Within semantic chrome, destructive actions retain the danger surface/border through
+normal, hover and pressed states and never become teal-selected. Sliders and custom
+status chips use cached theme resources plus a separate gold focus outline. Character
+headings use Cormorant 28 only when the full line fits, otherwise Noto Sans SemiBold 20
+with ellipsis. Closing a warm fullscreen character sheet restores the same untouched
+cold Dungeon context.
+
+### Stage 1D: operational surfaces / Рабочие поверхности
+
+Лист персонажа сохраняет правую область 549×546 virtual px. Только здесь шесть
+агрегатных вкладок (`All`, `Weapons`, `Off-hand`, `Armor`, `Accessories`, `Backpack`)
+упаковывают ровно шесть карточек на страницу сеткой 2×3; сервисные экраны сохраняют
+внутренние категории. Карточка примерно 270×84, иконка предмета 44×44, имя 14 px с
+ellipsis и полным tooltip/accessibility name, свойства/количество/+N/bound — минимум
+12 px. Пустая группа имеет локализованное состояние и отключённые pager/actions.
+Внутренняя soul-метка выбора толщиной 5 px и отдельная внешняя gold-рамка фокуса
+одновременно видны. В углу каждой видимой карточки находятся две интерактивные кнопки:
+Keep с code-drawn lock и Salvage с code-drawn broken sword; силуэты читаемы без цвета,
+а собственная рамка фокуса не скрывает выбор карточки. Повтор снимает активную метку,
+Salvage сразу меняется на Keep, но Keep нужно явно снять перед Salvage. Тень занятой
+двуручным оружием второй руки
+остаётся 40%, но получает нецветовую 2H/link-подсказку.
+
+The character inventory retains its 549×546 virtual region. Its six character-only
+aggregate tabs pack exactly six roughly 270×84 cards in a 2×3 page, with 44-square
+icons, 14 px ellipsized names and at least 12 px essential text. Selection is an
+internal 5 px soul marker; focus is a separate external gold outline, and both remain
+visible together. Every visible card has interactive code-drawn lock/broken-sword
+Keep/Salvage corner controls whose own focus outline does not hide card selection. Repeating
+the active mark clears it; Salvage switches directly to Keep, while Keep must be explicitly
+cleared before Salvage. The occupied off-hand ghost stays at 40% alpha and adds a 2H/link cue.
+
+Навыки используют Warm Archive без изменения 19 ID, топологии, одиннадцати body-icon
+путей, исходников 128×128, safe area 96×96, узлов 54 и detail-icon 64. Locked остаётся
+inspectable с замком, вдавленным состоянием, dashed connector и причиной; available
+показывает plus/cost, learned — check, max — `MAX` и двойное кольцо. Selection/focus
+повторяют независимую soul/gold геометрию. Disabled purchase имеет отдельный вдавленный
+нецветовой образец и причину. Held/disabled геометрия использует только существующие
+кэшированные semantic tokens, без `lightened`/`darkened`. Выбор узла никогда сам по
+себе не покупает.
+
+Dungeon сохраняет world rect `(8,8,1056,660)` и rail `(1072,8,200,704)`. Сразу под
+душами располагается пассивная Cold-полоса wood/stone/cloth с code-drawn иконками и
+табличными значениями не меньше 12 px; она читает тот же словарь ресурсов и не принимает
+ввод. Журнал показывает максимум восемь новых-сначала actions, каждый из которых может
+содержать несколько явно типизированных neutral/outgoing/incoming/loot сегментов.
+Текст 12 px не бледнеет с возрастом; область журнала вмещает все восемь полных
+локализованных fixture-записей, а полная строка доступна assistive technology. Имя,
+души и Soul Level остаются видимыми при каждом входе в реальный Dungeon presentation.
+
+When inventory or skills opens from Dungeon, the unchanged Cold world remains frozen
+under the existing neutral black 72% scrim and Warm modal content. The modal consumes
+background input and restores the identical floor, camera, cell size and prior focus.
+No Stage 1D palette role, font, texture, body icon, portrait or world-art path is added
+or changed; drawing code only reads cached `UiThemeController` resources.
 
 Разрешение текстуры не определяет число кирпичей или камней. Плотность узора задаётся
 самим рисунком и world-space масштабом. На клетке 44 px элемент кладки меньше 2 px становится
@@ -317,10 +415,14 @@ preload-пути `SKELETON_EQUIPMENT_ART`. Лагерь и сохранённа�
 | `kettle` | 367,241,132,127 | 397,268,72,66 |
 | `rocking_chair` | 516,239,177,205 | — |
 | `record_player` | 656,227,159,242 | — |
+| `storage_chest` | 224,392,108,67 | 230,395,96,60 |
 
 Каждый слой владеет только своим реквизитом, контактной тенью и локальным светом; пиксели
 отсутствующих соседей запрещены. Полный manifest и воспроизводимый рецепт находятся в
 `assets/art/camp-2026-09-01/manifest.json` и `tools/prepare_nightly_camp_assets.py`.
+Опора `storage_chest` — `(54,63)` на холсте 108×67 с 4 px нижнего прозрачного поля.
+При origin `BaseLayout` его draw rect равен `(252,470,108,67)`, а service hitbox —
+`(258,473,96,60)`; слой идёт после `record_player` и не пересекает старые service rect.
 Rect дробилки и точильного камня намеренно tight: после независимой visual QA recipe
 удаляет восемь чужих detached-компонентов из atlas-cell дробилки и одну ярко-оранжевую
 дугу из cell точильного камня, затем оставляет только основной 8-connected alpha cluster.
@@ -353,4 +455,41 @@ turn order, RNG, autosaves and serialization remain unchanged.
 `scenes/demos/female_ghoul_walk.tscn` remains a focused review scene for the protected
 female-ghoul source set; it is not a separate gameplay implementation.
 
+## Stage 1E icon, camp, and lunge review
+
+Body-skill emblems are individual anatomical silhouettes rather than a shared
+mannequin: use the 512px master, 128px runtime, and 64/54px contact sheets in
+`art/skills/body-icons/2026-09-01/previews/`. Meaningful alpha stays inside
+the 64–447 master / 16–111 runtime safe area, with flat slate `#59677A` and
+15–30% coral `#E35D63`; there is no warm UI recolor or state-dependent world
+tint. Camp hover/focus outlines belong above the isolated prop layers and do
+not alter the art itself. Record Player padding is `(4,4,3,4)` around the
+historic pixels; Workbench only loses its documented exterior pale alpha matte.
+
+Melee lunges move just the rendered attacker, foot shadow, glow, and glyph by
+0.15 cell for 150ms. They are absent for hidden or ranged attacks and must not
+move targets, collision, LOS, camera, or logical actor positions.
+
 [Источники, точные промпты и матрица проверки / Sources, exact prompts and review matrix](../art/characters/female/map-ghoul/README.md).
+
+## Нативный лист персонажа / Native character sheet (2026-09-05)
+
+Лист использует отдельные неизменённые PNG из `assets/ui/character-sheet/manifest.json`.
+Десять файлов занимают около 14,24 MiB декодированного RGBA. Native RGB/alpha сохранены;
+повторного уменьшения, перерисовки и изменения старых защищённых PNG нет. Все текстуры,
+alpha bounds и прямоугольники размещения кэшируются при создании модального окна.
+Масштаб ограничен самой широкой/высокой позой каждого пола, с сохранением общего
+расстояния глаза–стопы. Карта и её 264×264 кадры используют прежние пути.
+
+The character card is `(270,76,405,570)`, stats card `(16,76,240,570)`, and inventory
+remains `(703,88,549,546)`. Equipment slots stay 64×64, inventory icons 44×44, and six
+cards/filters retain their behavior. The full alpha silhouette fits the 245×530 niche
+with at least four virtual pixels of clearance. Foot baseline is 620; foot anchors are
+484 (female) and 472.5 (male). Sources/landmarks are frozen in the new manifest.
+UI portraits and item controls use linear sampling; world sampling is unchanged.
+
+Review all ten bodies in RU/EN at 1280×720 and 960×540 with
+`tests/capture_native_character_sheet_preview.gd` (40 actual rendered views).
+`tests/character_sheet_presentation_test.gd` verifies unchanged native hashes, every alpha
+pixel, aspect, common anatomical span, dominant height, imports/cache, complete localized
+stats, survival statuses, and the three-line soul/form/appearance label.

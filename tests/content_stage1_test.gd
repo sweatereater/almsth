@@ -32,13 +32,22 @@ func _test_catalogue_names() -> void:
 	loc.set_locale("en")
 	check(loc.text("ENEMY_ARACHNID") == "Crypt Arachnid", "E03 English name preserves the approved catalogue")
 	check(loc.text("CAMP_KETTLE") == "Expedition Kettle" and loc.text("CAMP_BUILT_KETTLE") == "Expedition Kettle built", "B02 English name preserves the approved catalogue")
+	check(loc.text("CAMP_STORAGE_CHEST") == "Storage Chest", "B13 English name remains unchanged")
 	check(loc.text("BIOME_WEAVING_CRYPTS") == "Weaver Catacombs", "Z01 English name preserves the approved catalogue")
+	loc.set_locale("ru")
+	check(
+		loc.text("CAMP_STORAGE_CHEST") == "Сундук хранения"
+		and loc.text("CAMP_BUILD_STORAGE_CHEST").begins_with("Сундук хранения:")
+		and loc.text("CAMP_BUILT_STORAGE_CHEST") == "Сундук хранения построен"
+		and loc.text("CAMP_OBJECT_STORAGE_CHEST").begins_with("Сундук хранения\n"),
+		"B13 uses the exact canonical Russian name across catalogue and service text",
+	)
 	loc.set_locale(previous)
 
 
 func _test_asset_contracts() -> void:
 	var manifest: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://docs/stage1-asset-manifest.json"))
-	check(manifest is Array and manifest.size() == 27, "All27 final runtime assets have provenance")
+	check(manifest is Array and manifest.size() == 28, "All28 final runtime assets have provenance")
 	if not manifest is Array:
 		return
 	for asset in manifest:
@@ -339,8 +348,31 @@ func _test_enemy_preparation(tree: SceneTree) -> void:
 	main.floor_data.tiles[Vector2i(5, 4)] = "wall"
 	crossbow.pos = Vector2i(8, 4)
 	main._enemy_turn()
-	check(not crossbow.has("preparation") and main.state.hp == health - 2, "Lost LOS cancels preparation without shot")
+	check(
+		not crossbow.has("preparation")
+		and crossbow.recovery_remaining == 2
+		and main.state.hp == health - 2,
+		"Lost LOS spends the cancellation action and schedules two exact idle actions",
+	)
 	main.floor_data.tiles[Vector2i(5, 4)] = "floor"
+	position = crossbow.pos
+	main._enemy_turn()
+	check(
+		crossbow.pos == position and crossbow.recovery_remaining == 1
+		and not crossbow.has("preparation"),
+		"First post-cancellation Crossbow action is idle",
+	)
+	main._enemy_turn()
+	check(
+		crossbow.pos == position and crossbow.recovery_remaining == 0
+		and not crossbow.has("preparation"),
+		"Second post-cancellation Crossbow action is idle",
+	)
+	main._enemy_turn()
+	check(
+		crossbow.has("preparation") and crossbow.preparation.remaining == 2,
+		"Third post-cancellation Crossbow action may prepare again",
+	)
 	var smith := _enemy("slag_smith", Vector2i(5, 4))
 	main.floor_data.enemies = [smith]
 	main._enemy_turn()
@@ -428,9 +460,68 @@ func _test_exact_preparation_resume(tree: SceneTree) -> void:
 	original.state.unequip("back")
 	resumed.state.unequip("back")
 	check(original.state.to_snapshot_data() == resumed.state.to_snapshot_data() and resumed.state.camp_preparation.backpack_removed, "First backpack removal remains one-time after exact load")
+
+	var cancelled = await _main(tree)
+	cancelled.rng.seed = 570124
+	var cancelled_enemy := _enemy("bone_crossbowman", Vector2i(8, 4))
+	cancelled.floor_data.enemies = [cancelled_enemy]
+	cancelled._enemy_turn()
+	cancelled.floor_data.tiles[Vector2i(5, 4)] = "wall"
+	cancelled._enemy_turn()
+	check(
+		cancelled_enemy.recovery_remaining == 2 and not cancelled_enemy.has("preparation"),
+		"Cancellation resume fixture must begin at the full two-action recovery value",
+	)
+	# Restore the canonical depth-20 stat after the deterministic combat fixture's
+	# forced-hit override so strict live-snapshot validation tests only recovery=2.
+	cancelled_enemy.accuracy = int(Rules.ENEMIES.bone_crossbowman.accuracy)
+	var cancelled_snapshot: Dictionary = snapshot_system.capture(
+		"dungeon", cancelled.floor_data, cancelled.player_pos, cancelled.rng,
+		cancelled.hearing_contacts.to_snapshot_data(),
+	)
+	check(
+		Save.save_slot(
+			cancelled.state, "cancelled", "overwrite", directory, 2,
+			Callable(), {}, Callable(), cancelled_snapshot,
+		).ok,
+		"Cancelled preparation must write through the strict full-save API",
+	)
+	var cancelled_resumed = await _main(tree)
+	cancelled_resumed.save_slots_directory = directory
+	cancelled_resumed._on_save_slot_load_requested("cancelled")
+	check(
+		cancelled_resumed.floor_data.enemies[0].recovery_remaining == 2,
+		"Exact load must retain cancellation recovery=2 without shortening",
+	)
+	cancelled.floor_data.tiles[Vector2i(5, 4)] = "floor"
+	cancelled_resumed.floor_data.tiles[Vector2i(5, 4)] = "floor"
+	var cancelled_position: Vector2i = cancelled_enemy.pos
+	for idle_index in range(2):
+		cancelled._enemy_turn()
+		cancelled_resumed._enemy_turn()
+		check(
+			cancelled_enemy.pos == cancelled_position
+			and cancelled_resumed.floor_data.enemies[0].pos == cancelled_position
+			and not cancelled_enemy.has("preparation")
+			and not cancelled_resumed.floor_data.enemies[0].has("preparation")
+			and cancelled_enemy.recovery_remaining == 1 - idle_index
+			and cancelled_resumed.floor_data.enemies[0].recovery_remaining == 1 - idle_index,
+			"Cancelled preparation idle action %d must remain exact across load" % (idle_index + 1),
+		)
+	cancelled._enemy_turn()
+	cancelled_resumed._enemy_turn()
+	check(
+		cancelled_enemy.has("preparation")
+		and cancelled_resumed.floor_data.enemies[0].has("preparation")
+		and cancelled.floor_data == cancelled_resumed.floor_data,
+		"The third post-cancellation action may prepare identically after exact load",
+	)
 	Save.delete_slot("prepared", directory)
+	Save.delete_slot("cancelled", directory)
 	original.queue_free()
 	resumed.queue_free()
+	cancelled.queue_free()
+	cancelled_resumed.queue_free()
 	await tree.process_frame
 
 

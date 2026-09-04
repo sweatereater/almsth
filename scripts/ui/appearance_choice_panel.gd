@@ -3,6 +3,8 @@ extends Control
 
 const Loc := preload("res://scripts/localization/localization.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 signal appearance_confirmed(form_id: String)
 signal canceled
@@ -21,6 +23,7 @@ var cancel_button: Button
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
 	visible = false
@@ -29,15 +32,18 @@ func _ready() -> void:
 func _build() -> void:
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color("0c1018f2")
+	shade.color = Palette.OVERLAY_SCRIM
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
 	var card := Panel.new()
 	card.position = Vector2(330, 72)
 	card.size = Vector2(620, 576)
-	card.add_theme_stylebox_override("panel", Ui.make_panel_style(Color("647a89")))
+	card.add_theme_stylebox_override(
+		"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "panel", "normal")
+	)
 	add_child(card)
 	title_label = Ui.make_label(self, Vector2(370, 98), Vector2(540, 46), 28)
+	Ui.apply_heading(title_label, 28)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	summary_label = Ui.make_label(self, Vector2(380, 148), Vector2(520, 62), 16)
 	summary_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -131,7 +131,7 @@ func _test_permanent_jacket_invariants() -> void:
 
 func _test_current_soul_roundtrips() -> void:
 	var state := RunState.new()
-	state.configure_character("Current Soul v17", GameRules.default_attributes())
+	state.configure_character("Current Soul v18", GameRules.default_attributes())
 	state.resources = {"wood": 3, "stone": 3, "cloth": 0}
 	_expect(bool(state.build_camp_upgrade("campfire").get("ok", false)), "Current Campfire fixture must build")
 	state.resources.wood = 30
@@ -149,14 +149,14 @@ func _test_current_soul_roundtrips() -> void:
 	_expect(
 		restored.restore_save_data(saved)
 		and restored.soul_level == 3 and restored.get_effective_soul_level() == 4,
-		"Current v17 state-only roundtrip must preserve all one-time Soul sources exactly",
+		"Current v18 state-only roundtrip must preserve all one-time Soul sources exactly",
 	)
 	var before := restored.to_snapshot_data()
 	var missing_sex := saved.duplicate(true)
 	missing_sex.erase("character_sex")
 	_expect(
 		not restored.restore_save_data(missing_sex) and restored.to_snapshot_data() == before,
-		"Current v17 data without character sex must reject without replay or mutation",
+		"Current v18 data without character sex must reject without replay or mutation",
 	)
 
 
@@ -164,10 +164,10 @@ func _test_slot_compatibility() -> void:
 	var state := RunState.new()
 	state.configure_character("Version Seventeen", GameRules.default_attributes())
 	state.soul_level = 5
-	_expect(bool(SaveSystem.save_slot(state, "soul-v17", "overwrite", ROOT, 900).get("ok", false)), "Current v17 Soul Level slot must save")
-	var loaded := SaveSystem.load_slot("soul-v17", ROOT)
+	_expect(bool(SaveSystem.save_slot(state, "soul-v18", "overwrite", ROOT, 900).get("ok", false)), "Current v18 Soul Level slot must save")
+	var loaded := SaveSystem.load_slot("soul-v18", ROOT)
 	var restored := RunState.new()
-	_expect(bool(loaded.get("ok", false)) and restored.restore_save_data(loaded.get("state", {})) and restored.soul_level == 5, "Current v17 Soul Level slot must roundtrip")
+	_expect(bool(loaded.get("ok", false)) and restored.restore_save_data(loaded.get("state", {})) and restored.soul_level == 5, "Current v18 Soul Level slot must roundtrip")
 
 	var legacy_state := {"character_name": "V8 Campfire", "highest_unlocked_form_index": 2, "camp_upgrades": {"campfire": true}}
 	_write_text(ROOT + "/soul-v8.json", JSON.stringify({

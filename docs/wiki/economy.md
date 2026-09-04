@@ -31,12 +31,15 @@
 
 Стоимость построек генерируется из `CAMP_UPGRADES`: [generated/game-reference.md#постройки-лагеря](generated/game-reference.md#постройки-лагеря).
 
-Стабильный реестр содержит ровно 12 ID: `campfire`, `kettle`, `bunk`, `crusher`,
+Стабильный реестр содержит ровно 13 ID: `campfire`, `kettle`, `bunk`, `crusher`,
 `whetstone`, `ritual_table`, `mural`, `workbench`, `writing_set`, `textile_area`,
-`rocking_chair`, `record_player`. Сохраняются прежние цены и эффекты первых семи.
+`rocking_chair`, `record_player`, `storage_chest`. Сохраняются прежние цены и эффекты
+первых двенадцати.
 `workbench`, `writing_set`, `textile_area` и `record_player` бесплатны и не создают услуг;
 `writing_set` требует `workbench`, а `kettle` требует `campfire`. Зависимости проверяются
 до списания. `rocking_chair` стоит ровно30 дерева и один раз даёт +1 сырого Уровня души.
+`storage_chest` стоит20 дерева,4 камня и3 ткани без предварительных требований и открывает
+безопасный перенос вещей между инвентарём и Хранилищем.
 Мурал полностью скрыт до Хвоста Минотавра. Все раскрытые строки находятся в одном
 блокирующем прокручиваемом окне «Стройка».
 

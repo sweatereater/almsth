@@ -160,13 +160,11 @@ func _prepare(tree: SceneTree) -> void:
 		main.floor_data.items.append({"uid": "restart-chest", "id": "bone_bow", "pos": _unoccupied_hall_cell(main), "wood": 1, "stone": 1, "appearance": "chest"})
 	main.state.skill_levels.dash = 1
 	main.state.ability_cooldowns = {"dash": 5}
-	main.state.add_or_refresh_status("rested", 12, 2)
+	main.state.add_or_refresh_status("satiated", 12, 2)
 	main.state.hp = main.state.get_max_hp() - 2
-	main.state.hunger = 63
-	main.state.hunger_turn_progress = 9
 	main._update_player_visibility(false)
 	main.hearing_contacts.record_hidden_attack(hidden.uid, hidden.pos, main.state.total_turns)
-	_record("restart fixture", {"pursuer": pursuer, "hidden": hidden, "statuses": main.state.active_statuses, "cooldowns": main.state.ability_cooldowns, "hunger": 63, "hunger_progress": 9, "remaining_items": main.floor_data.items, "hearing": main.hearing_contacts.to_snapshot_data()})
+	_record("restart fixture", {"pursuer": pursuer, "hidden": hidden, "statuses": main.state.active_statuses, "cooldowns": main.state.ability_cooldowns, "hunger": 100, "hunger_progress": 0, "remaining_items": main.floor_data.items, "hearing": main.hearing_contacts.to_snapshot_data()})
 	_expect(main.floor_data.enemies.size() == 2 and not main.floor_data.items.is_empty() and main.hearing_contacts.attack_memory_count() == 1, "Restart fixture must include live enemies, remaining loot and hidden attack TTL")
 	_expect(main._save_game_at_base(), "Nonempty restart fixture must save successfully")
 	# Keep one file family frozen for the next process while this session continues.
@@ -178,7 +176,7 @@ func _prepare(tree: SceneTree) -> void:
 	main.persistence_enabled = false
 	main._on_wait_pressed()
 	checkpoint.next_world = _world(main)
-	_expect(main.state.cooldown_remaining("dash") == 4 and main.state.status_remaining("rested") == 11 and main.hearing_contacts.attack_memory_count() == 0, "The uninterrupted next round must tick real status/cooldown and hearing TTL")
+	_expect(main.state.cooldown_remaining("dash") == 4 and main.state.status_remaining("satiated") == 11 and main.hearing_contacts.attack_memory_count() == 0, "The uninterrupted next round must tick real status/cooldown and hearing TTL")
 	main._on_save_slot_load_requested(frozen_id)
 	main.persistence_enabled = true
 	main.floor_data.enemies.clear()
@@ -219,7 +217,7 @@ func _resume_and_die(tree: SceneTree) -> void:
 	main._on_rope_ascent_pressed()
 	_record_floor(main)
 	_expect(main.state.current_floor == 95 and main.state.current_form_id == "ghoul", "Rope ascent after restart must retain form and return to floor 95")
-	_expect(main.state.status_remaining("satiated") == 400 and main.state.status_remaining("rested") == 500 and not main.state.camp_preparation.pending, "Departure after process restart grants earned effects exactly once")
+	_expect(main.state.status_remaining("satiated") == 400 and main.state.status_remaining("rested") == 0 and not main.state.camp_preparation.pending, "Departure after process restart grants only the earned effects exactly once")
 	var bound_knife := GameRules.make_item_key("bone_knife", 0, true)
 	var bound_gloves := GameRules.make_item_key("leather_gloves", 0, true)
 	main.state.add_item_key(bound_knife)

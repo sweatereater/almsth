@@ -71,6 +71,7 @@ func set_presentation(
 	lethal_hit_afterimages: Array[Dictionary] = [],
 	hearing_contact_cells: Array[Vector2i] = [],
 	player_visual: Dictionary = {},
+	melee_lunges: Dictionary = {},
 ) -> void:
 	presentation = {
 		"floor_data": floor_data,
@@ -88,6 +89,7 @@ func set_presentation(
 		"lethal_hit_afterimages": lethal_hit_afterimages,
 		"hearing_contact_cells": hearing_contact_cells,
 		"player_visual": player_visual,
+		"melee_lunges": melee_lunges,
 	}
 	map_size = Vector2i(
 		int(floor_data.get("width", 0)),
@@ -257,4 +259,5 @@ func _draw_world(canvas: CanvasItem) -> void:
 		presentation.get("lethal_hit_afterimages", []),
 		presentation.get("hearing_contact_cells", []),
 		presentation.get("player_visual", {}),
+		presentation.get("melee_lunges", {}),
 	)

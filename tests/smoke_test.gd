@@ -27,6 +27,9 @@ const RoomDoorSuite := preload("res://tests/room_door_test.gd")
 const CharacterSexSuite := preload("res://tests/character_sex_test.gd")
 const CampBuildPanelSuite := preload("res://tests/camp_build_panel_test.gd")
 const NightlyContractSuite := preload("res://tests/nightly_contract_test.gd")
+const StorageSuite := preload("res://tests/storage_test.gd")
+const StorageUiSuite := preload("res://tests/storage_ui_test.gd")
+const UiPalette := preload("res://scripts/ui/ui_palette.gd")
 
 var failures: Array[String] = []
 
@@ -45,8 +48,11 @@ func _run() -> void:
 	failures.append_array(BodySkillSuite.new().run())
 	_test_floor_generation()
 	failures.append_array(await CharacterSexSuite.new().run(self))
+	failures.append_array(await preload("res://tests/character_sheet_presentation_test.gd").new().run(self))
 	failures.append_array(NightlyContractSuite.new().run())
+	failures.append_array(StorageSuite.new().run(self))
 	failures.append_array(await CampBuildPanelSuite.new().run(self))
+	failures.append_array(await StorageUiSuite.new().run(self))
 	failures.append_array(await ContentStage1Suite.new().run(self))
 	failures.append_array(await RoomDoorSuite.new().run(self))
 	var regression_failures: Array[String] = await RegressionSuite.new().run(self)
@@ -714,12 +720,19 @@ func _test_main_scene() -> void:
 	root.add_child(main)
 	await process_frame
 	_expect(main.screen == main.Screen.NAME_CREATION, "The game must open at character naming")
-	_expect(not main.title_label.visible, "Character naming must not show a redundant corner title")
+	_expect(
+		main.title_label.visible
+		and main.title_label.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER
+		and main.title_label.text == Loc.text("TITLE_NAME_CREATION"),
+		"Character naming must show the centered localized creation heading",
+	)
 	_expect(main.name_prompt_label.text == "Введите имя персонажа", "Character naming must use the direct Russian prompt")
 	_expect(
 		not main.sex_choice_panel.labels.female.visible
-		and not main.sex_choice_panel.labels.male.visible,
-		"Character portraits must not show redundant sex captions",
+		and not main.sex_choice_panel.labels.male.visible
+		and main.sex_choice_panel.selection_markers.female.visible
+		and not main.sex_choice_panel.selection_markers.male.visible,
+		"Portrait-only selector must start female and show one non-color selection marker",
 	)
 	_expect(not main.language_button.visible, "Language switch must not occupy the permanent top bar")
 	_expect(main.menu_button.visible, "Menu must be available in the upper-right corner")
@@ -728,16 +741,26 @@ func _test_main_scene() -> void:
 		main.settings_open and main.settings_close_button.visible and main.language_button.visible,
 		"Menu must contain the language switch and settings controls",
 	)
+	var settings_normal: StyleBox = main.settings_close_button.get_theme_stylebox("normal")
+	var settings_hover: StyleBox = main.settings_close_button.get_theme_stylebox("hover")
+	var settings_card := main.settings_controls[1] as Panel
+	var settings_card_style := settings_card.get_theme_stylebox("panel") as StyleBoxFlat
 	_expect(
 		main.settings_input_label.size.y >= 44
-		and main.settings_input_label.clip_text
-		and main.settings_close_button.has_theme_stylebox_override("hover"),
-		"Settings text must stay inside a tall clipped label and buttons must have hover styling",
+		and main.settings_input_label.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+		and main.settings_input_label.get_theme_font_size("font_size") >= 12
+		and settings_normal != settings_hover
+		and settings_card_style.bg_color == UiPalette.WARM_TOKENS.panel,
+		"Settings copy must remain readable and its warm semantic normal/hover states must differ",
 	)
 	main._on_language_pressed()
 	_expect(Loc.current_locale == "en", "Language button in the menu must switch the active locale")
 	_expect(
-		not main.title_label.visible and main.name_prompt_label.text == "Enter character name",
+		main.title_label.visible
+		and main.title_label.text == Loc.text("TITLE_NAME_CREATION")
+		and main.name_prompt_label.text == "Enter character name"
+		and main.sex_choice_panel.labels.female.text.ends_with(Loc.text("SEX_FEMALE"))
+		and main.sex_choice_panel.labels.male.text.ends_with(Loc.text("SEX_MALE")),
 		"Visible character-creation copy must refresh after a language switch",
 	)
 	_expect(main.attribute_name_labels["strength"].text == "Strength", "Attribute labels must be localized")
@@ -876,18 +899,25 @@ func _test_main_scene() -> void:
 	_expect(
 		not main.controls_remap_open
 		and main.settings_open
-		and main.settings_controls_button.visible,
-		"Gamepad B must return from controls to settings without requiring a mouse",
+		and main.settings_controls_button.visible
+		and main.settings_controls_button.has_focus(),
+		"Gamepad B must return from controls to the exact Settings trigger",
 	)
 	_expect(
 		not main.settings_exit_button.visible
 		and main.settings_new_game_button.text == Loc.text("BTN_MAIN_MENU"),
 		"Settings must return to the unified main menu instead of duplicating New Game/Exit",
 	)
-	main._close_settings()
+	var close_settings := InputEventJoypadButton.new()
+	close_settings.pressed = true
+	close_settings.button_index = JOY_BUTTON_B
+	main.get_viewport().push_input(close_settings, true)
+	await process_frame
 	_expect(
-		not main.settings_open and not main.language_button.visible,
-		"Closing settings must hide its language control",
+		not main.settings_open
+		and not main.language_button.visible
+		and main.name_input.has_focus(),
+		"Gamepad B must close Settings and restore the exact opening trigger",
 	)
 	main.name_input.text = "Тестовый"
 	main._on_name_confirmed()
@@ -949,24 +979,30 @@ func _test_main_scene() -> void:
 	)
 	main._show_character()
 	main._select_character_panel("inventory")
-	var cheat_points_before: int = main.state.unspent_attribute_points
-	var cheat_soul_level_before: int = main.state.soul_level
-	var cheat_effective_soul_level_before: int = main.state.get_effective_soul_level()
-	var cheat_carried_souls_before: int = main.state.carried_souls
-	var cheat_lifetime_souls_before: int = main.state.lifetime_souls_earned
 	_expect(
-		main.character_cheat_stats_button.visible
-		and main.character_cheat_stats_button.text == Loc.text("BTN_CHEAT_ADD_STATS"),
-		"The temporary progression test button must be visible and localized on the character sheet",
+		main.find_child("*Cheat*", true, false) == null
+		and Loc.text("BTN_CHEAT_ADD_STATS") == "BTN_CHEAT_ADD_STATS",
+		"Production UI and localization must not expose progression test controls",
 	)
-	main._on_cheat_add_stats_pressed()
+	# Progression-rich fixture state is injected directly; production UI owns no
+	# debug grant control in Stage 1C.
+	var fixture_points_before: int = main.state.unspent_attribute_points
+	var fixture_soul_level_before: int = main.state.soul_level
+	var fixture_effective_soul_level_before: int = main.state.get_effective_soul_level()
+	var fixture_carried_souls_before: int = main.state.carried_souls
+	var fixture_lifetime_souls_before: int = main.state.lifetime_souls_earned
+	main.state.unspent_attribute_points += 5
+	main.state.soul_level += 1
+	main.state.carried_souls += 100
+	main.state.lifetime_souls_earned += 100
+	main._refresh_character_sheet()
 	_expect(
-		main.state.unspent_attribute_points == cheat_points_before + 5
-		and main.state.soul_level == cheat_soul_level_before + 1
-		and main.state.get_effective_soul_level() == cheat_effective_soul_level_before + 1
-		and main.state.carried_souls == cheat_carried_souls_before + 100
-		and main.state.lifetime_souls_earned == cheat_lifetime_souls_before + 100,
-		"The temporary test button must grant exactly five points, one Soul Level and 100 souls",
+		main.state.unspent_attribute_points == fixture_points_before + 5
+		and main.state.soul_level == fixture_soul_level_before + 1
+		and main.state.get_effective_soul_level() == fixture_effective_soul_level_before + 1
+		and main.state.carried_souls == fixture_carried_souls_before + 100
+		and main.state.lifetime_souls_earned == fixture_lifetime_souls_before + 100,
+		"Direct test fixture must still cover high-progression character rendering",
 	)
 	main._select_character_panel("skills")
 	_expect(main.skills_title_label.visible, "Character sheet must include the large skills block")
@@ -976,8 +1012,20 @@ func _test_main_scene() -> void:
 		and main.skill_node_buttons["magic_ricochet"].visible,
 		"Skeleton skill tab must include its second magic branch",
 	)
-	_expect(main.zombie_tab_button.disabled, "Zombie skill tab must be locked before reaching zombie")
-	_expect(main.revenant_tab_button.disabled, "Revenant skill tab must be locked before reaching revenant")
+	_expect(
+		not main.zombie_tab_button.disabled and not main.revenant_tab_button.disabled,
+		"Locked stage tabs must remain inspectable before their body stage is reached",
+	)
+	main._select_skill_stage("zombie")
+	main._on_skill_pressed("sharp_vision")
+	_expect(
+		main.selected_skill_stage == "zombie"
+		and main.skill_node_buttons["sharp_vision"].visible
+		and main.skill_node_buttons["sharp_vision"].visual_state == "locked"
+		and main.skill_tree_panel.action_button.disabled,
+		"Inspecting a locked stage must expose its node and reason without enabling purchase",
+	)
+	main._select_skill_stage("skeleton")
 	main.state.highest_unlocked_form_index = GameRules.FORM_ORDER.find("revenant")
 	main._refresh_character_sheet()
 	main._select_skill_stage("revenant")
@@ -1041,12 +1089,22 @@ func _test_main_scene() -> void:
 	var ui_knife_key: String = main.state.add_item("bone_knife", 0, 2)
 	main._show_character()
 	main._select_character_panel("inventory")
+	var ui_knife_visible_index := -1
+	for index in range(main.inventory_panel.row_buttons.size()):
+		var absolute_index: int = main.inventory_panel.page * main.inventory_panel.PAGE_SIZE + index
+		if absolute_index >= main.inventory_panel.entries.size():
+			break
+		var entry: Dictionary = main.inventory_panel.entries[absolute_index]
+		if String(entry.get("key", "")) == ui_knife_key and String(entry.get("source", "")) == "inventory":
+			ui_knife_visible_index = index
+			break
 	_expect(
-		main.inventory_stack_buttons[0].visible
-		and "×2" in main.inventory_stack_buttons[0].text,
+		ui_knife_visible_index >= 0
+		and main.inventory_stack_buttons[ui_knife_visible_index].visible
+		and "×2" in main.inventory_panel.row_property_labels[ui_knife_visible_index].text,
 		"Character inventory must render identical items as one stack slot",
 	)
-	main._on_inventory_stack_pressed(0)
+	main._on_inventory_stack_pressed(ui_knife_visible_index)
 	_expect(
 		main.selected_inventory_key == ui_knife_key
 		and not main.inventory_equip_button.disabled,
@@ -1778,10 +1836,14 @@ func _test_main_scene() -> void:
 		main.state.current_floor == cleared_floor_number - 1,
 		"Using ascent again while standing on the stairs must load the following floor",
 	)
-	for index in range(7):
+	for index in range(9):
 		main._log_action("History %d" % index)
-	_expect(main.action_history.size() == 5, "Action history must retain exactly five latest entries")
-	_expect(main.action_history[0] == "History 6", "Newest action must be displayed first")
+	_expect(main.action_history.size() == 8, "Action history must retain exactly eight latest entries")
+	_expect(
+		main.action_entry_plain_text(main.action_history[0]) == "History 8"
+		and main.action_entry_plain_text(main.action_history[7]) == "History 1",
+		"Structured action history must display newest first and evict only the oldest",
+	)
 	main.state.carried_souls = 4
 	main.player_pos = main.floor_data["base_gate"]
 	var expected_rope_floor: int = main.state.current_floor

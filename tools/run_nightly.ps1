@@ -19,7 +19,6 @@ $executableName = 'Godot_v4.7.2-stable_win64.exe'
 $results = [System.Collections.Generic.List[object]]::new()
 $overallExit = 0
 $protectedRoots = @(
-    (Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'Godot\app_userdata\Almsth'),
     (Join-Path $sourceRuntime 'editor_data')
 )
 

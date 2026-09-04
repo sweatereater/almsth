@@ -1,0 +1,11 @@
+info face="Stage1C UI Symbols" size=16 bold=0 italic=0 charset="" unicode=1 stretchH=100 smooth=1 aa=1 padding=0,0,0,0 spacing=0,0 outline=0
+common lineHeight=16 base=14 scaleW=112 scaleH=16 pages=1 packed=0
+page id=0 file="stage1c-ui-symbols.svg"
+chars count=7
+char id=10003  x=0   y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=8592   x=16  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=8594   x=32  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=8593   x=48  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=8595   x=64  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=9635   x=80  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15
+char id=128274 x=96  y=0 width=16 height=16 xoffset=0 yoffset=0 xadvance=16 page=0 chnl=15

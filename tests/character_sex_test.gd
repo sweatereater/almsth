@@ -49,8 +49,8 @@ func _test_state() -> void:
 			if body != null:
 				var pixels := body.get_image()
 				var bounds := pixels.get_used_rect()
-				_expect(body.get_size() == Vector2(264, 704) and pixels.detect_alpha() != Image.ALPHA_NONE, "Sheet figure must use a transparent 264x704 canvas: %s/%s" % [sex, form])
-				_expect(bounds.position.x >= 11 and bounds.position.y >= 12 and bounds.end.x <= 253 and bounds.end.y == 696, "Sheet figure must retain crop padding and fixed foot baseline: %s/%s" % [sex, form])
+				_expect(body.get_height() >= 817 and pixels.detect_alpha() != Image.ALPHA_NONE, "Sheet figure must use native transparent detail: %s/%s" % [sex, form])
+				_expect(bounds.has_area() and bounds.size.y > 790, "Native complete silhouette must remain available: %s/%s" % [sex, form])
 			_expect(
 				Renderer.player_visual_form_id(state) == form,
 				"Form ID must remain the form dimension of the parallel sex×form map set",
@@ -98,18 +98,42 @@ func _test_creation_and_files(tree: SceneTree) -> void:
 	tree.root.add_child(main)
 	await tree.process_frame
 	main._show_name_creation()
-	_expect(not main.title_label.visible, "Name creation must hide the redundant corner title")
+	_expect(main.title_label.visible and main.title_label.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER, "Name creation needs the centered Stage 1C heading")
 	_expect(
 		not main.sex_choice_panel.labels.female.visible
-		and not main.sex_choice_panel.labels.male.visible,
-		"Sex selection must use portraits and selection styling without captions",
+		and not main.sex_choice_panel.labels.male.visible
+		and main.sex_choice_panel.selection_markers.female.visible
+		and not main.sex_choice_panel.selection_markers.male.visible,
+		"Portrait-only selector starts female with one non-color selection marker",
 	)
+	for sex in Artwork.SEXES:
+		var button: Button = main.sex_choice_panel.buttons[sex]
+		var portrait := button.get_child(0) as TextureRect
+		_expect(button.size == Vector2(156, 160), "%s sex card must stay exactly 156x160" % sex)
+		_expect(portrait != null and portrait.size == Vector2(120, 120), "%s portrait must stay exactly 120x120" % sex)
+		_expect(not String(button.accessibility_name).is_empty() and not String(button.accessibility_description).is_empty(), "%s card needs an accessibility name and description" % sex)
+	_expect(main.sex_choice_panel.buttons.male.position.x - main.sex_choice_panel.buttons.female.position.x == 176.0, "Sex cards need their exact 20 px gap")
+	# Physical B/Back opens the blocking warm menu from creation and resume returns
+	# to the exact unfinished creation state.
+	await _joy(tree, JOY_BUTTON_B)
+	_expect(main.main_menu_open and main.save_menu_panel.visible, "Gamepad B must back out from name/sex creation")
+	main._resume_from_main_menu()
+	_expect(main.screen == main.Screen.NAME_CREATION and not main.main_menu_open, "Resume must restore name/sex creation")
+	# Pointer and touch activate the real cards, not test-only state hooks.
+	await _mouse_click(tree, main.sex_choice_panel.buttons.female.get_global_rect().get_center())
+	_expect(main.state.character_sex == "female", "Mouse click must select Female")
+	await _touch(tree, main.sex_choice_panel.buttons.male.get_global_rect().get_center())
+	_expect(main.state.character_sex == "male", "Touch tap must select Male")
+	main.sex_choice_panel.buttons.female.grab_focus()
+	await _key(tree, KEY_RIGHT)
+	await _key(tree, KEY_ENTER)
+	_expect(main.state.character_sex == "male", "Keyboard navigation + accept must select Male")
 	await _joy(tree, JOY_BUTTON_DPAD_UP)
 	await _joy(tree, JOY_BUTTON_DPAD_LEFT)
 	await _joy(tree, JOY_BUTTON_A)
-	_expect(main.state.character_sex == "female" and main.sex_choice_panel.buttons.female.button_pressed, "Native D-pad + A must select Female")
+	_expect(main.state.character_sex == "female" and main.sex_choice_panel.selected_sex == "female" and main.sex_choice_panel.selection_markers.female.visible, "Native D-pad + A must select Female")
 	await _joy(tree, JOY_BUTTON_A)
-	_expect(main.sex_choice_panel.buttons.female.button_pressed and not main.sex_choice_panel.buttons.male.button_pressed, "Repeated gamepad confirm must keep exactly one sex selected")
+	_expect(main.sex_choice_panel.selection_markers.female.visible and not main.sex_choice_panel.selection_markers.male.visible, "Repeated gamepad confirm must keep exactly one sex selected")
 	await _joy(tree, JOY_BUTTON_DPAD_RIGHT)
 	await _joy(tree, JOY_BUTTON_A)
 	_expect(main.state.character_sex == "male", "Native D-pad + A must select Male")
@@ -125,15 +149,37 @@ func _test_creation_and_files(tree: SceneTree) -> void:
 	main.name_confirm_button.grab_focus()
 	await _joy(tree, JOY_BUTTON_A)
 	_expect(main.screen == main.Screen.STAT_CREATION, "Gamepad A on Continue must submit the name")
-	_expect(not main.title_label.visible, "Attribute creation must hide the redundant corner title")
+	_expect(main.title_label.visible and main.creation_back_button.visible, "Attribute creation needs the centered title and stable Back control")
 	_expect(
-		main.creation_preview_label.text.begins_with("Параметры\n\n"),
-		"The Russian derived-stat block must use the generic Parameters heading",
+		main.creation_preview_label.text == Loc.text("SKELETON_PARAMETERS"),
+		"The derived-stat block must use the localized Parameters heading",
 	)
+	for attribute_id in GameRules.ATTRIBUTE_ORDER:
+		_expect(main.attribute_minus_buttons[attribute_id].name == "StatMinus_%s" % attribute_id, "Minus needs a stable name: %s" % attribute_id)
+		_expect(main.attribute_plus_buttons[attribute_id].name == "StatPlus_%s" % attribute_id, "Plus needs a stable name: %s" % attribute_id)
+		_expect(main.attribute_minus_buttons[attribute_id].disabled, "Minus must disable at its starting bound: %s" % attribute_id)
+	_expect(main.creation_confirm_button.disabled, "Finish must disable while points remain")
+	var first_attribute: String = GameRules.ATTRIBUTE_ORDER[0]
+	main.attribute_plus_buttons[first_attribute].grab_focus()
+	await _joy(tree, JOY_BUTTON_A)
+	_expect(
+		not main.attribute_minus_buttons[first_attribute].disabled
+		and int(main.attribute_value_labels[first_attribute].text) > GameRules.STARTING_ATTRIBUTE_VALUE,
+		"Gamepad A on plus must increase value text without requiring color marker",
+	)
+	await _joy(tree, JOY_BUTTON_B)
+	_expect(
+		main.screen == main.Screen.NAME_CREATION
+		and main.name_input.text == "Gamepad"
+		and int(main.pending_attributes[first_attribute]) == GameRules.STARTING_ATTRIBUTE_VALUE + 1,
+		"Gamepad B/Back must preserve name and pending allocation",
+	)
+	main._on_name_confirmed()
+	_expect(main.screen == main.Screen.STAT_CREATION, "Preserved creation data must return to the stat step")
 	for sex in Artwork.SEXES:
 		main._reset_for_new_character()
 		main._show_name_creation()
-		_expect(main.state.character_sex == "male", "New Game starts with male default")
+		_expect(main.state.character_sex == "female", "New Game starts with female default")
 		main.sex_choice_panel.buttons[sex].pressed.emit()
 		_expect(main.state.character_sex == sex, "Creation button must set %s" % sex)
 		for locale in ["ru", "en"]:
@@ -170,7 +216,7 @@ func _test_creation_and_files(tree: SceneTree) -> void:
 		_expect(
 			not bool(loaded.get("ok", false))
 			and int(loaded.get("error", OK)) == ERR_FILE_CORRUPT,
-			"Standalone v16 without sex must reject under the v17 boundary",
+			"Standalone v16 without sex must reject below the supported v17-v18 boundary",
 		)
 		var locked_row := {}
 		for row in Saves.list_slots(main.save_slots_directory):
@@ -202,6 +248,33 @@ func _key(tree: SceneTree, code: int) -> void:
 	var event := InputEventKey.new()
 	event.keycode = code
 	event.physical_keycode = code
+	event.pressed = true
+	tree.root.push_input(event, true)
+	await tree.process_frame
+	event = event.duplicate()
+	event.pressed = false
+	tree.root.push_input(event, true)
+	await tree.process_frame
+
+
+func _mouse_click(tree: SceneTree, position: Vector2) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.position = position
+	event.global_position = position
+	event.pressed = true
+	tree.root.push_input(event, true)
+	await tree.process_frame
+	event = event.duplicate()
+	event.pressed = false
+	tree.root.push_input(event, true)
+	await tree.process_frame
+
+
+func _touch(tree: SceneTree, position: Vector2) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = 0
+	event.position = position
 	event.pressed = true
 	tree.root.push_input(event, true)
 	await tree.process_frame

@@ -1,6 +1,6 @@
 # Графика первого пакета
 
-Все27 изображений созданы встроенным `image_gen`. Runtime-файлы находятся в проекте;
+Все28 изображений созданы встроенным `image_gen`. Runtime-файлы находятся в проекте;
 исходные изображения из пользовательского cache не менялись. Точные сохранённые
 промпты, имена исходников, SHA-256 и размеры перечислены в
 [stage1-asset-manifest.json](stage1-asset-manifest.json). Для пяти ранних изображений
@@ -17,6 +17,7 @@
 | B02 |`assets/art/camp-kettle.png`|132×104 RGBA|
 | B03 |`assets/art/camp-bunk.png`|248×100 RGBA|
 | B05 |`assets/art/camp-mural.png`|152×84 RGBA|
+| B13 |`assets/art/camp-2026-09-01/camp-storage-chest.png`|108×67 RGBA|
 
 `tools/normalize_stage1_assets.gd` выполняет только технический экспорт: обрезает
 полностью прозрачные поля, уменьшает Lanczos с premultiplied alpha и добавляет
@@ -27,6 +28,12 @@
 Повторный экспорт допускается только поверх файлов, SHA-256 которых совпадает с
 предыдущим манифестом этого инструмента; неизвестные изменения не перезаписываются.
 
+Новый B13 имеет отдельный проектный master
+`art/concepts/camp/2026-09-01/storage-chest-master.png` и не проходит через старый
+4×3 atlas или `normalize_stage1_assets.gd`. Его детерминированный premultiplied-alpha
+Lanczos-рецепт находится в `tools/prepare_nightly_camp_assets.py`; итоговая опора `(54,63)`
+оставляет 4 px снизу. Base лагеря, фон смерти и первые 12 модульных слоёв не меняются.
+
 Пример повторного экспорта из исходного manifest, который содержит пути к master PNG:
 
 ```powershell
@@ -34,7 +41,7 @@ godot --headless --path . --script res://tools/normalize_stage1_assets.gd -- "C:
 godot --headless --path . --editor --import --quit
 ```
 
-Проверка `tests/content_stage1_test.gd` контролирует все27 путей, размеры, альфу,
+Проверка `tests/content_stage1_test.gd` контролирует все28 путей, размеры, альфу,
 отступы, опоры и соответствие SHA-256. Существующая проверка `visual_overhaul_test.gd`
 дополнена явными путями новых предметов и врагов; старые контракты и хеши сохранены.
 

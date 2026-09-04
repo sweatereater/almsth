@@ -115,7 +115,7 @@ func _test_rest_preparation_and_strict_semantics() -> void:
 	var late_data := late_purchase.to_save_data()
 	_expect(
 		RunState.is_stage1_save_data_valid(late_data),
-		"Strict v17 validation must allow an eligible preparation field to remain false",
+		"Strict v18 validation must allow an eligible preparation field to remain false",
 	)
 
 	var unauthorized := _state_at_form("revenant")
@@ -124,13 +124,13 @@ func _test_rest_preparation_and_strict_semantics() -> void:
 	unauthorized.camp_preparation.rested = true
 	_expect(
 		not RunState.is_stage1_save_data_valid(unauthorized.to_save_data()),
-		"Strict v17 validation must reject Rested preparation without a learned Nervous System",
+		"Strict v18 validation must reject Rested preparation without a learned Nervous System",
 	)
 	unauthorized.camp_preparation.rested = false
 	unauthorized.add_or_refresh_status("rested")
 	_expect(
 		not RunState.is_stage1_save_data_valid(unauthorized.to_save_data()),
-		"Strict v17 validation must reject an active Rested status without entitlement",
+		"Strict v18 validation must reject an active Rested status without entitlement",
 	)
 
 	var entitled := _state_at_form("revenant")

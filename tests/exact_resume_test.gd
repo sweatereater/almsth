@@ -36,7 +36,7 @@ func _test_strict_snapshot_schema() -> void:
 	var state_data := state.to_snapshot_data()
 	_expect(
 		not Snapshot.restore(snapshot, state_data).is_empty(),
-		"Canonical procedural v17 snapshot must validate",
+		"Canonical procedural v18 snapshot must validate",
 	)
 
 	var extra_state := state_data.duplicate(true)
@@ -44,13 +44,13 @@ func _test_strict_snapshot_schema() -> void:
 	_expect(
 		not RunState.is_snapshot_data_valid(extra_state)
 		and Snapshot.restore(snapshot, extra_state).is_empty(),
-		"Current v17 state must reject unknown top-level fields",
+		"Current v18 state must reject unknown top-level fields",
 	)
 	var extra_envelope := snapshot.duplicate(true)
 	extra_envelope["intruder"] = true
 	_expect(
 		Snapshot.restore(extra_envelope, state_data).is_empty(),
-		"Current v17 snapshot envelope must reject unknown fields",
+		"Current v18 snapshot envelope must reject unknown fields",
 	)
 	var missing_rooms := floor.duplicate(true)
 	missing_rooms.erase("rooms")
@@ -59,7 +59,7 @@ func _test_strict_snapshot_schema() -> void:
 			Snapshot.capture("dungeon", missing_rooms, missing_rooms.start, random, hearing),
 			state_data,
 		).is_empty(),
-		"Procedural v17 floors must require the generated rooms collection",
+		"Procedural v18 floors must require the generated rooms collection",
 	)
 	var empty_rooms := floor.duplicate(true)
 	empty_rooms.rooms = []
@@ -68,7 +68,7 @@ func _test_strict_snapshot_schema() -> void:
 			Snapshot.capture("dungeon", empty_rooms, empty_rooms.start, random, hearing),
 			state_data,
 		).is_empty(),
-		"Procedural v17 floors must retain the generator's two or three rooms",
+		"Procedural v18 floors must retain the generator's two or three rooms",
 	)
 	var fixed_bypass := missing_rooms.duplicate(true)
 	fixed_bypass.fixed_layout = true
@@ -437,7 +437,10 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	main.state.equipped_marks["right_hand"] = "keep"
 	main.state.inventory[marked_inventory_key] = 1
 	main.state.inventory_marks[marked_inventory_key] = "salvage"
-	for upgrade_id in ["campfire", "kettle", "workbench", "writing_set"]:
+	var stored_key := GameRules.make_item_key("bone_bow", 2, true)
+	main.state.storage[stored_key] = 3
+	main.state.storage_marks[stored_key] = "keep"
+	for upgrade_id in ["campfire", "kettle", "workbench", "writing_set", "storage_chest"]:
 		main.state.camp_upgrades[upgrade_id] = true
 	main.rng.seed = 9223372036854775701
 	main._begin_expedition_at(97)
@@ -455,10 +458,25 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 			enemy.pos = adjacent
 			break
 	_expect(attack_direction != Vector2i.ZERO, "Combat fixture needs an adjacent floor cell")
-	enemy.hp = maxi(1, int(enemy.max_hp) - 1)
-	enemy.has_seen_player = true
-	enemy.last_seen_player = main.player_pos
+	enemy.hp = int(enemy.max_hp)
+	enemy.erase("has_seen_player")
+	enemy.erase("last_seen_player")
 	main.floor_data.enemies[0] = enemy
+	var sleeping_bystander_uid := ""
+	if main.floor_data.enemies.size() > 1:
+		main.floor_data.enemies[1].erase("has_seen_player")
+		main.floor_data.enemies[1].erase("last_seen_player")
+		sleeping_bystander_uid = String(main.floor_data.enemies[1].uid)
+	main._perform_melee_strike(String(enemy.uid), 1)
+	_expect(
+		bool(main.floor_data.enemies[0].get("has_seen_player", false))
+		and main.floor_data.enemies[0].get("last_seen_player") == main.player_pos
+		and (
+			sleeping_bystander_uid.is_empty()
+			or not bool(main.floor_data.enemies[1].get("has_seen_player", false))
+		),
+		"A real directed attack must create only the target's existing resumable awareness fields",
+	)
 	main.state.hp = maxi(1, main.state.get_max_hp() - 2)
 	main.state.mana = 0
 	main.state.hunger = 57
@@ -480,10 +498,11 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 	if not hidden.is_empty():
 		main.hearing_contacts.record_hidden_attack(hidden.uid, hidden.pos, main.state.total_turns)
 	_expect(main._save_game_at_base(), "Full generated snapshot must save: %s" % main.last_save_error)
-	var v17_saved := SaveSystem.load_slot(main.active_save_slot_id, main.save_slots_directory)
+	var current_saved := SaveSystem.load_slot(main.active_save_slot_id, main.save_slots_directory)
 	_expect(
-		v17_saved.get("ok", false) and int(v17_saved.get("version", 0)) == 17,
-		"Exact full-run roundtrip fixture must publish the strict v17 envelope",
+		current_saved.get("ok", false)
+		and int(current_saved.get("version", 0)) == SaveSystem.SAVE_VERSION,
+		"Exact full-run roundtrip fixture must publish the strict v18 envelope",
 	)
 	var expected := _world(main)
 	var saved_id: String = main.active_save_slot_id
@@ -503,11 +522,22 @@ func _test_exact_roundtrip(tree: SceneTree) -> void:
 		and not fresh.state.loadout.has("left_hand")
 		and fresh.state.item_mark(claymore_key, "equipped", "right_hand") == "keep"
 		and fresh.state.item_mark(marked_inventory_key) == "salvage"
+		and fresh.state.storage.get(stored_key, 0) == 3
+		and fresh.state.item_mark(stored_key, "storage") == "keep"
 		and bool(fresh.state.camp_upgrades.campfire)
 		and bool(fresh.state.camp_upgrades.kettle)
 		and bool(fresh.state.camp_upgrades.workbench)
 		and bool(fresh.state.camp_upgrades.writing_set),
-		"v17 roundtrip must retain sex/cosmetic identity, bound +3 Claymore, marks and camp dependencies",
+		"v18 roundtrip must retain sex/cosmetic identity, bound/upgraded inventory and Storage marks, and camp dependencies",
+	)
+	_expect(
+		bool(fresh.floor_data.enemies[0].get("has_seen_player", false))
+		and fresh.floor_data.enemies[0].get("last_seen_player") == fresh.player_pos
+		and (
+			sleeping_bystander_uid.is_empty()
+			or not bool(fresh.floor_data.enemies[1].get("has_seen_player", false))
+		),
+		"Exact resume must retain attacked-target awareness without waking a bystander or adding a save field",
 	)
 	_expect(not fresh.auto_travel_active and not fresh.auto_explore_active and fresh.held_direction == Vector2i.ZERO and fresh.ability_targeting_id.is_empty(), "Loading must clear automation/held input/targeting")
 	_expect(fresh.hearing_contacts.attack_memory_count() == main.hearing_contacts.attack_memory_count(), "Hidden-attack memory TTL must survive load")
@@ -595,8 +625,12 @@ func _test_mutations_and_lifecycle(tree: SceneTree) -> void:
 	_assert_saved(main, "Dungeon skill purchase")
 	main._cycle_ability_loadout("active_1")
 	_assert_saved(main, "Ability slot assignment")
-	main._on_cheat_add_stats_pressed()
-	_assert_saved(main, "Debug grant")
+	main.state.unspent_attribute_points += 5
+	main.state.soul_level += 1
+	main.state.carried_souls += 100
+	main.state.lifetime_souls_earned += 100
+	main._save_game_at_base()
+	_assert_saved(main, "Direct high-progression fixture")
 	var key: String = main.state.add_item("bone_knife")
 	main.character_panel_mode = "inventory"
 	main.inventory_panel.bind_state(main.state, false)

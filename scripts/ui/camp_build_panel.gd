@@ -3,6 +3,8 @@ extends Control
 
 const Loc := preload("res://scripts/localization/localization.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 signal build_requested(upgrade_id: String)
 signal closed
@@ -23,6 +25,7 @@ var row_order: Array[String] = []
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	z_index = 80
 	_build()
@@ -32,19 +35,22 @@ func _ready() -> void:
 func _build() -> void:
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color("080b12ee")
+	shade.color = Palette.OVERLAY_SCRIM
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
 	var card := Panel.new()
 	card.position = CARD_RECT.position
 	card.size = CARD_RECT.size
-	card.add_theme_stylebox_override("panel", Ui.make_panel_style(Color("647a89")))
+	card.add_theme_stylebox_override(
+		"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "panel", "normal")
+	)
 	add_child(card)
-	title_label = Ui.make_label(self, Vector2(278, 58), Vector2(562, 42), 26)
+	title_label = Ui.make_label(self, Vector2(278, 58), Vector2(562, 42), 28)
+	Ui.apply_heading(title_label, 28)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	close_button = Ui.make_button(self, Vector2(850, 58), "", Vector2(160, 42))
-	close_button.add_theme_font_size_override("font_size", 13)
+	close_button.add_theme_font_size_override("font_size", 14)
 	Ui.enable_keyboard_focus(close_button)
 	close_button.pressed.connect(close)
 	scroll = ScrollContainer.new()
@@ -124,7 +130,9 @@ func refresh(preferred_upgrade_id := "") -> void:
 		var rules: Dictionary = GameRules.CAMP_UPGRADES[upgrade_id]
 		var row := PanelContainer.new()
 		row.custom_minimum_size = Vector2(0, 112)
-		row.add_theme_stylebox_override("panel", Ui.make_button_style(Color("171c25"), Color("354255")))
+		row.add_theme_stylebox_override(
+			"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "inset_panel", "normal")
+		)
 		rows_box.add_child(row)
 		var horizontal := HBoxContainer.new()
 		horizontal.add_theme_constant_override("separation", 12)
@@ -133,7 +141,7 @@ func refresh(preferred_upgrade_id := "") -> void:
 		details.custom_minimum_size = Vector2(548, 104)
 		details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		details.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		details.add_theme_font_size_override("font_size", 13)
+		details.add_theme_font_size_override("font_size", 14)
 		details.add_theme_color_override("font_color", Ui.COLOR_TEXT)
 		details.text = _row_text(upgrade_id, rules)
 		details.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -148,11 +156,7 @@ func refresh(preferred_upgrade_id := "") -> void:
 		button.disabled = not run_state.can_build_camp_upgrade(upgrade_id)
 		button.tooltip_text = Loc.text("CAMP_" + upgrade_id.to_upper() + "_DESC")
 		button.accessibility_name = "%s. %s" % [Loc.text(String(rules.name)), button.tooltip_text]
-		button.add_theme_font_size_override("font_size", 13)
-		button.add_theme_color_override("font_color", Ui.COLOR_TEXT)
-		for style_name in ["normal", "hover", "pressed", "disabled", "focus"]:
-			var border := Ui.COLOR_SOUL if style_name in ["hover", "pressed", "focus"] else Color("354255")
-			button.add_theme_stylebox_override(style_name, Ui.make_button_style(Color("19212c"), border, 2 if style_name == "focus" else 1))
+		button.add_theme_font_size_override("font_size", 14)
 		Ui.enable_keyboard_focus(button)
 		button.pressed.connect(func() -> void: build_requested.emit(upgrade_id))
 		horizontal.add_child(button)

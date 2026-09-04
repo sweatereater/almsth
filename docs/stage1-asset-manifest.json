@@ -700,5 +700,34 @@
 			1688,
 			932
 		]
+	},
+	{
+		"alpha_bounds": [
+			8,
+			4,
+			100,
+			63
+		],
+		"generation": "built-in image_gen",
+		"id": "B13",
+		"kind": "camp",
+		"normalization": "Actual-alpha tight crop, premultiplied-alpha Lanczos fit into 108x67, bottom-center (54,63), 4px bottom clearance; no background removal, repaint or alpha cleanup",
+		"path": "assets/art/camp-2026-09-01/camp-storage-chest.png",
+		"prompt": "Use case: stylized-concept\nAsset type: original game environment prop master for the Almsth underground camp\nPrimary request: create one low, broad, CLOSED storage chest as a standalone transparent-background cutout.\nVisual reference context: match the project's own underground camp assets already inspected: realistic painterly dark-fantasy materials, elevated three-quarter camp camera, compact readable silhouette, subdued detail and grounded lighting. Do not copy or include any existing prop.\nScene/backdrop: none; genuine transparent background across the entire canvas outside the prop.\nSubject: a sturdy low broad storage chest, weathered dark wood, restrained aged-iron bands and corner guards, one small dull iron latch, clearly readable closed lid seam.\nComposition/framing: single chest centered, elevated 3/4 view consistent with looking slightly down into the camp; broad horizontal silhouette; tight but complete cutout with modest transparent padding; bottom-center grounding reference; no cropping.\nLighting/mood: cool ambient stone-room light with only a subtle warm hearth edge light; quiet utilitarian camp storage, not treasure.\nMaterials/textures: worn dark timber grain, matte oxidized iron, subtle age and scuffs; one tight local contact shadow directly under the chest contained within the cutout.\nConstraints: brand-new original project-owned design suitable for future commercial sale without royalties; actual alpha transparency; closed lid; readable at small game scale; no text; no logo; no watermark.\nAvoid: open lid, visible loot, coins, gems, runes, glow, magic, text, labels, UI symbols, arrows, rugs, sacks, loose containers, broad floor patches, room/background pixels, neighboring props, halo, outline, bloom, dramatic treasure-light, ornate fantasy excess.",
+		"prompt_status": "exact retained prompt",
+		"runtime_sha256": "e4728c749eefdddb02aa123130e7af6227805f4b5f690d40f30a732c2d3d020f",
+		"runtime_size": [
+			108,
+			67
+		],
+		"source_file": "art/concepts/camp/2026-09-01/storage-chest-master.png",
+		"source_sha256": "9fc7c1d961e2a9b0d13ea967866c3c6b4e91422e044d1eb7e894770238c3d1a3",
+		"source_size": [
+			1536,
+			1024
+		],
+		"source_tool_result_id": "exec-f4220fc7-adab-4c44-9243-6cd76a83e082",
+		"source_call_id": null,
+		"source_custom_tool_call_id": null
 	}
 ]

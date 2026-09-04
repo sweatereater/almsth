@@ -43,6 +43,7 @@ const WEAVING_CRYPTS_THEMATIC_CHANCE := 0.6
 const CAMP_DRAW_ORDER: Array[String] = [
 	"mural", "bunk", "textile_area", "workbench", "writing_set", "ritual_table",
 	"crusher", "whetstone", "campfire", "kettle", "rocking_chair", "record_player",
+	"storage_chest",
 ]
 const CAMP_UPGRADES := {
 	"kettle": {
@@ -97,6 +98,10 @@ const CAMP_UPGRADES := {
 		"name": "CAMP_RECORD_PLAYER",
 		"cost": {},
 	},
+	"storage_chest": {
+		"name": "CAMP_STORAGE_CHEST",
+		"cost": {"wood": 20, "stone": 4, "cloth": 3},
+	},
 }
 
 const INTRINSIC_FEATURES := {}
@@ -137,18 +142,18 @@ const EQUIPMENT_SLOT_ORDER: Array[String] = [
 	"jacket", "talisman", "back", "right_hand", "left_hand", "ring_2",
 ]
 const EQUIPMENT_SLOTS := {
-	"right_hand": {"name": "SLOT_RIGHT_HAND", "category": "weapon", "allowed_tags": ["weapon"], "portrait_position": Vector2(595, 378), "filter_order": 1},
-	"left_hand": {"name": "SLOT_LEFT_HAND", "category": "offhand", "allowed_tags": ["offhand"], "portrait_position": Vector2(595, 472), "filter_order": 2},
-	"feet": {"name": "SLOT_FEET", "category": "feet", "allowed_tags": ["feet"], "portrait_position": Vector2(323, 472), "filter_order": 3},
-	"body": {"name": "SLOT_BODY", "category": "body", "allowed_tags": ["body"], "portrait_position": Vector2(323, 190), "filter_order": 4},
-	"legs": {"name": "SLOT_LEGS", "category": "legs", "allowed_tags": ["legs"], "portrait_position": Vector2(323, 378), "filter_order": 5},
-	"hands": {"name": "SLOT_HANDS", "category": "hands", "allowed_tags": ["hands"], "portrait_position": Vector2(323, 284), "filter_order": 6},
-	"head": {"name": "SLOT_HEAD", "category": "head", "allowed_tags": ["head"], "portrait_position": Vector2(323, 96), "filter_order": 7},
-	"talisman": {"name": "SLOT_TALISMAN", "category": "talisman", "allowed_tags": ["talisman"], "portrait_position": Vector2(595, 190), "filter_order": 8},
-	"ring_1": {"name": "SLOT_RING_1", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(323, 566), "filter_order": 9},
-	"ring_2": {"name": "SLOT_RING_2", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(595, 566), "filter_order": 9},
-	"back": {"name": "SLOT_BACK", "category": "back", "allowed_tags": ["back"], "portrait_position": Vector2(595, 284), "filter_order": 10},
-	"jacket": {"name": "SLOT_JACKET", "category": "body", "allowed_tags": ["jacket"], "portrait_position": Vector2(595, 96), "filter_order": 4},
+	"right_hand": {"name": "SLOT_RIGHT_HAND", "category": "weapon", "allowed_tags": ["weapon"], "portrait_position": Vector2(599, 378), "filter_order": 1},
+	"left_hand": {"name": "SLOT_LEFT_HAND", "category": "offhand", "allowed_tags": ["offhand"], "portrait_position": Vector2(599, 472), "filter_order": 2},
+	"feet": {"name": "SLOT_FEET", "category": "feet", "allowed_tags": ["feet"], "portrait_position": Vector2(282, 472), "filter_order": 3},
+	"body": {"name": "SLOT_BODY", "category": "body", "allowed_tags": ["body"], "portrait_position": Vector2(282, 190), "filter_order": 4},
+	"legs": {"name": "SLOT_LEGS", "category": "legs", "allowed_tags": ["legs"], "portrait_position": Vector2(282, 378), "filter_order": 5},
+	"hands": {"name": "SLOT_HANDS", "category": "hands", "allowed_tags": ["hands"], "portrait_position": Vector2(282, 284), "filter_order": 6},
+	"head": {"name": "SLOT_HEAD", "category": "head", "allowed_tags": ["head"], "portrait_position": Vector2(282, 96), "filter_order": 7},
+	"talisman": {"name": "SLOT_TALISMAN", "category": "talisman", "allowed_tags": ["talisman"], "portrait_position": Vector2(599, 190), "filter_order": 8},
+	"ring_1": {"name": "SLOT_RING_1", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(282, 566), "filter_order": 9},
+	"ring_2": {"name": "SLOT_RING_2", "category": "ring", "allowed_tags": ["ring"], "portrait_position": Vector2(599, 566), "filter_order": 9},
+	"back": {"name": "SLOT_BACK", "category": "back", "allowed_tags": ["back"], "portrait_position": Vector2(599, 284), "filter_order": 10},
+	"jacket": {"name": "SLOT_JACKET", "category": "body", "allowed_tags": ["jacket"], "portrait_position": Vector2(599, 96), "filter_order": 4},
 }
 const EQUIPMENT_CATEGORY_ORDER: Array[String] = [
 	"weapon", "offhand", "feet", "body", "legs", "hands", "head", "talisman", "ring", "back",
@@ -553,6 +558,7 @@ const ENEMIES := {
 		"preparation_turns": 2,
 		"attack_cooldown": 3,
 		"recovery_turns": 1,
+		"cancel_recovery_turns": 2,
 		"color": "b6a58b",
 	},
 	"slag_smith": {
@@ -940,7 +946,12 @@ static func resolve_physical_slot(
 		if not loadout.has(slot_id):
 			return {"ok": true, "slot": slot_id}
 	if unlocked.is_empty():
-		return {"ok": false, "reason": "slot_locked", "slot": ""}
+		return {
+			"ok": false,
+			"reason": "slot_locked",
+			"slot": candidates[0] if not candidates.is_empty() else "",
+			"slots": candidates.duplicate(),
+		}
 	if unlocked.size() > 1:
 		return {"ok": false, "reason": "slot_choice_required", "slots": unlocked}
 	return {"ok": true, "slot": unlocked[0]}

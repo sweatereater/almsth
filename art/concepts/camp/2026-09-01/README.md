@@ -1,24 +1,27 @@
 # Лагерь демо — концепт 01.09.2026 / Demo camp concept
 
-Статус: утверждённая пара v2 и источник подключённого runtime-лагеря.
-Status: approved v2 pair and source for the integrated runtime camp.
+Статус: утверждённая пара v2 для base/первых 12 слоёв и независимый master Хранилища.
+Status: approved v2 pair for the base/first 12 layers plus an independent Storage master.
 
 ## Изображения / Images
 
 - [Обжитый лагерь / Furnished camp](camp-furnished-v2.png) — 1639×959, RGB; дробилка целиком внутри кадра.
 - [Пустая архитектура / Empty architecture](camp-empty-v2.png) — 1639×959, RGB; получена редактированием обжитого v2.
+- [Хранилище / Storage chest](storage-chest-master.png) — 1536×1024 RGBA; свежий оригинальный transparent cutout.
 - [Точные промпты / Exact prompts](PROMPTS.md).
 
 Версии v1 сохранены как история. В runtime используется только v2.
 Versions v1 are retained as history; runtime uses v2 only.
 
-Независимая визуальная проверка v2: все 12 модулей представлены; обрезание дробилки
+Независимая визуальная проверка v2: все исторические 12 модулей представлены; обрезание дробилки
 исправлено; новых существенных дефектов концепта не обнаружено. Проверены исходные
 изображения и равенство размеров. Runtime-комбинации сохранены в `runtime-review/`,
 а итоговая визуальная матрица перечислена в датированном QA-отчёте.
 Independent v2 visual review: all 12 modules represented, crusher clipping resolved,
 no new major concept defects. Native images and matching dimensions were checked;
 runtime-scale composites live in `runtime-review/`; the dated QA report lists the final matrix.
+The thirteenth Storage layer is an independently generated original, not a crop from the
+historical 4×3 isolation atlas.
 
 Оба изображения созданы встроенным инструментом image_gen; CLI/API-скрипты не использовались.
 Исходные результаты сохранены также в стандартной папке generated_images Codex.
@@ -41,10 +44,10 @@ The cauldron belongs over the existing hearth. The bed rests on a permanent ston
 
 ## Полный концептуальный список демо / Complete proposed demo list
 
-Все двенадцать объектов имеют стабильные runtime ID. Только Дробилка, Точильный камень,
-Ритуальный стол и Котёл остаются интерактивными услугами; остальные декоративны.
-All twelve objects have stable runtime IDs. Only Crusher, Whetstone, Ritual Table and
-Kettle retain interactive services; the others are decorative.
+Все тринадцать объектов имеют стабильные runtime ID. Дробилка, Точильный камень,
+Ритуальный стол, Котёл и Хранилище остаются интерактивными услугами; остальные декоративны.
+All thirteen objects have stable runtime IDs. Crusher, Whetstone, Ritual Table, Kettle and
+Storage retain interactive services; the others are decorative.
 
 | Модуль / Module | Статус / Status | Что появляется вместе / Associated dressing |
 |---|---|---|
@@ -60,6 +63,7 @@ Kettle retain interactive services; the others are decorative.
 | Ткацкая область / Textile area | Runtime, бесплатно / Runtime, free | Манекен, два зеркала, нитки, ткань, эскизы пальто / Mannequin, two mirrors, thread, fabric, wall coat sketches |
 | Кресло-качалка / Rocking chair | Runtime, 30 дерева, raw Soul +1 / Runtime, 30 wood, raw Soul +1 | Кресло рядом с огнём, шкура у ног, подушка / Chair beside fire, hide rug, cushion |
 | Музыкальный аппарат / Record player | Runtime, бесплатно / Runtime, free | Деревянный проигрыватель, пластинка, металлический раструб, запас записей / Wooden turntable, record, metal horn, record storage |
+| Хранилище / Storage chest | Runtime, 20 дерева, 4 камня, 3 ткани / Runtime, 20 wood, 4 stone, 3 cloth | Низкий закрытый сундук из тёмного дерева с состаренным железом / Low closed dark-wood chest with aged iron |
 
 Котёл требует Костёр; Мурал скрыт до хвоста. Все зависимости проверяются до цены.
 Kettle requires Campfire; Mural is hidden until the tail. Dependencies validate before cost.
@@ -68,14 +72,14 @@ Kettle requires Campfire; Mural is hidden until the tail. Dependencies validate 
 
 1. Постоянный фон содержит только своды, кладку, пол, потолочный люк, его свет,
    каменный выступ и ступени.
-2. Каждый из 12 модулей имеет отдельный tight RGBA8-слой со своими мелкими предметами
+2. Каждый из 13 модулей имеет отдельный tight RGBA8-слой со своими мелкими предметами
    и настенным декором.
 3. Слой владеет только своим реквизитом, контактной тенью и локальным светом.
 4. Письменный набор требует Верстак; Котёл требует Костёр — это действующие правила модели.
 5. Свет и отражения не должны раскрывать отсутствующий соседний модуль.
 6. Мурал и эскизы пальто — разные накладки; в пустой базе их нет.
 
-The base contains architecture only. Each of the twelve modules has one tight RGBA8 layer
+The base contains architecture only. Each of the thirteen modules has one tight RGBA8 layer
 which owns only its props, contact shadow and local light. Writing Set requires Workbench;
 Kettle requires Campfire. No layer may reveal pixels from an absent neighbor.
 
@@ -97,6 +101,15 @@ Kettle requires Campfire. No layer may reveal pixels from an absent neighbor.
   (541 high-alpha пиксель, `259,399..310,414`). Оставшийся реквизит не сдвигается;
   итоговые tight rect — `crusher 39,243,177,178`, `whetstone 217,274,131,96`.
 - Фиксированный порядок: `mural,bunk,textile_area,workbench,writing_set,ritual_table,crusher,whetstone,campfire,kettle,rocking_chair,record_player`.
+- Первые 12 слоёв и base выше сохраняются побайтово. После `record_player` добавлен
+  `storage_chest`: свежий master 1536×1024 RGBA с настоящей alpha, SHA-256
+  `9FC7C1D961E2A9B0D13EA967866C3C6B4E91422E044D1EB7E894770238C3D1A3`. Это отдельная
+  встроенная ImageGen-генерация, а не производная старого 4×3 atlas. Premultiplied-alpha
+  Lanczos даёт 108×67, опору `(54,63)` и 4 px нижнего поля; runtime SHA-256
+  `E4728C749EEFDDDB02AA123130E7AF6227805F4B5F690D40F30A732C2D3D020F`.
+- Итоговый порядок дополняется `storage_chest` после `record_player`. Его camp-local draw
+  rect `(224,392,108,67)`, hitbox `(230,395,96,60)`; в `BaseLayout` это соответственно
+  `(252,470,108,67)` и `(258,473,96,60)`.
 - Точные draw rect, hitbox, SHA и ownership записаны в
   `assets/art/camp-2026-09-01/manifest.json`; воспроизводимый скрипт —
   `tools/prepare_nightly_camp_assets.py`.
@@ -110,6 +123,6 @@ Build modal and the separate death composition. Dungeon zoom 44/66/88 does not s
 
 Пересборка выполняется `python tools/prepare_nightly_camp_assets.py`; non-writing проверка
 `python tools/prepare_nightly_camp_assets.py --check` строит outputs в system temp и
-побайтово сравнивает base, 12 layers, review composites и manifest. После write-сборки
+побайтово сравнивает base, 13 layers, review composites и manifest. После write-сборки
 перед normal-renderer captures нужен штатный Godot editor import: runtime contract
 сравнивает размеры импортированного `Texture2D` с tight source и отклоняет stale cache.

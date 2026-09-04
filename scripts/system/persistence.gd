@@ -4,8 +4,8 @@ extends RefCounted
 const Presentation := preload("res://scripts/system/presentation_settings.gd")
 const Snapshot := preload("res://scripts/system/run_snapshot.gd")
 
-const SAVE_VERSION := 17
-const STATE_ONLY_VERSION := 17
+const SAVE_VERSION := 18
+const STATE_ONLY_VERSION := 18
 const MIN_SUPPORTED_SAVE_VERSION := 17
 const SAVE_PATH := "user://savegame.json"
 const SAVES_DIR := "user://saves"
@@ -92,6 +92,16 @@ static func save_slot(
 	var serialized_state := (
 		state.to_save_data() if snapshot.is_empty() else state.to_snapshot_data()
 	)
+	# Validate the raw in-memory state together with the already losslessly encoded
+	# live snapshot before creating .tmp or advancing publication metadata. Going
+	# through JSON here would round-trip ordinary fractional fields unnecessarily.
+	if not snapshot.is_empty() and Snapshot.restore(snapshot, serialized_state).is_empty():
+		return {
+			"ok": false,
+			"error": ERR_FILE_CORRUPT,
+			"reason": "invalid_live_snapshot",
+			"slot_id": resolved_id,
+		}
 	var metadata := {
 		"slot_id": resolved_id,
 		"updated_at": resolved_timestamp,
@@ -115,7 +125,10 @@ static func save_slot(
 		envelope["snapshot"] = snapshot.duplicate(true)
 	var error := _atomic_write_json(envelope, path, fault_injector)
 	if error != OK:
-		return {"ok": false, "error": error, "slot_id": resolved_id}
+		var failed := {"ok": false, "error": error, "slot_id": resolved_id}
+		if error == ERR_FILE_CORRUPT:
+			failed["reason"] = "write_verification_failed"
+		return failed
 	return {"ok": true, "error": OK, "slot_id": resolved_id, "metadata": metadata}
 
 
@@ -136,7 +149,12 @@ static func load_slot(slot_id: String, saves_dir := SAVES_DIR) -> Dictionary:
 		envelope = backup_envelope
 		recovered_from_backup = true
 	if not _is_slot_envelope_valid(envelope, resolved_id):
-		return {"ok": false, "error": ERR_FILE_CORRUPT}
+		return {
+			"ok": false,
+			"error": ERR_FILE_CORRUPT,
+			"reason": "corrupt_family",
+			"slot_id": resolved_id,
+		}
 	_publication_clock = maxi(_publication_clock, int(envelope["metadata"].get("publication_order", "0")))
 	return {
 		"ok": true,
@@ -186,11 +204,36 @@ static func list_slots(saves_dir := SAVES_DIR) -> Array[Dictionary]:
 			row["locked"] = false
 			result.append(row)
 			continue
-		var raw := _read_raw_json_dictionary(_slot_path(saves_dir, slot_id))
-		if raw.is_empty():
-			raw = _read_raw_json_dictionary(_slot_path(saves_dir, slot_id) + ".bak")
+		var primary_path := _slot_path(saves_dir, slot_id)
+		var primary_raw := _read_raw_json_dictionary(primary_path)
+		var backup_raw := _read_raw_json_dictionary(primary_path + ".bak")
+		var raw := primary_raw if not primary_raw.is_empty() else backup_raw
 		var raw_metadata: Dictionary = raw.get("metadata", {}) if raw.get("metadata") is Dictionary else {}
 		var raw_state: Dictionary = raw.get("state", {}) if raw.get("state") is Dictionary else {}
+		var family_corrupt := false
+		var incompatible_version := 0
+		for member in [
+			{"path": primary_path, "raw": primary_raw},
+			{"path": primary_path + ".bak", "raw": backup_raw},
+		]:
+			if not FileAccess.file_exists(String(member.path)):
+				continue
+			var member_raw: Dictionary = member.raw
+			var member_version: Variant = member_raw.get("version", null)
+			if member_raw.is_empty():
+				family_corrupt = true
+			elif (
+				_is_exact_json_integer(member_version)
+				and (
+					int(member_version) < MIN_SUPPORTED_SAVE_VERSION
+					or int(member_version) > SAVE_VERSION
+				)
+			):
+				if incompatible_version == 0:
+					incompatible_version = int(member_version)
+			else:
+				# load_slot already established that no current envelope is valid.
+				family_corrupt = true
 		result.append({
 			"slot_id": slot_id,
 			"updated_at": int(raw_metadata.get("updated_at", 0)),
@@ -200,8 +243,9 @@ static func list_slots(saves_dir := SAVES_DIR) -> Array[Dictionary]:
 			"compatible": false,
 			"locked": true,
 			"write_locked": true,
-			"incompatible_version": int(raw.get("version", 0)),
-			"corrupt": raw.is_empty(),
+			"incompatible_version": incompatible_version,
+			"corrupt": family_corrupt or incompatible_version == 0,
+			"reason": "corrupt_family" if family_corrupt or incompatible_version == 0 else "incompatible_version",
 		})
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var a_time := int(a.get("updated_at", 0))
@@ -352,6 +396,17 @@ static func _is_legacy_envelope_valid(parsed: Dictionary) -> bool:
 
 
 static func _is_slot_envelope_valid(envelope: Dictionary, expected_slot_id := "") -> bool:
+	var kind: Variant = envelope.get("kind", null)
+	var expected_fields := ["envelope_version", "version", "kind", "metadata", "state"]
+	if kind == "full_run":
+		expected_fields.append("snapshot")
+	elif kind != "state_only":
+		return false
+	if envelope.size() != expected_fields.size():
+		return false
+	for field in expected_fields:
+		if not envelope.has(field):
+			return false
 	var raw_envelope_version: Variant = envelope.get("envelope_version", null)
 	if not _is_exact_json_integer(raw_envelope_version) or int(raw_envelope_version) != SLOT_ENVELOPE_VERSION:
 		return false
@@ -414,9 +469,10 @@ static func _is_exact_json_integer(value: Variant) -> bool:
 	return value is float and is_finite(value) and value == floorf(value)
 
 
-## v17 explicitly separates setup-only helpers from complete live runs. Missing or
+## v18 explicitly separates setup-only helpers from complete live runs. Missing or
 ## corrupt full snapshots never silently resume at base. Old test files/backs stay
-## on disk untouched and are excluded, including by one-time legacy import.
+## on disk untouched and are excluded, while authentic strict v17 data is migrated
+## in memory only after its frozen schema has validated.
 static func _valid_save_kind(envelope: Dictionary) -> bool:
 	if envelope.get("kind") == "full_run":
 		return not Snapshot.restore(envelope.get("snapshot"), envelope["state"]).is_empty()
@@ -505,12 +561,28 @@ static func _read_json_dictionary(path: String) -> Dictionary:
 	if data.is_empty():
 		return {}
 	var raw_version: Variant = data.get("version", null)
-	if _is_exact_json_integer(raw_version) and int(raw_version) == SAVE_VERSION and data.get("state") is Dictionary:
+	if (
+		_is_exact_json_integer(raw_version)
+		and int(raw_version) >= MIN_SUPPORTED_SAVE_VERSION
+		and int(raw_version) <= SAVE_VERSION
+		and data.get("state") is Dictionary
+	):
 		var errors: Array = []
 		var decoded: Variant = Snapshot.decode(data["state"], errors)
 		if not errors.is_empty() or not decoded is Dictionary:
 			return {}
-		data["state"] = RunState.snapshot_data_from_json(decoded)
+		var normalized := RunState.snapshot_data_from_json(decoded)
+		if int(raw_version) == 17:
+			normalized = (
+				RunState.migrate_v17_state_only_data(normalized)
+				if data.get("kind") == "state_only"
+				else RunState.migrate_v17_snapshot_data(normalized)
+				if data.get("kind") == "full_run"
+				else {}
+			)
+			if normalized.is_empty():
+				return {}
+		data["state"] = normalized
 	return data
 
 

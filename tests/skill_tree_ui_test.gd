@@ -7,6 +7,8 @@ const PanelClass := preload("res://scripts/ui/skill_tree_panel.gd")
 const IconClass := preload("res://scripts/ui/skill_tree_icon.gd")
 const Layout := preload("res://scripts/ui/character_sheet_layout.gd")
 const SaveSystem := preload("res://scripts/system/persistence.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 var failures: Array[String] = []
 
@@ -21,6 +23,15 @@ func run(tree: SceneTree) -> Array[String]:
 
 
 func _test_static_contracts() -> void:
+	var expected_body_ids: Array[String] = [
+		"strong_bones", "flexible_joints", "strong_spine",
+		"sharp_vision", "muscle_fibers", "stomach", "flesh_regeneration", "ears",
+		"nervous_system", "choose_appearance", "fundamentals",
+	]
+	_expect(
+		Rules.BODY_SKILL_IDS == expected_body_ids,
+		"The eleven body bitmap IDs must remain exact and ordered",
+	)
 	var expected := {
 		"skeleton": [
 			["strong_bones", "flexible_joints", "strong_spine"],
@@ -47,6 +58,19 @@ func _test_static_contracts() -> void:
 			for node_id in branch["nodes"]:
 				_expect(not String(node_id).contains("soon") and node_id != "spinal_cord", "Soon and spinal-cord nodes must be absent from topology")
 	_expect(Rules.SKILLS.size() == 19 and Rules.BODY_SKILL_IDS.size() == 11, "The clean registry must contain exactly 19 skills, including 11 body skills")
+	var topology_ids: Array[String] = []
+	for stage_id in PanelClass.STAGE_ORDER:
+		for branch in PanelClass.STAGE_BRANCHES[stage_id]:
+			for node_id in branch["nodes"]:
+				topology_ids.append(String(node_id))
+	var registry_ids: Array[String] = []
+	registry_ids.assign(Rules.SKILLS.keys())
+	topology_ids.sort()
+	registry_ids.sort()
+	_expect(
+		topology_ids == registry_ids,
+		"Every one of the exact 19 skill IDs must appear once in the preserved topology",
+	)
 	var body_rules := {
 		"strong_bones": ["skeleton", 5, 5, 5], "flexible_joints": ["skeleton", 1, 15, 0],
 		"strong_spine": ["skeleton", 1, 20, 0], "sharp_vision": ["zombie", 1, 80, 0],
@@ -88,10 +112,10 @@ func _test_static_contracts() -> void:
 		"Character top tabs must be visually ordered Inventory then Skills",
 	)
 	_expect(
-		SaveSystem.STATE_ONLY_VERSION == 17
-		and SaveSystem.SAVE_VERSION == 17
+		SaveSystem.STATE_ONLY_VERSION == 18
+		and SaveSystem.SAVE_VERSION == 18
 		and SaveSystem.MIN_SUPPORTED_SAVE_VERSION == 17,
-		"State-only and exact gameplay snapshots must share the strict v17 boundary",
+		"State-only and exact gameplay snapshots must share strict v18 with v17 migration support",
 	)
 	_expect(
 		ProjectSettings.get_setting("display/window/size/viewport_width") == 1280
@@ -119,15 +143,24 @@ func _test_static_contracts() -> void:
 
 
 func _test_icon_assets() -> void:
+	var alpha_hashes: Dictionary = {}
 	for skill_id in Rules.BODY_SKILL_IDS:
 		var icon_path := String(Rules.SKILLS[skill_id]["icon"])
 		var image := Image.load_from_file(ProjectSettings.globalize_path(icon_path))
 		var texture := IconClass.load_skill_texture(skill_id)
 		_expect(
 			image != null and image.get_size() == Vector2i(128, 128)
-			and image.get_format() == Image.FORMAT_RGBA8,
-			"Body icon %s must be a 128x128 RGBA8 runtime PNG" % skill_id,
+			and image.get_format() == Image.FORMAT_RGBA8
+			and Rect2i(16, 16, 96, 96).encloses(image.get_used_rect()),
+			"Body icon %s must remain 128x128 RGBA8 with art inside the exact 96x96 safe area" % skill_id,
 		)
+		var alpha_bytes := PackedByteArray()
+		for y in image.get_height():
+			for x in image.get_width():
+				alpha_bytes.append(roundi(image.get_pixel(x, y).a * 255.0))
+		alpha_hashes[alpha_bytes.hex_encode()] = true
+		var used := image.get_used_rect()
+		_expect(maxi(used.size.x, used.size.y) >= 80, "Stage 1E icon %s must retain an 80px minimum silhouette extent" % skill_id)
 		_expect(
 			texture != null and texture.get_size() == Vector2(128, 128),
 			"Body icon %s must load safely through the stable registry path" % skill_id,
@@ -139,6 +172,7 @@ func _test_icon_assets() -> void:
 			and import_text.contains("process/fix_alpha_border=true"),
 			"Body icon %s must use lossless import with mipmaps off and alpha-border repair" % skill_id,
 		)
+	_expect(alpha_hashes.size() == Rules.BODY_SKILL_IDS.size(), "Stage 1E body icons must retain eleven distinct alpha silhouettes")
 	var body_icon := IconClass.new()
 	body_icon.set_presentation("strong_bones", "Body", "passive", "available", false)
 	_expect(body_icon.uses_raster_texture(), "Body skills must use the registered raster texture")
@@ -148,6 +182,23 @@ func _test_icon_assets() -> void:
 	var missing_icon := IconClass.new()
 	missing_icon.set_presentation("missing_skill", "Fallback", "passive", "available", false)
 	_expect(not missing_icon.uses_raster_texture(), "A missing texture mapping must safely fall back to the current glyph")
+	var icon_source := FileAccess.get_file_as_string("res://scripts/ui/skill_tree_icon.gd")
+	_expect(
+		icon_source.contains('var texture_size := 64.0 if compact else 54.0')
+		and icon_source.contains('if selected:')
+		and icon_source.contains('if has_focus():')
+		and icon_source.contains('"MAX"')
+		and icon_source.contains('_draw_state_badge')
+		and icon_source.contains('_draw_cost_badge')
+		and icon_source.contains('visual_state == "disabled"')
+		and not icon_source.contains(".lightened(")
+		and not icon_source.contains(".darkened(")
+		and IconClass.depressed_offset(false, false) == Vector2.ZERO
+		and IconClass.depressed_offset(true, false) == Vector2(0, 2)
+		and IconClass.depressed_offset(false, true) == Vector2(0, 2)
+		and not icon_source.get_slice("func _draw()", 1).get_slice("func _draw_raster", 0).contains("StyleBox"),
+		"Skill nodes must retain exact output/state cues and use non-color depression without derived colors or draw-time styles",
+	)
 	body_icon.free()
 	glyph_icon.free()
 	missing_icon.free()
@@ -173,6 +224,29 @@ func _test_panel_states(tree: SceneTree) -> void:
 		"Selected stage tab must overlap the tree surface with panel fill and no bottom seam",
 	)
 	_expect(
+		panel.theme.get_instance_id() == ThemeController.theme_for(Palette.WARM_ARCHIVE).get_instance_id()
+		and panel.node_buttons["strong_bones"].theme.get_instance_id()
+		== ThemeController.theme_for(Palette.WARM_ARCHIVE).get_instance_id()
+		and selected_style.get_instance_id() == ThemeController.style_for(
+			Palette.WARM_ARCHIVE, "skill_tab_active", "selected"
+		).get_instance_id(),
+		"Skill panel, nodes and active tab must reuse cached Warm Archive semantic resources",
+	)
+	for text_control in [
+		panel.title_label, panel.meta_label, panel.detail_title_label, panel.detail_meta_label,
+		panel.detail_description_label, panel.detail_stats_label, panel.status_label, panel.action_button,
+	]:
+		_expect(
+			text_control.get_theme_font_size("font_size") >= 12,
+			"Every selectable/essential skill text control must be at least 12 virtual pixels",
+		)
+	_expect(
+		PanelClass.NODE_SIZE == Vector2(96, 76)
+		and panel.node_buttons["strong_bones"].size == Vector2(96, 76)
+		and panel.detail_icon.size == Vector2(64, 64),
+		"Skill nodes/details must preserve the approved 96x76 container, 54px node art and 64px detail output",
+	)
+	_expect(
 		panel.node_buttons["strong_bones"].position == Vector2(150, 214)
 		and panel.node_buttons["flexible_joints"].position == Vector2(350, 214)
 		and panel.node_buttons["strong_spine"].position == Vector2(550, 214)
@@ -181,16 +255,22 @@ func _test_panel_states(tree: SceneTree) -> void:
 	)
 	_expect(
 		panel.branch_labels["skeleton"][0].horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT
-		and panel.node_buttons["strong_bones"].purchasable,
+		and panel.node_buttons["strong_bones"].purchasable
+		and panel.node_buttons["strong_bones"].show_cost
+		and panel.node_buttons["strong_bones"].visual_state == "available",
 		"Branch labels must point toward the chain and every purchasable node must carry its gold cost badge",
 	)
 	panel.select_node("strong_spine")
+	panel.node_buttons["strong_spine"].grab_focus()
+	await tree.process_frame
 	_expect(
 		panel.selected_node_id == "strong_spine"
 		and not panel.node_buttons["strong_spine"].disabled
 		and panel.node_buttons["strong_spine"].visual_state == "available"
+		and panel.node_buttons["strong_spine"].selected
+		and panel.node_buttons["strong_spine"].has_focus()
 		and not panel.action_button.disabled,
-		"Independent body nodes must remain selectable and purchasable without implicit prerequisites",
+		"Independent body nodes must remain purchasable with simultaneous internal selection and external focus",
 	)
 	state.banked_souls = 0
 	panel.select_node("strong_bones")
@@ -200,6 +280,14 @@ func _test_panel_states(tree: SceneTree) -> void:
 		"A selected affordable-stage skill must explain insufficient souls without purchasing",
 	)
 	state.banked_souls = 500
+	state.skill_levels["strong_bones"] = 1
+	panel.select_node("strong_bones")
+	_expect(
+		panel.node_buttons["strong_bones"].visual_state == "learned"
+		and panel.node_buttons["strong_bones"].show_cost
+		and panel.action_button.text.contains("10"),
+		"Learned non-max skills must retain a check cue and explicit next-level cost",
+	)
 	state.skill_levels["strong_bones"] = 5
 	panel.select_node("strong_bones")
 	_expect(
@@ -259,9 +347,14 @@ func _test_panel_states(tree: SceneTree) -> void:
 	_expect(
 		panel.node_buttons["sharp_vision"].visual_state == "locked"
 		and not panel.node_buttons["sharp_vision"].disabled
+		and panel.node_buttons["sharp_vision"].accessibility_description.contains(Loc.text("SKILL_STAGE_LOCKED"))
+		and PanelClass.connector_style_for_states("locked", "available") == "locked"
 		and panel.status_label.text == Loc.text("SKILL_STAGE_LOCKED")
-		and panel.action_button.disabled,
-		"Stage-locked skill details must remain inspectable without enabling purchase",
+		and panel.action_button.disabled
+		and panel.action_button.visible
+		and panel.action_button.size == Vector2(376, 38)
+		and panel.action_button.tooltip_text == panel.status_label.text,
+		"Locked skills must remain inspectable with lock/dashed/reason cues and disabled purchase geometry",
 	)
 	state.highest_unlocked_form_index = Rules.FORM_ORDER.find("almost_human")
 	panel.set_context(state, "ghoul")
@@ -295,13 +388,19 @@ func _test_panel_states(tree: SceneTree) -> void:
 		and controls.has(panel.loadout_buttons["attack"]),
 		"Visible nodes and loadout controls must remain keyboard/gamepad focusable",
 	)
+	var scaled_safe := true
+	for control in controls:
+		var scaled_rect := Rect2(control.global_position * 0.75, control.size * 0.75)
+		scaled_safe = scaled_safe and scaled_rect.end.x <= 960.0 and scaled_rect.end.y <= 540.0
+	_expect(scaled_safe, "All visible skill focus targets must remain inside the 960x540 canvas-items viewport")
 	for locale in Loc.SUPPORTED_LOCALES:
 		Loc.set_locale(locale)
 		panel.apply_locale()
 		panel.select_node("stomach")
 		_expect(
 			panel.detail_title_label.text == Loc.text("SKILL_STOMACH")
-			and panel.detail_description_label.text.contains(Loc.text("SKILL_STOMACH_DESC")),
+			and panel.detail_description_label.text.contains(Loc.text("SKILL_STOMACH_DESC"))
+			and panel.detail_description_label.text.count(Loc.text("SKILL_STOMACH_DESC")) == 1,
 			"Stomach details must refresh fully in %s" % locale,
 		)
 		panel.select_node("ears")
@@ -333,6 +432,44 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 	main.screen = main.Screen.BASE
 	main._show_character()
 	main._select_character_panel("skills")
+	await tree.process_frame
+	var pointer_state_before: Dictionary = main.state.to_save_data()
+	await _click_mouse(
+		main, tree,
+		main.skill_node_buttons["magic_awakening"].global_position
+		+ main.skill_node_buttons["magic_awakening"].size * 0.5,
+	)
+	_expect(
+		main.skill_tree_panel.selected_node_id == "magic_awakening"
+		and main.state.to_save_data() == pointer_state_before,
+		"Mouse activation of a skill node must select only and never purchase",
+	)
+	await _tap_touch(
+		main, tree,
+		main.skill_node_buttons["strong_bones"].global_position
+		+ main.skill_node_buttons["strong_bones"].size * 0.5,
+	)
+	_expect(
+		main.skill_tree_panel.selected_node_id == "strong_bones"
+		and main.state.to_save_data() == pointer_state_before,
+		"Touch activation of a skill node must select only and never purchase",
+	)
+	main.skill_node_buttons["strong_bones"].grab_focus()
+	await _push_action_event(main, tree, "ui_right")
+	var directional_focus := main.get_viewport().gui_get_focus_owner()
+	_expect(
+		directional_focus != null
+		and directional_focus != main.skill_node_buttons["strong_bones"]
+		and main.skill_tree_panel.focusable_controls().has(directional_focus),
+		"Keyboard/gamepad directional navigation must move deterministically within the visible skill graph",
+	)
+	main.skill_node_buttons["magic_awakening"].grab_focus()
+	await _push_joypad_button(main, tree, JOY_BUTTON_A)
+	_expect(
+		main.skill_tree_panel.selected_node_id == "magic_awakening"
+		and main.state.to_save_data() == pointer_state_before,
+		"Gamepad A on a node must select only and never purchase",
+	)
 	var before_dict: Dictionary = main.state.to_save_data()
 	main._on_skill_pressed("strong_bones")
 	_expect(
@@ -399,7 +536,7 @@ func _test_main_selection_and_purchase(tree: SceneTree) -> void:
 		stomach_restored.restore_save_data(main.state.to_save_data())
 		and stomach_restored.get_skill_level("stomach") == 1
 		and stomach_restored.uses_hunger() and not stomach_restored.has_status("satiated"),
-		"Learned Stomach must round-trip in the current v17 state schema",
+		"Learned Stomach must round-trip in the current v18 state schema",
 	)
 	await _test_remapped_interact_dispatch(tree, main)
 	_expect(
@@ -458,6 +595,48 @@ func _test_remapped_interact_dispatch(tree: SceneTree, main) -> void:
 	main._unhandled_input(enter)
 	_expect(main.state.get_skill_level("muscle_fibers") == 2, "Default Enter/A overlap between interact and ui_accept must still dispatch only one purchase")
 	await tree.process_frame
+
+
+func _push_action_event(main, tree: SceneTree, action: String) -> void:
+	for pressed in [true, false]:
+		var event := InputEventAction.new()
+		event.action = action
+		event.pressed = pressed
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
+func _push_joypad_button(main, tree: SceneTree, button_index: int) -> void:
+	for pressed in [true, false]:
+		var event := InputEventJoypadButton.new()
+		event.button_index = button_index
+		event.pressed = pressed
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
+func _click_mouse(main, tree: SceneTree, position: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = position
+	main.get_viewport().push_input(motion, true)
+	await tree.process_frame
+	for pressed in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = position
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
+
+
+func _tap_touch(main, tree: SceneTree, position: Vector2) -> void:
+	for pressed in [true, false]:
+		var event := InputEventScreenTouch.new()
+		event.index = 23
+		event.pressed = pressed
+		event.position = position
+		main.get_viewport().push_input(event, true)
+		await tree.process_frame
 
 
 func _expect(condition: bool, message: String) -> void:

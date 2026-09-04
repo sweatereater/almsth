@@ -20,8 +20,8 @@ func run(_tree: SceneTree) -> Array[String]:
 		failures.append("Generated reference must expose exactly 24 item entries")
 	if int(data["counts"]["enemies"]) != GameRules.ENEMIES.size():
 		failures.append("Wiki enemy count must follow GameRules")
-	if int(data["counts"]["camp_upgrades"]) != 12:
-		failures.append("Generated reference must expose exactly 12 camp entries")
+	if int(data["counts"]["camp_upgrades"]) != 13:
+		failures.append("Generated reference must expose exactly 13 camp entries")
 	for item in data["equipment"]:
 		if item["category"] == "weapon" and (item["attack_type"].is_empty() or item["grip"].is_empty()):
 			failures.append("Generated weapon reference must expose attack_type and grip: %s" % item["id"])

@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "method": "Unchanged native RGBA copies; cached UI-only anatomical aspect fit",
+  "bodies": [
+    {
+      "sex": "male",
+      "form": "skeleton",
+      "source": "art/characters/sex-selection/cutouts/male/skeleton.png",
+      "path": "assets/ui/character-sheet/male/skeleton.png",
+      "sha256": "fecd9e057c47e089eddd263f3b5c7c8e1e540fc9becb94edc171383662700735",
+      "eye_to_foot": 752,
+      "foot_x": 146,
+      "foot_y": 810
+    },
+    {
+      "sex": "male",
+      "form": "zombie",
+      "source": "art/characters/sex-selection/cutouts/male/zombie.png",
+      "path": "assets/ui/character-sheet/male/zombie.png",
+      "sha256": "f7095be323a54c41b934a08c474aa837d04ec05faa7d55ad950ad2252f4d299b",
+      "eye_to_foot": 766,
+      "foot_x": 147,
+      "foot_y": 847
+    },
+    {
+      "sex": "male",
+      "form": "ghoul",
+      "source": "art/characters/sex-selection/cutouts/male/ghoul.png",
+      "path": "assets/ui/character-sheet/male/ghoul.png",
+      "sha256": "e25c0218eeed7240fed3bd34d669ebb3b3bdad3e37353e9382c567e32e9cb647",
+      "eye_to_foot": 776,
+      "foot_x": 152,
+      "foot_y": 857
+    },
+    {
+      "sex": "male",
+      "form": "revenant",
+      "source": "art/characters/sex-selection/cutouts/male/revenant.png",
+      "path": "assets/ui/character-sheet/male/revenant.png",
+      "sha256": "ef167e9d59b6ca8dd91db94c427b978733968f0022092e0b4eafe622d78a9523",
+      "eye_to_foot": 773,
+      "foot_x": 144,
+      "foot_y": 863
+    },
+    {
+      "sex": "male",
+      "form": "almost_human",
+      "source": "art/characters/sex-selection/cutouts/male/almost-human.png",
+      "path": "assets/ui/character-sheet/male/almost-human.png",
+      "sha256": "e78728632b92a7d15c00b100f988d37efdd0e4cecf52fbc2ae5959d4d86d008b",
+      "eye_to_foot": 782,
+      "foot_x": 179,
+      "foot_y": 863
+    },
+    {
+      "sex": "female",
+      "form": "skeleton",
+      "source": "art/characters/sex-selection/cutouts/female/skeleton.png",
+      "path": "assets/ui/character-sheet/female/skeleton.png",
+      "sha256": "44f9386cd9df09b3d3503ec2934b7a83f2619ecbf57692f23cbf047facd53123",
+      "eye_to_foot": 797,
+      "foot_x": 181,
+      "foot_y": 863
+    },
+    {
+      "sex": "female",
+      "form": "zombie",
+      "source": "art/characters/sex-selection/cutouts/female/zombie.png",
+      "path": "assets/ui/character-sheet/female/zombie.png",
+      "sha256": "d04bf29f5590264d109c9b5054a50968dfd3d5c677d82ac5aff272ef9ff8b877",
+      "eye_to_foot": 800.5,
+      "foot_x": 174,
+      "foot_y": 871
+    },
+    {
+      "sex": "female",
+      "form": "ghoul",
+      "source": "art/characters/sex-selection/cutouts/female/ghoul.png",
+      "path": "assets/ui/character-sheet/female/ghoul.png",
+      "sha256": "1f60e895ef145fdc0fbe62bc51026471cbd458cb70860695b2421cc034abd464",
+      "eye_to_foot": 810,
+      "foot_x": 211,
+      "foot_y": 889
+    },
+    {
+      "sex": "female",
+      "form": "revenant",
+      "source": "art/characters/sex-selection/cutouts/female/revenant.png",
+      "path": "assets/ui/character-sheet/female/revenant.png",
+      "sha256": "733d12b0795fd0961219a3bf50299e1b377332f44b11d383dbeb53fe562ed1f7",
+      "eye_to_foot": 822,
+      "foot_x": 211,
+      "foot_y": 894
+    },
+    {
+      "sex": "female",
+      "form": "almost_human",
+      "source": "art/characters/sex-selection/cutouts/female/almost-human.png",
+      "path": "assets/ui/character-sheet/female/almost-human.png",
+      "sha256": "c0d5de5da59a597ba42cddb193902f2fcab343e041b9aed95d0dea618d212ac1",
+      "eye_to_foot": 1330.5,
+      "foot_x": 405,
+      "foot_y": 1445
+    }
+  ]
+}

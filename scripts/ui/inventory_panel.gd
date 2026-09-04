@@ -4,6 +4,9 @@ extends Control
 const Loc := preload("res://scripts/localization/localization.gd")
 const Rules := preload("res://scripts/game/game_rules.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
+const MarkOverlayClass := preload("res://scripts/ui/inventory_mark_overlay.gd")
 
 signal equip_requested
 signal unequip_requested
@@ -18,12 +21,33 @@ signal mark_changed
 enum Mode { CHARACTER, CRUSHER, WHETSTONE, RITUAL }
 
 const SLOT_ORDER: Array[String] = Rules.EQUIPMENT_SLOT_ORDER
-const PAGE_SIZE := 3
+const PAGE_SIZE := 6
+const SERVICE_PAGE_SIZE := 3
 const PANEL_SIZE := Vector2(1110, 243)
 const ROW_SIZE := Vector2(620, 48)
 const CHARACTER_PANEL_SIZE := Vector2(549, 546)
-const CHARACTER_ROW_SIZE := Vector2(549, 48)
-const CHARACTER_FILTER_ROWS := [6, 5]
+const CHARACTER_CARD_SIZE := Vector2(270, 84)
+const CHARACTER_ROW_SIZE := CHARACTER_CARD_SIZE
+const CHARACTER_FILTER_ROWS := [6]
+const CHARACTER_FILTER_ORDER: Array[String] = [
+	"all", "weapons", "offhand", "armor", "accessories", "backpack",
+]
+const CHARACTER_FILTER_CATEGORIES := {
+	"all": [],
+	"weapons": ["weapon"],
+	"offhand": ["offhand"],
+	"armor": ["head", "body", "hands", "legs", "feet"],
+	"accessories": ["talisman", "ring"],
+	"backpack": ["back"],
+}
+const CHARACTER_FILTER_NAME_KEYS := {
+	"all": "INVENTORY_FILTER_ALL",
+	"weapons": "INVENTORY_FILTER_WEAPONS",
+	"offhand": "INVENTORY_FILTER_OFFHAND",
+	"armor": "INVENTORY_FILTER_ARMOR",
+	"accessories": "INVENTORY_FILTER_ACCESSORIES",
+	"backpack": "INVENTORY_FILTER_BACKPACK",
+}
 
 var mode: int = Mode.CHARACTER
 var run_state: RunState = RunState.new()
@@ -37,10 +61,16 @@ var destination_slot := ""
 var feedback := ""
 var dismantle_all_confirmation_pending := false
 var entries: Array[Dictionary] = []
+var refresh_generation := 0
+var selection_generation := -1
+var selection_fingerprint := ""
 
 var filter_buttons: Dictionary = {}
 var row_buttons: Array[Button] = []
 var row_icons: Array[TextureRect] = []
+var row_name_labels: Array[Label] = []
+var row_property_labels: Array[Label] = []
+var row_mark_overlays: Array[Control] = []
 var selected_detail_label: Label
 var equipped_detail_label: Label
 var mode_title_label: Label
@@ -60,9 +90,28 @@ var keep_confirmation_key := ""
 
 
 static func available_filter_order() -> Array[String]:
+	return CHARACTER_FILTER_ORDER.duplicate()
+
+
+static func service_filter_order() -> Array[String]:
 	var result: Array[String] = ["all"]
 	result.append_array(Rules.EQUIPMENT_CATEGORY_ORDER)
 	return result
+
+
+static func filter_for_category(category: String) -> String:
+	for group_id in CHARACTER_FILTER_ORDER:
+		if group_id != "all" and CHARACTER_FILTER_CATEGORIES[group_id].has(category):
+			return group_id
+	return "all"
+
+
+func _active_filter_order() -> Array[String]:
+	return available_filter_order() if mode == Mode.CHARACTER else service_filter_order()
+
+
+func _current_page_size() -> int:
+	return PAGE_SIZE if mode == Mode.CHARACTER else SERVICE_PAGE_SIZE
 
 
 func _init() -> void:
@@ -73,6 +122,7 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	apply_locale()
 	refresh()
 
@@ -94,7 +144,7 @@ func set_mode(value: int) -> void:
 
 
 func set_filter(value: String) -> void:
-	var accepted := value if available_filter_order().has(value) else "all"
+	var accepted := value if _active_filter_order().has(value) else "all"
 	if mode == Mode.WHETSTONE:
 		accepted = "weapon"
 	if filter_id == accepted:
@@ -106,16 +156,25 @@ func set_filter(value: String) -> void:
 
 
 func select_visible_index(index: int) -> void:
+	if index < 0 or index >= row_buttons.size():
+		return
+	var row := row_buttons[index]
+	if int(row.get_meta("refresh_generation", -1)) != refresh_generation:
+		return
 	keep_confirmation_key = ""
-	var absolute_index := page * PAGE_SIZE + index
+	var absolute_index := page * _current_page_size() + index
 	if absolute_index < 0 or absolute_index >= entries.size():
 		return
 	var entry: Dictionary = entries[absolute_index]
+	if String(row.get_meta("identity", "")) != _entry_identity(entry):
+		return
 	selected_key = String(entry.get("key", ""))
 	selected_source = String(entry.get("source", "inventory"))
 	selected_slot = String(entry.get("slot", "")) if selected_source == "equipped" else ""
 	if selected_source == "equipped":
 		destination_slot = selected_slot
+	elif not Rules.compatible_slots(selected_key).has(destination_slot):
+		destination_slot = ""
 	dismantle_all_confirmation_pending = false
 	keep_confirmation_key = ""
 	feedback = ""
@@ -125,17 +184,21 @@ func select_visible_index(index: int) -> void:
 
 func select_item(item_key: String, source := "inventory", equipped_slot := "") -> void:
 	keep_confirmation_key = ""
+	if mode == Mode.CHARACTER and source == "inventory":
+		var group := filter_for_category(Rules.item_category(item_key))
+		if filter_id != "all" and filter_id != group:
+			filter_id = group
 	selected_key = item_key
 	selected_source = source
-	selected_slot = equipped_slot
-	destination_slot = equipped_slot
+	selected_slot = equipped_slot if source == "equipped" else ""
+	destination_slot = equipped_slot if source == "equipped" else ""
 	dismantle_all_confirmation_pending = false
 	refresh()
 	presentation_changed.emit()
 
 
 func select_equipment_slot(slot: String, unlocked: bool) -> void:
-	filter_id = Rules.slot_category(slot) if available_filter_order().has(Rules.slot_category(slot)) else "all"
+	filter_id = filter_for_category(Rules.slot_category(slot))
 	page = 0
 	selected_slot = slot
 	destination_slot = slot
@@ -152,7 +215,7 @@ func select_equipment_slot(slot: String, unlocked: bool) -> void:
 
 
 func change_page(direction: int) -> void:
-	var page_count := maxi(1, ceili(entries.size() / float(PAGE_SIZE)))
+	var page_count := maxi(1, ceili(entries.size() / float(_current_page_size())))
 	page = clampi(page + direction, 0, page_count - 1)
 	selected_key = ""
 	selected_source = ""
@@ -214,13 +277,14 @@ func selected_item_source() -> String:
 func apply_locale() -> void:
 	if not is_node_ready():
 		return
-	for current_filter in available_filter_order():
+	for current_filter in filter_buttons:
 		var button: Button = filter_buttons[current_filter]
-		button.text = (
-			Loc.text("INVENTORY_FILTER_ALL")
-			if current_filter == "all"
-			else Loc.text(String(Rules.EQUIPMENT_CATEGORY_NAMES[current_filter]))
-		)
+		button.text = Loc.text(String(
+			CHARACTER_FILTER_NAME_KEYS.get(
+				current_filter,
+				Rules.EQUIPMENT_CATEGORY_NAMES.get(current_filter, "INVENTORY_FILTER_ALL"),
+			)
+		))
 	previous_button.tooltip_text = Loc.text("INVENTORY_PREVIOUS_PAGE")
 	next_button.tooltip_text = Loc.text("INVENTORY_NEXT_PAGE")
 	var close_description := Loc.text("INVENTORY_CLOSE_SERVICE")
@@ -230,12 +294,15 @@ func apply_locale() -> void:
 		if String(property_data.get("name", "")) == "accessibility_name":
 			close_button.set("accessibility_name", close_description)
 			break
+	for mark_overlay in row_mark_overlays:
+		mark_overlay.refresh_locale()
 	refresh()
 
 
 func refresh() -> void:
 	if not is_node_ready():
 		return
+	refresh_generation += 1
 	_apply_mode_layout()
 	entries = build_entries(run_state, mode, filter_id)
 	_sanitize_selection()
@@ -244,6 +311,8 @@ func refresh() -> void:
 	_refresh_actions()
 	_refresh_details()
 	_refresh_focus_graph()
+	selection_generation = refresh_generation if not selected_key.is_empty() else -1
+	selection_fingerprint = _selection_fingerprint()
 	queue_redraw()
 
 
@@ -251,13 +320,54 @@ func grab_initial_focus() -> void:
 	var available := _focusable_controls()
 	if available.is_empty():
 		return
-	var preferred: Control = row_buttons[0] if row_buttons[0].visible else available[0]
+	var preferred: Control = _selected_row_button()
+	if preferred == null:
+		preferred = row_buttons[0] if row_buttons[0].visible else available[0]
 	preferred.grab_focus()
+
+
+func focus_selected_card() -> void:
+	var selected_row := _selected_row_button()
+	if selected_row != null and selected_row.visible:
+		selected_row.grab_focus()
+
+
+func validated_selected_identity() -> Dictionary:
+	if selected_key.is_empty():
+		return {}
+	if selection_generation != refresh_generation:
+		_clear_invalid_selection()
+		return {}
+	if selection_fingerprint != _selection_fingerprint():
+		_clear_invalid_selection()
+		return {}
+	var identity := {
+		"key": selected_key,
+		"source": selected_source,
+		"slot": selected_slot if selected_source == "equipped" else "",
+		"generation": refresh_generation,
+	}
+	for entry in entries:
+		if _entry_identity(entry) == _identity_string(identity):
+			return identity
+	# Character equipment is selected through the mannequin rather than entries.
+	if selected_source in ["equipped", "locked"]:
+		return identity
+	_clear_invalid_selection()
+	return {}
 
 
 func handle_input(event: InputEvent) -> bool:
 	if not visible:
 		return false
+	if event is InputEventScreenTouch and event.pressed and mode == Mode.CHARACTER:
+		for mark_overlay in row_mark_overlays:
+			var action: String = mark_overlay.action_at_global_position(event.position)
+			if not action.is_empty():
+				# Consume even a disabled Keep->Salvage touch so it cannot fall
+				# through and select the card underneath.
+				mark_overlay.activate_action(action)
+				return true
 	if (
 		event is InputEventScreenTouch
 		and event.pressed
@@ -285,29 +395,53 @@ func handle_input(event: InputEvent) -> bool:
 		else:
 			close_requested.emit()
 		return true
-	var step := 0
+	var direction := ""
 	if (
 		event.is_action_pressed("ui_left")
 		or event.is_action_pressed("ui_up")
 		or event.is_action_pressed("move_left")
 		or event.is_action_pressed("move_up")
 	):
-		step = -1
+		direction = "left" if (
+			event.is_action_pressed("ui_left") or event.is_action_pressed("move_left")
+		) else "top"
 	elif (
 		event.is_action_pressed("ui_right")
 		or event.is_action_pressed("ui_down")
 		or event.is_action_pressed("move_right")
 		or event.is_action_pressed("move_down")
 	):
-		step = 1
-	if step != 0:
+		direction = "right" if (
+			event.is_action_pressed("ui_right") or event.is_action_pressed("move_right")
+		) else "bottom"
+	elif event is InputEventJoypadButton and event.pressed:
+		match event.button_index:
+			JOY_BUTTON_DPAD_LEFT: direction = "left"
+			JOY_BUTTON_DPAD_RIGHT: direction = "right"
+			JOY_BUTTON_DPAD_UP: direction = "top"
+			JOY_BUTTON_DPAD_DOWN: direction = "bottom"
+	if not direction.is_empty():
 		if mode == Mode.CHARACTER:
-			return false
-		_move_focus(step)
+			_move_focus_direction(direction)
+		else:
+			_move_focus(-1 if direction in ["left", "top"] else 1)
 		return true
-	if event.is_action_pressed("ui_accept") or event.is_action_pressed("interact"):
+	var physical_gamepad_accept: bool = (
+		event is InputEventJoypadButton
+		and event.pressed
+		and event.button_index == JOY_BUTTON_A
+	)
+	if (
+		event.is_action_pressed("ui_accept")
+		or event.is_action_pressed("interact")
+		or physical_gamepad_accept
+	):
 		var focused := get_viewport().gui_get_focus_owner()
 		if focused is Button and _focusable_controls().has(focused):
+			for mark_overlay in row_mark_overlays:
+				if mark_overlay.owns_action_button(focused):
+					mark_overlay.activate_button(focused)
+					return true
 			focused.pressed.emit()
 			return true
 	return false
@@ -325,7 +459,7 @@ static func build_entries(state: RunState, panel_mode: int, active_filter: Strin
 		if (
 			rules.is_empty()
 			or not Rules.is_item_movable(item_key)
-			or (effective_filter != "all" and category != effective_filter)
+			or not _category_matches_filter(category, panel_mode, effective_filter)
 		):
 			continue
 		result.append({
@@ -343,7 +477,7 @@ static func build_entries(state: RunState, panel_mode: int, active_filter: Strin
 				continue
 			var equipped_rules := Rules.item_rules(equipped_key)
 			var equipped_category := Rules.item_category(equipped_key)
-			if effective_filter != "all" and equipped_category != effective_filter:
+			if not _category_matches_filter(equipped_category, panel_mode, effective_filter):
 				continue
 			result.append({
 				"key": equipped_key,
@@ -364,6 +498,14 @@ static func build_entries(state: RunState, panel_mode: int, active_filter: Strin
 		return String(a.get("source", "")) > String(b.get("source", ""))
 	)
 	return result
+
+
+static func _category_matches_filter(category: String, panel_mode: int, active_filter: String) -> bool:
+	if active_filter == "all":
+		return true
+	if panel_mode == Mode.CHARACTER:
+		return CHARACTER_FILTER_CATEGORIES.get(active_filter, []).has(category)
+	return category == active_filter
 
 
 static func display_name(item_key: String) -> String:
@@ -512,12 +654,16 @@ static func _stat_name(field: String) -> String:
 
 func _build_interface() -> void:
 	var filter_order := available_filter_order()
+	for service_filter in service_filter_order():
+		if not filter_order.has(service_filter):
+			filter_order.append(service_filter)
 	for index in range(filter_order.size()):
 		var current_filter := filter_order[index]
 		var button := Ui.make_button(self, Vector2(index * 56, 0), "", Vector2(53, 42))
 		button.name = "Filter_%s" % current_filter
+		button.theme_type_variation = "CompactButton"
 		button.toggle_mode = true
-		button.add_theme_font_size_override("font_size", 8)
+		button.add_theme_font_size_override("font_size", 12)
 		Ui.enable_keyboard_focus(button)
 		button.pressed.connect(set_filter.bind(current_filter))
 		filter_buttons[current_filter] = button
@@ -532,28 +678,40 @@ func _build_interface() -> void:
 		var row := Ui.make_button(self, Vector2(0, 46 + index * 52), "", ROW_SIZE)
 		row.name = "InventoryRow%d" % index
 		row.toggle_mode = true
-		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		row.add_theme_font_size_override("font_size", 12)
-		row.autowrap_mode = TextServer.AUTOWRAP_OFF
-		for style_name in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
-			var style: StyleBoxFlat = row.get_theme_stylebox(style_name).duplicate()
-			style.content_margin_left = 58.0
-			row.add_theme_stylebox_override(style_name, style)
+		row.text = ""
+		row.tooltip_text = ""
 		Ui.enable_keyboard_focus(row)
 		row.pressed.connect(select_visible_index.bind(index))
 		row_buttons.append(row)
 		var icon := TextureRect.new()
-		icon.position = row.position + Vector2(3, 2)
+		icon.position = Vector2(6, 20)
 		icon.size = Vector2(44, 44)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(icon)
+		row.add_child(icon)
 		row_icons.append(icon)
-	selected_detail_label = Ui.make_label(self, Vector2(643, 52), Vector2(210, 134), 11)
+		var name_label := Ui.make_label(row, Vector2(56, 5), Vector2(198, 20), 14)
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		row_name_labels.append(name_label)
+		var property_label := Ui.make_label(row, Vector2(56, 28), Vector2(204, 50), 12)
+		property_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		property_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		property_label.add_theme_constant_override("line_spacing", -2)
+		row_property_labels.append(property_label)
+		var mark_overlay := MarkOverlayClass.new()
+		mark_overlay.position = Vector2(246, 3)
+		mark_overlay.size = Vector2(20, 20)
+		mark_overlay.visible = false
+		mark_overlay.mark_requested.connect(_on_card_mark_requested.bind(index))
+		row.add_child(mark_overlay)
+		row_mark_overlays.append(mark_overlay)
+	selected_detail_label = Ui.make_label(self, Vector2(643, 52), Vector2(210, 134), 12)
 	selected_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	selected_detail_label.add_theme_constant_override("line_spacing", -2)
-	equipped_detail_label = Ui.make_label(self, Vector2(880, 52), Vector2(218, 134), 11)
+	equipped_detail_label = Ui.make_label(self, Vector2(880, 52), Vector2(218, 134), 12)
 	equipped_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	equipped_detail_label.add_theme_constant_override("line_spacing", -2)
 	previous_button = Ui.make_button(self, Vector2(0, 202), "‹", Vector2(48, 42))
@@ -566,29 +724,21 @@ func _build_interface() -> void:
 	next_button.add_theme_font_size_override("font_size", 16)
 	Ui.enable_keyboard_focus(next_button)
 	next_button.pressed.connect(change_page.bind(1))
-	equip_button = _action_button(Vector2(635, 198), Vector2(112, 42), 10)
-	equip_button.pressed.connect(func():
-		if selected_source == "equipped": unequip_requested.emit()
-		else: equip_requested.emit()
-	)
-	dismantle_button = _action_button(Vector2(753, 198), Vector2(112, 42), 10)
-	dismantle_button.pressed.connect(func(): dismantle_requested.emit())
-	dismantle_all_button = _action_button(Vector2(871, 198), Vector2(112, 42), 9)
+	equip_button = _action_button(Vector2(635, 198), Vector2(112, 42), 12)
+	equip_button.pressed.connect(_emit_equip_action)
+	dismantle_button = _action_button(Vector2(753, 198), Vector2(112, 42), 12)
+	dismantle_button.pressed.connect(_emit_selected_action.bind("dismantle"))
+	dismantle_all_button = _action_button(Vector2(871, 198), Vector2(112, 42), 12)
 	dismantle_all_button.pressed.connect(func(): dismantle_all_requested.emit())
-	upgrade_button = _action_button(Vector2(989, 198), Vector2(121, 42), 9)
-	upgrade_button.pressed.connect(func():
-		if mode == Mode.RITUAL:
-			bind_requested.emit()
-		else:
-			upgrade_requested.emit()
-	)
-	keep_button = _action_button(Vector2.ZERO, Vector2(130, 28), 10)
+	upgrade_button = _action_button(Vector2(989, 198), Vector2(121, 42), 12)
+	upgrade_button.pressed.connect(_emit_upgrade_action)
+	keep_button = _action_button(Vector2.ZERO, Vector2(130, 44), 12)
 	keep_button.toggle_mode = true
 	keep_button.pressed.connect(_toggle_mark.bind("keep"))
-	salvage_mark_button = _action_button(Vector2.ZERO, Vector2(150, 28), 10)
+	salvage_mark_button = _action_button(Vector2.ZERO, Vector2(150, 44), 12)
 	salvage_mark_button.toggle_mode = true
 	salvage_mark_button.pressed.connect(_toggle_mark.bind("salvage"))
-	marked_only_button = _action_button(Vector2.ZERO, Vector2(174, 28), 10)
+	marked_only_button = _action_button(Vector2.ZERO, Vector2(174, 44), 12)
 	marked_only_button.toggle_mode = true
 	marked_only_button.pressed.connect(func():
 		marked_only = not marked_only
@@ -600,17 +750,104 @@ func _build_interface() -> void:
 
 
 func _toggle_mark(mark: String) -> void:
+	if validated_selected_identity().is_empty():
+		refresh()
+		return
 	var previous := run_state.item_mark(selected_key, selected_source, selected_slot)
-	if run_state.set_item_mark(selected_key, "" if previous == mark else mark, selected_source, selected_slot):
+	if previous == "keep" and mark == "salvage":
+		return
+	if run_state.set_item_mark(
+		selected_key,
+		"" if previous == mark else mark,
+		selected_source,
+		selected_slot,
+	):
 		keep_confirmation_key = ""
 		cancel_confirmation()
 		refresh()
 		mark_changed.emit()
 
 
+func _on_card_mark_requested(
+	requested_mark: String,
+	identity: Dictionary,
+	generation: int,
+	row_index: int,
+) -> void:
+	if (
+		mode != Mode.CHARACTER
+		or requested_mark not in ["keep", "salvage"]
+		or generation != refresh_generation
+		or row_index < 0
+		or row_index >= row_buttons.size()
+	):
+		return
+	var row := row_buttons[row_index]
+	if (
+		not row.visible
+		or int(row.get_meta("refresh_generation", -1)) != generation
+		or String(row.get_meta("identity", "")) != _identity_string(identity)
+	):
+		return
+	var absolute_index := page * _current_page_size() + row_index
+	if absolute_index < 0 or absolute_index >= entries.size():
+		return
+	var entry: Dictionary = entries[absolute_index]
+	if _entry_identity(entry) != _identity_string(identity):
+		return
+	var item_key := String(identity.get("key", ""))
+	var source := String(identity.get("source", ""))
+	var slot := String(identity.get("slot", ""))
+	var previous := run_state.item_mark(item_key, source, slot)
+	# The asymmetric rule is deliberate: Salvage promotes directly to Keep,
+	# while Keep must first be toggled off before Salvage is accepted.
+	if previous == "keep" and requested_mark == "salvage":
+		return
+	var next_mark := "" if previous == requested_mark else requested_mark
+	if not run_state.set_item_mark(item_key, next_mark, source, slot):
+		return
+	keep_confirmation_key = ""
+	dismantle_all_confirmation_pending = false
+	feedback = ""
+	refresh()
+	mark_changed.emit()
+
+
+func _emit_equip_action() -> void:
+	if validated_selected_identity().is_empty():
+		refresh()
+		return
+	if selected_source == "equipped":
+		unequip_requested.emit()
+	else:
+		equip_requested.emit()
+
+
+func _emit_upgrade_action() -> void:
+	if validated_selected_identity().is_empty():
+		refresh()
+		return
+	if mode == Mode.RITUAL:
+		bind_requested.emit()
+	else:
+		upgrade_requested.emit()
+
+
+func _emit_selected_action(action_id: String) -> void:
+	if validated_selected_identity().is_empty():
+		refresh()
+		return
+	if action_id == "dismantle":
+		dismantle_requested.emit()
+
+
 func _apply_mode_layout() -> void:
 	if filter_buttons.is_empty():
 		return
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR if mode == Mode.CHARACTER else CanvasItem.TEXTURE_FILTER_PARENT_NODE
+	for child in get_children():
+		if child is Button:
+			SheetSurface.apply_button(child, mode == Mode.CHARACTER, child.theme_type_variation == "CompactButton")
 	if mode == Mode.CHARACTER:
 		custom_minimum_size = CHARACTER_PANEL_SIZE
 		size = CHARACTER_PANEL_SIZE
@@ -618,36 +855,31 @@ func _apply_mode_layout() -> void:
 		mode_title_label.visible = false
 		for index in range(PAGE_SIZE):
 			var row := row_buttons[index]
-			row.position = Vector2(0, 92 + index * 52)
-			row.size = CHARACTER_ROW_SIZE
-			row_icons[index].position = row.position + Vector2(3, 2)
-		selected_detail_label.position = Vector2(0, 294)
-		selected_detail_label.size = Vector2(269, 166)
-		equipped_detail_label.position = Vector2(280, 294)
-		equipped_detail_label.size = Vector2(269, 166)
-		previous_button.position = Vector2(0, 252)
-		previous_button.size = Vector2(48, 38)
-		page_label.position = Vector2(54, 254)
+			var column := index % 2
+			var card_row := index / 2
+			row.position = Vector2(column * 279, 48 + card_row * 88)
+			row.size = CHARACTER_CARD_SIZE
+			_layout_card_children(index, true)
+		selected_detail_label.position = Vector2(7, 360)
+		selected_detail_label.size = Vector2(255, 74)
+		equipped_detail_label.position = Vector2(287, 360)
+		equipped_detail_label.size = Vector2(255, 74)
+		previous_button.position = Vector2(0, 316)
+		previous_button.size = Vector2(48, 34)
+		page_label.position = Vector2(54, 316)
 		page_label.size = Vector2(441, 34)
-		next_button.position = Vector2(501, 252)
-		next_button.size = Vector2(48, 38)
-		equip_button.position = Vector2(0, 472)
-		equip_button.size = Vector2(130, 42)
-		dismantle_button.position = Vector2(139, 472)
-		dismantle_button.size = Vector2(130, 42)
-		dismantle_all_button.position = Vector2(278, 472)
-		dismantle_all_button.size = Vector2(130, 42)
-		upgrade_button.position = Vector2(417, 472)
-		upgrade_button.size = Vector2(132, 42)
+		next_button.position = Vector2(501, 316)
+		next_button.size = Vector2(48, 34)
+		_layout_character_action_buttons()
 		return
 	custom_minimum_size = PANEL_SIZE
 	size = PANEL_SIZE
-	for index in range(available_filter_order().size()):
-		var current_filter := available_filter_order()[index]
+	for index in range(service_filter_order().size()):
+		var current_filter := service_filter_order()[index]
 		var filter_button: Button = filter_buttons[current_filter]
 		filter_button.position = Vector2(index * 56, 0)
 		filter_button.size = Vector2(53, 42)
-		filter_button.add_theme_font_size_override("font_size", 8)
+		filter_button.add_theme_font_size_override("font_size", 12)
 	mode_title_label.position = Vector2(625, 2)
 	mode_title_label.size = Vector2(433, 38)
 	mode_title_label.visible = false
@@ -655,7 +887,7 @@ func _apply_mode_layout() -> void:
 		var row := row_buttons[index]
 		row.position = Vector2(0, 46 + index * 52)
 		row.size = ROW_SIZE
-		row_icons[index].position = row.position + Vector2(3, 2)
+		_layout_card_children(index, false)
 	selected_detail_label.position = Vector2(643, 52)
 	selected_detail_label.size = Vector2(210, 134)
 	equipped_detail_label.position = Vector2(880, 52)
@@ -670,34 +902,55 @@ func _apply_mode_layout() -> void:
 
 func _layout_character_filters() -> void:
 	var filter_order := available_filter_order()
-	var row_start := 0
-	for row_count in CHARACTER_FILTER_ROWS:
-		var row_filters := filter_order.slice(row_start, row_start + row_count)
-		var preferred_widths: Array[float] = []
-		var preferred_total := 0.0
-		for current_filter in row_filters:
-			var button: Button = filter_buttons[current_filter]
-			var measured := button.get_theme_font("font").get_string_size(
-				button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9,
-			).x + 16.0
-			var preferred := maxf(54.0, measured)
-			preferred_widths.append(preferred)
-			preferred_total += preferred
-		var gap := 4.0
-		var available_width: float = CHARACTER_PANEL_SIZE.x - gap * (row_count - 1)
-		var scale: float = minf(1.0, available_width / maxf(1.0, preferred_total))
-		var used_width: float = preferred_total * scale
-		var extra_each: float = maxf(0.0, available_width - used_width) / row_count
-		var x := 0.0
-		for index in range(row_count):
-			var current_filter: String = row_filters[index]
-			var button: Button = filter_buttons[current_filter]
-			var width: float = preferred_widths[index] * scale + extra_each
-			button.position = Vector2(x, 0 if row_start == 0 else 44)
-			button.size = Vector2(width, 40)
-			button.add_theme_font_size_override("font_size", 9 if scale > 0.82 else 8)
-			x += width + gap
-		row_start += row_count
+	var gap := 3.0
+	var width := (CHARACTER_PANEL_SIZE.x - gap * (filter_order.size() - 1)) / filter_order.size()
+	for index in range(filter_order.size()):
+		var button: Button = filter_buttons[filter_order[index]]
+		button.position = Vector2(index * (width + gap), 0)
+		button.size = Vector2(width, 40)
+		button.add_theme_font_size_override("font_size", 12)
+		Ui.fit_button_text(button, 12, 12)
+
+
+func _layout_card_children(index: int, character_layout: bool) -> void:
+	var icon := row_icons[index]
+	var name_label := row_name_labels[index]
+	var property_label := row_property_labels[index]
+	var mark_overlay := row_mark_overlays[index]
+	if character_layout:
+		icon.position = Vector2(6, 20)
+		icon.size = Vector2(44, 44)
+		name_label.position = Vector2(56, 5)
+		name_label.size = Vector2(146, 20)
+		property_label.position = Vector2(56, 30)
+		property_label.size = Vector2(204, 48)
+		mark_overlay.position = Vector2(208, 2)
+		mark_overlay.size = MarkOverlayClass.INTERACTIVE_SIZE
+	else:
+		icon.position = Vector2(4, 2)
+		icon.size = Vector2(44, 44)
+		name_label.position = Vector2(58, 2)
+		name_label.size = Vector2(552, 20)
+		property_label.position = Vector2(58, 23)
+		property_label.size = Vector2(552, 22)
+		mark_overlay.position = Vector2(594, 3)
+		mark_overlay.size = MarkOverlayClass.PASSIVE_SIZE
+
+
+func _layout_character_action_buttons() -> void:
+	var primary: Array[Button] = []
+	for button in [equip_button, dismantle_button, dismantle_all_button, upgrade_button]:
+		if button.visible:
+			primary.append(button)
+	var gap := 6.0
+	if not primary.is_empty():
+		var width := (CHARACTER_PANEL_SIZE.x - gap * (primary.size() - 1)) / primary.size()
+		for index in range(primary.size()):
+			primary[index].position = Vector2(index * (width + gap), 444)
+			primary[index].size = Vector2(width, 42)
+	if marked_only_button.visible:
+		marked_only_button.position = Vector2(0, 492)
+		marked_only_button.size = Vector2(CHARACTER_PANEL_SIZE.x, 44)
 
 
 func _action_button(position_value: Vector2, size_value: Vector2, font_size: int) -> Button:
@@ -708,63 +961,87 @@ func _action_button(position_value: Vector2, size_value: Vector2, font_size: int
 
 
 func _sanitize_selection() -> void:
-	var page_count := maxi(1, ceili(entries.size() / float(PAGE_SIZE)))
+	var page_size := _current_page_size()
+	var page_count := maxi(1, ceili(entries.size() / float(page_size)))
 	page = clampi(page, 0, page_count - 1)
 	if selected_source == "inventory" and int(run_state.inventory.get(selected_key, 0)) <= 0:
-		selected_key = ""
-		selected_source = ""
-		selected_slot = ""
+		_clear_invalid_selection()
 	elif selected_source == "equipped" and String(run_state.loadout.get(selected_slot, "")) != selected_key:
-		selected_key = String(run_state.loadout.get(selected_slot, ""))
+		_clear_invalid_selection()
 	if not destination_slot.is_empty() and not Rules.EQUIPMENT_SLOTS.has(destination_slot):
 		destination_slot = ""
 	if selected_source == "inventory":
-		var found := false
-		for entry in entries:
+		var found_index := -1
+		for index in range(entries.size()):
+			var entry: Dictionary = entries[index]
 			if String(entry.get("key", "")) == selected_key and String(entry.get("source", "")) == "inventory":
-				found = true
+				found_index = index
 				break
-		if not found:
-			selected_key = ""
-			selected_source = ""
+		if found_index < 0:
+			_clear_invalid_selection()
+		else:
+			page = found_index / page_size
 
 
 func _refresh_filters() -> void:
-	for current_filter in available_filter_order():
+	var active_filters := _active_filter_order()
+	for current_filter in filter_buttons:
 		var button: Button = filter_buttons[current_filter]
-		button.visible = mode != Mode.WHETSTONE or current_filter == "weapon"
+		button.visible = active_filters.has(current_filter) and (
+			mode != Mode.WHETSTONE or current_filter == "weapon"
+		)
 		button.button_pressed = current_filter == filter_id
 
 
 func _refresh_rows() -> void:
-	var page_count := maxi(1, ceili(entries.size() / float(PAGE_SIZE)))
+	var page_size := _current_page_size()
+	var page_count := maxi(1, ceili(entries.size() / float(page_size)))
 	for index in range(PAGE_SIZE):
-		var absolute_index := page * PAGE_SIZE + index
+		var absolute_index := page * page_size + index
 		var button := row_buttons[index]
-		if absolute_index >= entries.size():
+		if index >= page_size or absolute_index >= entries.size():
 			button.visible = false
-			row_icons[index].visible = false
+			button.remove_meta("identity")
+			button.set_meta("refresh_generation", refresh_generation)
+			row_mark_overlays[index].configure("", {}, refresh_generation, false)
 			continue
 		var entry: Dictionary = entries[absolute_index]
 		var item_key := String(entry["key"])
 		var source := String(entry["source"])
-		var source_text := ""
+		var properties := PackedStringArray()
+		properties.append("×%d" % int(entry["count"]))
 		if mode == Mode.WHETSTONE or mode == Mode.RITUAL:
-			source_text = " · %s" % Loc.text("INVENTORY_SOURCE_%s" % source.to_upper())
+			properties.append(Loc.text("INVENTORY_SOURCE_%s" % source.to_upper()))
 		var mark := run_state.item_mark(item_key, source, String(entry.get("slot", "")))
-		if not mark.is_empty():
-			source_text += " · " + Loc.text("INVENTORY_MARK_" + mark.to_upper())
 		if Rules.is_item_bound(item_key):
-			source_text += " · %s" % Loc.text("INVENTORY_BOUND_SHORT")
+			properties.append(Loc.text("INVENTORY_BOUND_SHORT"))
+		for stat in primary_stats(item_key):
+			properties.append(stat)
 		button.visible = true
-		row_icons[index].visible = true
+		button.set_meta("identity", _entry_identity(entry))
+		button.set_meta("refresh_generation", refresh_generation)
 		var icon_path := String(Rules.item_rules(item_key).get("icon", ""))
 		row_icons[index].texture = load(icon_path) as Texture2D if ResourceLoader.exists(icon_path) else null
-		button.text = "%s  ×%d%s\n%s" % [
-			display_name(item_key), int(entry["count"]), source_text,
-			" · ".join(primary_stats(item_key)),
-		]
-		button.button_pressed = item_key == selected_key and source == selected_source
+		row_name_labels[index].text = display_name(item_key)
+		row_property_labels[index].text = " · ".join(properties)
+		row_mark_overlays[index].configure(
+			mark,
+			{
+				"key": item_key,
+				"source": source,
+				"slot": String(entry.get("slot", "")),
+			},
+			refresh_generation,
+			mode == Mode.CHARACTER,
+		)
+		var full_text := full_details(item_key, int(entry["count"]), source, String(entry.get("slot", "")))
+		button.tooltip_text = full_text
+		button.accessibility_name = full_text.replace("\n", ". ")
+		button.button_pressed = (
+			item_key == selected_key
+			and source == selected_source
+			and (source != "equipped" or String(entry.get("slot", "")) == selected_slot)
+		)
 	page_label.text = (
 		Loc.text("INVENTORY_EMPTY_FILTER")
 		if entries.is_empty()
@@ -815,28 +1092,32 @@ func _refresh_details() -> void:
 		selected_text += "\n" + feedback
 	selected_detail_label.text = selected_text
 	equipped_detail_label.text = equipped_text
+	selected_detail_label.tooltip_text = selected_text
+	selected_detail_label.accessibility_name = selected_text.replace("\n", ". ")
+	equipped_detail_label.tooltip_text = equipped_text
+	equipped_detail_label.accessibility_name = equipped_text.replace("\n", ". ")
 
 
 func _refresh_actions() -> void:
 	var has_item := not selected_key.is_empty() and not Rules.item_rules(selected_key).is_empty()
 	var mark := run_state.item_mark(selected_key, selected_source, selected_slot)
-	keep_button.text = Loc.text("INVENTORY_MARK_KEEP")
-	salvage_mark_button.text = Loc.text("INVENTORY_MARK_SALVAGE")
+	keep_button.text = "▣  " + Loc.text("INVENTORY_MARK_KEEP")
+	salvage_mark_button.text = "⚔  " + Loc.text("INVENTORY_MARK_SALVAGE")
 	marked_only_button.text = Loc.text("INVENTORY_MARKED_ONLY")
 	keep_button.button_pressed = mark == "keep"
 	salvage_mark_button.button_pressed = mark == "salvage"
 	marked_only_button.button_pressed = marked_only
 	keep_button.disabled = not has_item or not Rules.is_item_movable(selected_key)
-	salvage_mark_button.disabled = keep_button.disabled
+	salvage_mark_button.disabled = keep_button.disabled or mark == "keep"
+	keep_button.visible = mode != Mode.CHARACTER
+	salvage_mark_button.visible = mode != Mode.CHARACTER
 	marked_only_button.visible = mode == Mode.CRUSHER or (mode == Mode.CHARACTER and at_base)
-	keep_button.position = Vector2(0, 518) if mode == Mode.CHARACTER else Vector2(635, 6)
-	salvage_mark_button.position = Vector2(139, 518) if mode == Mode.CHARACTER else Vector2(771, 6)
-	marked_only_button.position = Vector2(300, 518) if mode == Mode.CHARACTER else Vector2(927, 6)
-	keep_button.size = Vector2(130, 28) if mode == Mode.CHARACTER else Vector2(100, 28)
-	salvage_mark_button.position.x = 139 if mode == Mode.CHARACTER else 741
-	salvage_mark_button.size = Vector2(150, 28) if mode == Mode.CHARACTER else Vector2(115, 28)
-	marked_only_button.position.x = 300 if mode == Mode.CHARACTER else 869
-	marked_only_button.size = Vector2(174, 28) if mode == Mode.CHARACTER else Vector2(189, 28)
+	keep_button.position = Vector2(635, 6)
+	salvage_mark_button.position = Vector2(741, 6)
+	marked_only_button.position = Vector2(869, 6)
+	keep_button.size = Vector2(100, 28)
+	salvage_mark_button.size = Vector2(115, 28)
+	marked_only_button.size = Vector2(189, 28)
 	var inventory_item := has_item and selected_source == "inventory"
 	var equipped_item := has_item and selected_source == "equipped"
 	var rules := Rules.item_rules(selected_key)
@@ -877,6 +1158,8 @@ func _refresh_actions() -> void:
 		or mode == Mode.WHETSTONE
 		or mode == Mode.RITUAL
 	)
+	if mode == Mode.CHARACTER:
+		_layout_character_action_buttons()
 	equip_button.text = Loc.text("INVENTORY_UNEQUIP" if equipped_item else "INVENTORY_EQUIP")
 	equip_button.disabled = not has_item or selected_source == "locked" or permanent
 	equip_button.tooltip_text = Loc.text("INVENTORY_PERMANENT_LOCKED") if permanent else ""
@@ -890,7 +1173,11 @@ func _refresh_actions() -> void:
 		if dismantle_all_confirmation_pending
 		else "INVENTORY_DISMANTLE_ALL"
 	)
-	dismantle_all_button.disabled = not crusher_ready or run_state.count_unbound_inventory_items(marked_only) <= 0
+	dismantle_all_button.disabled = (
+		entries.is_empty()
+		or not crusher_ready
+		or run_state.count_unbound_inventory_items(marked_only) <= 0
+	)
 	if mode == Mode.RITUAL:
 		var already_bound := has_item and Rules.is_item_bound(selected_key)
 		upgrade_button.disabled = permanent or not ritual_ready or not run_state.can_bind_item(
@@ -971,15 +1258,79 @@ func _mode_title() -> String:
 	return Loc.text("CHARACTER_TAB_INVENTORY")
 
 
+func _entry_identity(entry: Dictionary) -> String:
+	return "%s|%s|%s" % [
+		String(entry.get("key", "")),
+		String(entry.get("source", "")),
+		String(entry.get("slot", "")),
+	]
+
+
+func _identity_string(identity: Dictionary) -> String:
+	return "%s|%s|%s" % [
+		String(identity.get("key", "")),
+		String(identity.get("source", "")),
+		String(identity.get("slot", "")),
+	]
+
+
+func _selection_fingerprint() -> String:
+	if selected_key.is_empty() or run_state == null:
+		return ""
+	var count := 0
+	var resolved_key := selected_key
+	if selected_source == "inventory":
+		count = int(run_state.inventory.get(selected_key, 0))
+	elif selected_source in ["equipped", "locked"]:
+		resolved_key = String(run_state.loadout.get(selected_slot, ""))
+		count = 1 if resolved_key == selected_key else 0
+	return "%s|%s|%s|%d|%s" % [
+		resolved_key,
+		selected_source,
+		selected_slot,
+		count,
+		run_state.item_mark(selected_key, selected_source, selected_slot),
+	]
+
+
+func _clear_invalid_selection() -> void:
+	selected_key = ""
+	selected_source = ""
+	selected_slot = ""
+	destination_slot = ""
+	selection_generation = -1
+	selection_fingerprint = ""
+
+
+func _selected_row_button() -> Button:
+	if selected_key.is_empty():
+		return null
+	var identity := _identity_string({
+		"key": selected_key,
+		"source": selected_source,
+		"slot": selected_slot if selected_source == "equipped" else "",
+	})
+	for button in row_buttons:
+		if button.visible and String(button.get_meta("identity", "")) == identity:
+			return button
+	return null
+
+
 func _focusable_controls() -> Array[Control]:
 	var result: Array[Control] = []
-	for current_filter in available_filter_order():
+	for current_filter in _active_filter_order():
 		var filter_button: Button = filter_buttons[current_filter]
 		if filter_button.visible and not filter_button.disabled:
 			result.append(filter_button)
-	for row in row_buttons:
+	for row_index in range(row_buttons.size()):
+		var row := row_buttons[row_index]
 		if row.visible and not row.disabled:
 			result.append(row)
+			if mode == Mode.CHARACTER:
+				var mark_overlay = row_mark_overlays[row_index]
+				for mark_button in mark_overlay.action_buttons():
+					if mark_button.visible and not mark_button.disabled:
+						result.append(mark_button)
 	for control in [previous_button, next_button, equip_button, dismantle_button, dismantle_all_button, upgrade_button, keep_button, salvage_mark_button, marked_only_button, close_button]:
 		if control.visible and not control.disabled:
 			result.append(control)
@@ -1014,14 +1365,44 @@ func _move_focus(step: int) -> void:
 	available[(current_index + step + available.size()) % available.size()].grab_focus()
 
 
+func _move_focus_direction(direction: String) -> void:
+	var available := _focusable_controls()
+	if available.is_empty():
+		return
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == null or not available.has(focused):
+		available[0].grab_focus()
+		return
+	var target_path := NodePath()
+	match direction:
+		"left": target_path = focused.focus_neighbor_left
+		"right": target_path = focused.focus_neighbor_right
+		"top": target_path = focused.focus_neighbor_top
+		"bottom": target_path = focused.focus_neighbor_bottom
+	var target: Control = null
+	if not target_path.is_empty():
+		target = get_node_or_null(target_path) as Control
+	if target != null and target.visible and not (target is BaseButton and target.disabled):
+		target.grab_focus()
+		return
+	_move_focus(-1 if direction in ["left", "top"] else 1)
+
+
 func _draw() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color("1c2330"))
-	draw_rect(Rect2(Vector2.ZERO, size), Color("354052"), false, 2.0)
+	if mode == Mode.CHARACTER:
+		SheetSurface.draw_panel(self, Rect2(Vector2.ZERO, size), false)
+		for rect in [Rect2(0, 354, 269, 86), Rect2(280, 354, 269, 86)]:
+			SheetSurface.draw_panel(self, rect, false)
+		return
+	draw_rect(Rect2(Vector2.ZERO, size), Palette.color(Palette.WARM_ARCHIVE, "panel"))
+	draw_rect(Rect2(Vector2.ZERO, size), Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 	var detail_rects := (
-		[Rect2(Vector2(0, 294), Vector2(269, 166)), Rect2(Vector2(280, 294), Vector2(269, 166))]
+		[Rect2(Vector2(0, 354), Vector2(269, 86)), Rect2(Vector2(280, 354), Vector2(269, 86))]
 		if mode == Mode.CHARACTER
 		else [Rect2(Vector2(635, 46), Vector2(225, 146)), Rect2(Vector2(872, 46), Vector2(238, 146))]
 	)
 	for rect in detail_rects:
-		draw_rect(rect, Color("171d27"))
-		draw_rect(rect, Color("354052"), false, 2.0)
+		draw_rect(rect, Palette.color(Palette.WARM_ARCHIVE, "inset"))
+		draw_rect(rect, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), false, 2.0)
+
+const SheetSurface := preload("res://scripts/ui/character_sheet_surface.gd")

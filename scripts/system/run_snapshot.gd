@@ -44,7 +44,12 @@ static func encode(value: Variant) -> Variant:
 			return {"$cells": cells}
 		var result := {}
 		for key in value:
-			result[key] = encode(value[key])
+			# Runtime dictionaries populated through property syntax can carry
+			# StringName keys even though their JSON representation is an ordinary
+			# string. Canonicalize that losslessly at capture time so raw preflight
+			# applies the same strict schema as the eventual disk representation.
+			var encoded_key: Variant = String(key) if key is StringName else key
+			result[encoded_key] = encode(value[key])
 		return result
 	if value is Array:
 		var result: Array = []
@@ -300,7 +305,11 @@ static func _valid_floor(
 		):
 			return false
 		for field in ["special_cooldown", "recovery_remaining"]:
-			var limit := int(GameRules.ENEMIES[enemy.id].get("attack_cooldown" if field == "special_cooldown" else "recovery_turns", 0))
+			var limit := int(GameRules.ENEMIES[enemy.id].get(
+				"attack_cooldown" if field == "special_cooldown" else "recovery_turns", 0,
+			))
+			if field == "recovery_remaining":
+				limit = maxi(limit, int(rules.get("cancel_recovery_turns", 0)))
 			if enemy.has(field) and (not _integer(enemy[field]) or int(enemy[field]) < 0 or int(enemy[field]) > limit):
 				return false
 		if enemy.has("preparation"):
@@ -343,7 +352,7 @@ static func _valid_floor(
 		for field in ["wood", "stone"]:
 			if not _integer(item.get(field)) or int(item[field]) < 0 or int(item[field]) > 2:
 				return false
-	# Every current v17/format2 dungeon is produced with durable cosmetic records. Their
+	# Every current v18/format2 dungeon is produced with durable cosmetic records. Their
 	# absence is corruption, not an older floor to regenerate or quietly default.
 	if floor.get("biome") not in ["", "weaving_crypts"]:
 		return false

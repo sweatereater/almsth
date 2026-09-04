@@ -11,6 +11,7 @@ var failures: Array[String] = []
 func run(tree: SceneTree) -> Array[String]:
 	_test_weapon_rules_and_save()
 	_test_combat_primitives()
+	await _test_attack_awareness(tree)
 	await _test_player_targeting_turns_and_fallback(tree)
 	await _test_ranged_boss_reward(tree)
 	await _test_skeletal_archer_ai(tree)
@@ -111,6 +112,8 @@ func _test_combat_primitives() -> void:
 
 func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 	var main = await _new_main(tree)
+	var melee_lunge_starts := 0
+	main.melee_lunge_started.connect(func(_actor_uid: String, _from: Vector2i, _target: Vector2i): melee_lunge_starts += 1)
 	main.state.loadout["right_hand"] = "bone_bow@0"
 	main.floor_data = _floor_fixture(12, 9)
 	main.player_pos = Vector2i(3, 4)
@@ -137,8 +140,9 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 		and int(main.floor_data["enemies"][1]["hp"]) == 40 - ranged_damage
 		and main.state.total_turns == turns_before + 1
 		and main.projectile_traces.size() == 1
+		and melee_lunge_starts == 0 and main.melee_lunges.is_empty()
 		and not main.state.loadout.has("left_hand"),
-		"A two-handed ranged main weapon must override to the selected target, keep offhand free and spend one turn",
+		"A two-handed ranged main weapon must override to the selected target, keep offhand free, spend one turn, and never start melee lunge presentation",
 	)
 	main.floor_data["enemies"][1]["dodge"] = 100
 	var miss_turn: int = main.state.total_turns
@@ -147,8 +151,9 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 		main._activate_ability_slot("attack", {"attack_rolls": [1]})
 		and main.state.total_turns == miss_turn + 1
 		and int(main.floor_data["enemies"][1]["hp"]) == miss_target_hp,
-		"A player ranged miss must still spend exactly one turn without applying damage",
+		"A player ranged miss must still spend exactly one turn without applying damage or a melee lunge",
 	)
+	_expect(melee_lunge_starts == 0 and main.melee_lunges.is_empty(), "Both public committed ranged hit and miss paths must emit zero melee-lunge signals and entries")
 
 	main.floor_data["enemies"] = [
 		_enemy("fallback", Vector2i(5, 4), 40, "hollow_guard"),
@@ -268,6 +273,52 @@ func _test_player_targeting_turns_and_fallback(tree: SceneTree) -> void:
 	_expect(
 		int(main.floor_data["enemies"][0]["hp"]) == melee_hp - melee_damage,
 		"Legacy melee Basic Attack must retain its original damage path",
+	)
+	main.queue_free()
+	await tree.process_frame
+
+
+func _test_attack_awareness(tree: SceneTree) -> void:
+	var main = await _new_main(tree)
+	main.state.loadout["right_hand"] = "bone_bow@0"
+	main.floor_data = _floor_fixture(9, 8)
+	main.player_pos = Vector2i(3, 4)
+	_reveal_floor(main)
+	var target := _enemy("ranged-awake", Vector2i(4, 4), 40, "hollow_guard")
+	var ally := _enemy("ranged-bystander", Vector2i(3, 5), 40, "hollow_guard")
+	for enemy in [target, ally]:
+		enemy.erase("has_seen_player")
+		enemy.erase("last_seen_player")
+	target["dodge"] = 100
+	target["accuracy"] = 100
+	target["damage"] = 1
+	target["vision"] = 8
+	ally["vision"] = 0
+	main.floor_data["enemies"] = [target, ally]
+	_expect(
+		main._execute_ranged_attack("ranged-awake", {"attack_rolls": [1]})
+		and bool(target.get("has_seen_player", false))
+		and target.get("last_seen_player") == main.player_pos
+		and not bool(ally.get("has_seen_player", false))
+		and not ally.has("last_seen_player"),
+		"A directed ranged miss must alert only its actual target before resolution",
+	)
+	var hp_before: int = main.state.hp
+	main._enemy_turn()
+	_expect(
+		main.state.hp == hp_before - 1,
+		"An attacked ranged target must act on its next enemy turn without first-sight pause",
+	)
+	var technical := _enemy("technical-zero", Vector2i(6, 4), 40, "hollow_guard")
+	technical.erase("has_seen_player")
+	technical.erase("last_seen_player")
+	main.floor_data["enemies"] = [technical]
+	main._damage_enemy_by_uid("technical-zero", 0)
+	_expect(
+		not bool(technical.get("has_seen_player", false))
+		and not technical.has("last_seen_player")
+		and int(technical.hp) == 40,
+		"Generic zero technical damage must not create attack awareness",
 	)
 	main.queue_free()
 	await tree.process_frame

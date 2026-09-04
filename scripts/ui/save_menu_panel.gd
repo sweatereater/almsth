@@ -3,6 +3,8 @@ extends Control
 
 const Loc := preload("res://scripts/localization/localization.gd")
 const Ui := preload("res://scripts/ui/ui_factory.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 signal continue_requested(slot_id: String)
 signal resume_requested
@@ -13,10 +15,16 @@ signal settings_requested
 signal exit_requested
 
 const PAGE_SIZE := 6
+const LIST_ROW_START_Y := 244.0
+const LIST_ROW_STRIDE := 52.0
+const LIST_ROW_SIZE := Vector2(460, 52)
+const ERROR_BANNER_RECT := Rect2(374, 168, 532, 72)
+const ERROR_TEXT_RECT := Rect2(386, 172, 508, 64)
 
 
 class TrashButton:
 	extends Button
+	const TrashPalette := preload("res://scripts/ui/ui_palette.gd")
 
 	func _ready() -> void:
 		mouse_entered.connect(queue_redraw)
@@ -27,11 +35,11 @@ class TrashButton:
 		button_up.connect(queue_redraw)
 
 	func _draw() -> void:
-		var color := Color("aeb7c5")
+		var color := TrashPalette.color(TrashPalette.WARM_ARCHIVE, "secondary")
 		if is_pressed():
-			color = Color("ff9a8f")
+			color = TrashPalette.color(TrashPalette.WARM_ARCHIVE, "danger")
 		elif is_hovered():
-			color = Color("f2d8d4")
+			color = TrashPalette.color(TrashPalette.WARM_ARCHIVE, "primary")
 		var center := size * 0.5
 		var left := center.x - 8.0
 		var right := center.x + 8.0
@@ -44,7 +52,7 @@ class TrashButton:
 		draw_line(Vector2(right - 2.0, top + 3.0), Vector2(right - 4.0, bottom), color, 2.0, true)
 		draw_line(Vector2(left + 4.0, bottom), Vector2(right - 4.0, bottom), color, 2.0, true)
 		if has_focus():
-			var focus_color := Color("72d7cf")
+			var focus_color := TrashPalette.color(TrashPalette.WARM_ARCHIVE, "focus")
 			for corner in [
 				[Vector2(4, 10), Vector2(4, 4), Vector2(10, 4)],
 				[Vector2(size.x - 10, 4), Vector2(size.x - 4, 4), Vector2(size.x - 4, 10)],
@@ -56,12 +64,13 @@ class TrashButton:
 
 class TrashGlyph:
 	extends Control
+	const TrashPalette := preload("res://scripts/ui/ui_palette.gd")
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var color := Color("ffaaa1")
+		var color := TrashPalette.color(TrashPalette.WARM_ARCHIVE, "danger")
 		draw_line(Vector2(3, 6), Vector2(21, 6), color, 2.0, true)
 		draw_line(Vector2(8, 2), Vector2(16, 2), color, 2.0, true)
 		draw_line(Vector2(5, 9), Vector2(7, 22), color, 2.0, true)
@@ -86,6 +95,8 @@ var modal_mouse_release_pending := false
 
 var title_label: Label
 var subtitle_label: Label
+var build_status_label: Label
+var error_banner: Panel
 var error_label: Label
 var continue_button: Button
 var new_game_button: Button
@@ -108,6 +119,7 @@ var delete_yes_button: Button
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
 	visible = false
@@ -116,30 +128,46 @@ func _ready() -> void:
 func _build() -> void:
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color("0c1018fa")
+	shade.color = Palette.OVERLAY_SCRIM
 	shade.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(shade)
 	var card := Panel.new()
 	card.position = Vector2(330, 48)
 	card.size = Vector2(620, 624)
-	card.add_theme_stylebox_override("panel", Ui.make_panel_style(Color("53647b")))
+	card.add_theme_stylebox_override(
+		"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "panel", "normal")
+	)
 	add_child(card)
-	title_label = Ui.make_label(self, Vector2(370, 72), Vector2(540, 48), 30)
+	title_label = Ui.make_label(self, Vector2(370, 66), Vector2(540, 44), 28)
+	Ui.apply_heading(title_label, 28)
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle_label = Ui.make_label(self, Vector2(380, 124), Vector2(520, 54), 15)
+	build_status_label = Ui.make_label(self, Vector2(380, 108), Vector2(520, 24), 14)
+	build_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	build_status_label.theme_type_variation = "SecondaryLabel"
+	subtitle_label = Ui.make_label(self, Vector2(380, 132), Vector2(520, 34), 16)
 	subtitle_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	error_label = Ui.make_label(self, Vector2(380, 178), Vector2(520, 28), 13)
+	error_banner = Panel.new()
+	error_banner.name = "SaveErrorBanner"
+	error_banner.position = ERROR_BANNER_RECT.position
+	error_banner.size = ERROR_BANNER_RECT.size
+	error_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	error_banner.add_theme_stylebox_override(
+		"panel", ThemeController.style_for(Palette.WARM_ARCHIVE, "danger", "normal")
+	)
+	add_child(error_banner)
+	error_label = Ui.make_label(self, ERROR_TEXT_RECT.position, ERROR_TEXT_RECT.size, 12)
+	error_label.name = "SaveErrorText"
 	error_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	error_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	error_label.add_theme_color_override("font_color", Color("e27b72"))
-	continue_button = Ui.make_button(self, Vector2(440, 220), "", Vector2(400, 50))
-	new_game_button = Ui.make_button(self, Vector2(440, 278), "", Vector2(400, 50))
-	load_button = Ui.make_button(self, Vector2(440, 336), "", Vector2(400, 50))
-	settings_button = Ui.make_button(self, Vector2(440, 394), "", Vector2(400, 50))
-	exit_button = Ui.make_button(self, Vector2(440, 452), "", Vector2(400, 50))
+	error_label.theme_type_variation = "DangerLabel"
+	continue_button = Ui.make_button(self, Vector2(440, 252), "", Vector2(400, 50))
+	new_game_button = Ui.make_button(self, Vector2(440, 310), "", Vector2(400, 50))
+	load_button = Ui.make_button(self, Vector2(440, 368), "", Vector2(400, 50))
+	settings_button = Ui.make_button(self, Vector2(440, 426), "", Vector2(400, 50))
+	exit_button = Ui.make_button(self, Vector2(440, 516), "", Vector2(400, 50))
 	previous_button = Ui.make_button(self, Vector2(380, 558), "", Vector2(140, 42))
 	page_label = Ui.make_label(self, Vector2(524, 558), Vector2(232, 42), 14)
 	page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -162,7 +190,7 @@ func _build() -> void:
 	previous_button.pressed.connect(_change_page.bind(-1))
 	next_button.pressed.connect(_change_page.bind(1))
 	back_button.pressed.connect(_on_back_pressed)
-	empty_label = Ui.make_label(self, Vector2(390, 254), Vector2(500, 100), 17)
+	empty_label = Ui.make_label(self, Vector2(390, 260), Vector2(500, 100), 16)
 	empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -178,15 +206,17 @@ func _build_delete_modal() -> void:
 	add_child(delete_modal_layer)
 	var blocker := ColorRect.new()
 	blocker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	blocker.color = Color("080b12e8")
+	blocker.color = Palette.OVERLAY_SCRIM
 	blocker.mouse_filter = Control.MOUSE_FILTER_STOP
 	delete_modal_layer.add_child(blocker)
 	var modal_card := Panel.new()
 	modal_card.position = Vector2(360, 220)
 	modal_card.size = Vector2(560, 280)
-	modal_card.add_theme_stylebox_override("panel", Ui.make_panel_style(Color("9d625f")))
+	modal_card.add_theme_stylebox_override(
+		"panel", Ui.semantic_style(Palette.WARM_ARCHIVE, "panel", "normal")
+	)
 	delete_modal_layer.add_child(modal_card)
-	delete_modal_title = Ui.make_label(delete_modal_layer, Vector2(390, 242), Vector2(500, 38), 24)
+	delete_modal_title = Ui.make_label(delete_modal_layer, Vector2(390, 242), Vector2(500, 38), 20)
 	delete_modal_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	delete_modal_body = Ui.make_label(delete_modal_layer, Vector2(402, 278), Vector2(476, 148), 14)
 	delete_modal_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -194,18 +224,13 @@ func _build_delete_modal() -> void:
 	delete_modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	delete_no_button = Ui.make_button(delete_modal_layer, Vector2(402, 430), "", Vector2(220, 48))
 	delete_yes_button = Ui.make_button(delete_modal_layer, Vector2(658, 430), "", Vector2(220, 48))
+	Ui.apply_danger(delete_yes_button)
 	var yes_glyph := TrashGlyph.new()
 	yes_glyph.position = Vector2(12, 11)
 	yes_glyph.size = Vector2(24, 26)
 	delete_yes_button.add_child(yes_glyph)
 	Ui.enable_keyboard_focus(delete_no_button)
 	Ui.enable_keyboard_focus(delete_yes_button)
-	for state_name in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		var background := Color("2b1b1d") if state_name == "normal" else Color("3a2225")
-		var width := 3 if state_name == "focus" else 2
-		delete_yes_button.add_theme_stylebox_override(
-			state_name, Ui.make_button_style(background, Color("d96b65"), width),
-		)
 	delete_no_button.pressed.connect(_defer_cancel_delete_modal)
 	delete_yes_button.pressed.connect(_confirm_delete_modal)
 	delete_modal_layer.visible = false
@@ -272,6 +297,7 @@ func refresh_locale() -> void:
 	if delete_modal_open:
 		_cancel_delete_modal(false)
 	title_label.text = Loc.text("SAVE_MENU_TITLE")
+	build_status_label.text = Loc.text("STAGE1C_BUILD_STATUS")
 	subtitle_label.text = Loc.text(
 		"SAVE_MENU_LOAD_SUBTITLE" if list_mode
 		else ("SAVE_MENU_EMPTY_SUBTITLE" if slots.is_empty() and not in_game_context else "SAVE_MENU_SUBTITLE")
@@ -286,6 +312,12 @@ func refresh_locale() -> void:
 	settings_button.text = Loc.text("SAVE_MENU_SETTINGS")
 	exit_button.text = Loc.text(
 		"BTN_EXIT_CONFIRM" if exit_confirmation_pending else "SAVE_MENU_EXIT"
+	)
+	new_game_button.theme_type_variation = (
+		"DangerButton" if new_game_confirmation_pending else "FunctionalButton"
+	)
+	exit_button.theme_type_variation = (
+		"DangerButton" if exit_confirmation_pending else "FunctionalButton"
 	)
 	previous_button.text = Loc.text("SAVE_MENU_PREVIOUS")
 	next_button.text = Loc.text("SAVE_MENU_NEXT")
@@ -309,50 +341,59 @@ func _rebuild_slot_buttons() -> void:
 	var visible_count := mini(PAGE_SIZE, maxi(slots.size() - start, 0))
 	for local_index in range(visible_count):
 		var metadata := slots[start + local_index]
-		var row_y := 210 + local_index * 58
-		var load_control := Ui.make_button(self, Vector2(380, row_y), "", Vector2(460, 52))
+		var row_y := LIST_ROW_START_Y + local_index * LIST_ROW_STRIDE
+		var load_control := Ui.make_button(self, Vector2(380, row_y), "", LIST_ROW_SIZE)
 		load_control.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var locked := bool(metadata.get("locked", false)) or not bool(metadata.get("compatible", true))
+		var corrupt := locked and bool(metadata.get("corrupt", false))
 		var character_name := String(metadata.get("character_name", "—")).strip_edges()
 		if character_name.is_empty():
-			character_name = Loc.text("SAVE_MENU_INCOMPATIBLE_NAME")
+			character_name = Loc.text(
+				"SAVE_MENU_CORRUPT_NAME" if corrupt else "SAVE_MENU_INCOMPATIBLE_NAME"
+			)
 		var date_text := _local_time_text(int(metadata.get("updated_at", 0)))
-		var metadata_text := Loc.text("SAVE_MENU_INCOMPATIBLE_META", [
-			int(metadata.get("incompatible_version", 0)),
-		]) if locked else Loc.text("SAVE_MENU_ROW_META", [
-			date_text, int(metadata.get("lifetime_souls_earned", 0)),
-		])
-		var full_text := Loc.text("SAVE_MENU_INCOMPATIBLE_TOOLTIP", [
-			character_name, int(metadata.get("incompatible_version", 0)),
-		]) if locked else Loc.text("SAVE_MENU_ROW", [
-			character_name, date_text, int(metadata.get("lifetime_souls_earned", 0)),
-		])
+		var metadata_text := ""
+		var full_text := ""
+		if corrupt:
+			metadata_text = Loc.text("SAVE_MENU_CORRUPT_META")
+			full_text = Loc.text("SAVE_MENU_CORRUPT_TOOLTIP", [character_name, ERR_FILE_CORRUPT])
+		elif locked:
+			metadata_text = Loc.text("SAVE_MENU_INCOMPATIBLE_META", [
+				int(metadata.get("incompatible_version", 0)),
+			])
+			full_text = Loc.text("SAVE_MENU_INCOMPATIBLE_TOOLTIP", [
+				character_name, int(metadata.get("incompatible_version", 0)),
+			])
+		else:
+			metadata_text = Loc.text("SAVE_MENU_ROW_META", [
+				date_text, int(metadata.get("lifetime_souls_earned", 0)),
+			])
+			full_text = Loc.text("SAVE_MENU_ROW", [
+				character_name, date_text, int(metadata.get("lifetime_souls_earned", 0)),
+			])
 		load_control.tooltip_text = full_text
 		load_control.accessibility_name = full_text
 		Ui.enable_keyboard_focus(load_control)
 		load_control.disabled = locked
 		if not locked:
 			load_control.pressed.connect(_on_slot_pressed.bind(String(metadata.get("slot_id", ""))))
-		var name_label := Ui.make_label(load_control, Vector2(12, 4), Vector2(432, 22), 13)
+		var name_label := Ui.make_label(load_control, Vector2(12, 3), Vector2(432, 20), 14)
 		name_label.text = character_name
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var metadata_label := Ui.make_label(load_control, Vector2(12, 27), Vector2(432, 18), 11)
+		var metadata_label := Ui.make_label(load_control, Vector2(12, 24), Vector2(432, 18), 12)
 		metadata_label.text = metadata_text
-		metadata_label.add_theme_color_override("font_color", Color("aeb7c5"))
+		metadata_label.theme_type_variation = "SecondaryLabel"
 		metadata_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot_buttons.append(load_control)
 		var trash := TrashButton.new()
 		trash.position = Vector2(848, row_y)
 		trash.size = Vector2(52, 52)
 		trash.focus_mode = Control.FOCUS_ALL
+		trash.theme_type_variation = "DangerButton"
 		trash.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		trash.tooltip_text = Loc.text("SAVE_MENU_DELETE_TOOLTIP", [character_name])
 		trash.accessibility_name = trash.tooltip_text
-		trash.add_theme_stylebox_override("normal", Ui.make_button_style(Color("171c25"), Color("3b4555")))
-		trash.add_theme_stylebox_override("hover", Ui.make_button_style(Color("2b2428"), Color("8a5a5a"), 2))
-		trash.add_theme_stylebox_override("pressed", Ui.make_button_style(Color("3c2427"), Color("d96b65"), 2))
-		trash.add_theme_stylebox_override("focus", Ui.make_button_style(Color("202a35"), Color("72d7cf"), 2))
 		add_child(trash)
 		trash.pressed.connect(_open_delete_modal.bind(start + local_index))
 		trash_buttons.append(trash)
@@ -368,6 +409,7 @@ func _refresh_state() -> void:
 	)
 	error_label.text = error_text
 	error_label.visible = not error_text.is_empty()
+	error_banner.visible = error_label.visible
 	continue_button.visible = not list_mode
 	new_game_button.visible = not list_mode
 	load_button.visible = not list_mode
@@ -413,6 +455,12 @@ func _configure_focus() -> void:
 		trash.focus_neighbor_top = above_trash.get_path()
 		load_control.focus_neighbor_bottom = below_load.get_path()
 		trash.focus_neighbor_bottom = below_trash.get_path()
+	if not slot_buttons.is_empty():
+		# Back closes the vertical loop: Up returns to the last load row (or the
+		# active paging control), while Down wraps to the first row. The matching
+		# Trash remains one horizontal move from that last load row.
+		back_button.focus_neighbor_top = _control_above_back().get_path()
+		back_button.focus_neighbor_bottom = slot_buttons[0].get_path()
 
 
 func _on_continue() -> void:
@@ -709,6 +757,12 @@ func _event_pressed(event: InputEvent, action: String) -> bool:
 	return (
 		event.is_action_pressed(action)
 		or (
+			action == "ui_cancel"
+			and event is InputEventJoypadButton
+			and event.pressed
+			and event.button_index == JOY_BUTTON_B
+		)
+		or (
 			event is InputEventAction
 			and event.action == action
 			and event.pressed
@@ -749,6 +803,19 @@ func _bottom_control(trash_column: bool) -> Control:
 	return back_button
 
 
+func _control_above_back() -> Control:
+	# Preserve the paging-visible policy used by the bottom row. With exactly one
+	# page there is no paging control, so Back must lead to the last load row
+	# instead of resolving to itself and trapping keyboard/D-pad focus.
+	if previous_button.visible and not previous_button.disabled:
+		return previous_button
+	if next_button.visible and not next_button.disabled:
+		return next_button
+	if not slot_buttons.is_empty():
+		return slot_buttons[-1]
+	return back_button
+
+
 func _move_list_focus(direction: int) -> bool:
 	var focused := get_viewport().gui_get_focus_owner()
 	var load_index := slot_buttons.find(focused)
@@ -772,7 +839,7 @@ func _move_list_focus(direction: int) -> bool:
 			back_button.grab_focus()
 		return true
 	if focused == back_button and direction < 0:
-		_bottom_control(false).grab_focus()
+		_control_above_back().grab_focus()
 		return true
 	return false
 

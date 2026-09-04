@@ -170,6 +170,19 @@
       "requires": []
     },
     {
+      "cost": {
+        "cloth": 3,
+        "stone": 4,
+        "wood": 20
+      },
+      "id": "storage_chest",
+      "name": {
+        "en": "Storage Chest",
+        "ru": "Сундук хранения"
+      },
+      "requires": []
+    },
+    {
       "cost": {},
       "id": "textile_area",
       "name": {
@@ -214,7 +227,7 @@
   ],
   "counts": {
     "abilities": 6,
-    "camp_upgrades": 12,
+    "camp_upgrades": 13,
     "enemies": 9,
     "equipment": 24,
     "forms": 5,

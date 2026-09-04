@@ -1,0 +1,120 @@
+{
+  "envelope_version": 1,
+  "kind": "state_only",
+  "metadata": {
+    "character_name": "Frozen v17",
+    "lifetime_souls_earned": 0,
+    "save_policy": "overwrite",
+    "slot_id": "frozen-v17-state",
+    "updated_at": 1700000017
+  },
+  "state": {
+    "ability_cooldowns": {},
+    "ability_loadout": {
+      "active_1": "",
+      "active_2": "",
+      "active_3": "",
+      "attack": "basic_attack"
+    },
+    "absorbed_souls": 0,
+    "active_statuses": {},
+    "attributes": {
+      "agility": 1,
+      "perception": 1,
+      "strength": 1,
+      "vitality": 1,
+      "wisdom": 1
+    },
+    "banked_souls": 0,
+    "base_level": 0,
+    "camp_preparation": {
+      "backpack_removed": false,
+      "backpack_rested": false,
+      "backpack_satiated": false,
+      "kettle_selected": false,
+      "pending": false,
+      "rested": false,
+      "satiated": false
+    },
+    "camp_upgrades": {
+      "bunk": false,
+      "campfire": false,
+      "crusher": false,
+      "kettle": false,
+      "mural": false,
+      "record_player": false,
+      "ritual_table": false,
+      "rocking_chair": false,
+      "textile_area": false,
+      "whetstone": false,
+      "workbench": false,
+      "writing_set": false
+    },
+    "carried_souls": 0,
+    "character_name": "Frozen v17",
+    "character_sex": "female",
+    "checkpoint_floor": 100,
+    "cradle_miss_streak": 0,
+    "current_form_id": "skeleton",
+    "display_form_id": "",
+    "equipped_marks": {},
+    "food": 0,
+    "highest_unlocked_form_index": 0,
+    "hp": 8,
+    "hunger": 100,
+    "hunger_turn_progress": 0,
+    "inventory": {
+      "bone_knife@2": 3,
+      "old_claymore@3:bound": 1
+    },
+    "inventory_marks": {
+      "bone_knife@2": "salvage",
+      "old_claymore@3:bound": "keep"
+    },
+    "lifetime_souls_earned": 0,
+    "loadout": {
+      "jacket": "unexpectedly_comfortable_jacket@0"
+    },
+    "mana": 0,
+    "mana_regeneration_progress": 0.375,
+    "milestones": {
+      "minotaur_defeated": false,
+      "minotaur_tail_awarded": false
+    },
+    "regeneration_progress": 0,
+    "resources": {
+      "cloth": 7,
+      "stone": 11,
+      "wood": 23
+    },
+    "rope_floor": 100,
+    "skill_levels": {
+      "almost_double_strike": 0,
+      "choose_appearance": 0,
+      "circular_attack": 0,
+      "dash": 0,
+      "double_attack": 0,
+      "ears": 0,
+      "flesh_regeneration": 0,
+      "flexible_joints": 0,
+      "fundamentals": 0,
+      "magic_awakening": 0,
+      "magic_missile": 0,
+      "magic_missile_range": 0,
+      "magic_ricochet": 0,
+      "muscle_fibers": 0,
+      "nervous_system": 0,
+      "sharp_vision": 0,
+      "stomach": 0,
+      "strong_bones": 0,
+      "strong_spine": 0
+    },
+    "soul_level": 0,
+    "total_turns": 17,
+    "trophies": {
+      "minotaur_tail": 0
+    },
+    "unspent_attribute_points": 0
+  },
+  "version": 17
+}

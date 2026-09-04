@@ -1,6 +1,7 @@
 {
-  "schema_version": 2,
-  "approved_v2_lineage_only": true,
+  "schema_version": 3,
+  "approved_v2_lineage_only": false,
+  "base_and_historical_layers_use_approved_v2_lineage_only": true,
   "empty_source": "art/concepts/camp/2026-09-01/camp-empty-v2.png",
   "empty_source_sha256": "6AA0CB03A38B33EE64057C89ADFAA064939E63CC60F95D3C2BFC903658CBDDF3",
   "furnished_source": "art/concepts/camp/2026-09-01/camp-furnished-v2.png",
@@ -56,6 +57,14 @@
     }
   ],
   "exact_prompts": "art/concepts/camp/2026-09-01/PROMPTS.md#runtime-layer-isolation-attempts",
+  "storage_chest_source": {
+    "path": "art/concepts/camp/2026-09-01/storage-chest-master.png",
+    "sha256": "9FC7C1D961E2A9B0D13EA967866C3C6B4E91422E044D1EB7E894770238C3D1A3",
+    "generation": "built-in image_gen",
+    "generated_result_id": "exec-f4220fc7-adab-4c44-9243-6cd76a83e082",
+    "exact_prompt": "Use case: stylized-concept\nAsset type: original game environment prop master for the Almsth underground camp\nPrimary request: create one low, broad, CLOSED storage chest as a standalone transparent-background cutout.\nVisual reference context: match the project's own underground camp assets already inspected: realistic painterly dark-fantasy materials, elevated three-quarter camp camera, compact readable silhouette, subdued detail and grounded lighting. Do not copy or include any existing prop.\nScene/backdrop: none; genuine transparent background across the entire canvas outside the prop.\nSubject: a sturdy low broad storage chest, weathered dark wood, restrained aged-iron bands and corner guards, one small dull iron latch, clearly readable closed lid seam.\nComposition/framing: single chest centered, elevated 3/4 view consistent with looking slightly down into the camp; broad horizontal silhouette; tight but complete cutout with modest transparent padding; bottom-center grounding reference; no cropping.\nLighting/mood: cool ambient stone-room light with only a subtle warm hearth edge light; quiet utilitarian camp storage, not treasure.\nMaterials/textures: worn dark timber grain, matte oxidized iron, subtle age and scuffs; one tight local contact shadow directly under the chest contained within the cutout.\nConstraints: brand-new original project-owned design suitable for future commercial sale without royalties; actual alpha transparency; closed lid; readable at small game scale; no text; no logo; no watermark.\nAvoid: open lid, visible loot, coins, gems, runes, glow, magic, text, labels, UI symbols, arrows, rugs, sacks, loose containers, broad floor patches, room/background pixels, neighboring props, halo, outline, bloom, dramatic treasure-light, ornate fantasy excess.",
+    "commercial_origin": "fresh original project-owned generation; no external material"
+  },
   "normalization": "crop x=1..1636 (one left/two right pixels removed), duplicate source row 958 as row 959, exact 0.5 resize",
   "subtraction_used": false,
   "base": {
@@ -79,7 +88,8 @@
     "campfire",
     "kettle",
     "rocking_chair",
-    "record_player"
+    "record_player",
+    "storage_chest"
   ],
   "layers": {
     "mural": {
@@ -186,7 +196,7 @@
     },
     "workbench": {
       "path": "assets/art/camp-2026-09-01/camp-workbench.png",
-      "sha256": "856BAAEC3BDE125FD442C592AB61C6584B714FB8A2DBA9A98CA54AFA0278522D",
+      "sha256": "C48A78418B85B14DDC8CB4A59F0AF520DB48A6D191CD72848DE046AA10345303",
       "size": [
         174,
         144
@@ -198,7 +208,7 @@
         144
       ],
       "hitbox_local": null,
-      "alpha_coverage": 0.650064,
+      "alpha_coverage": 0.631825,
       "mask_components": [
         {
           "source_xyxy": [
@@ -216,7 +226,47 @@
         }
       ],
       "component_gate": null,
-      "owns": "only this module's props, contact shadow and local light"
+      "owns": "only this module's props, contact shadow and local light",
+      "stage1e_recipe": {
+        "source_sha256": "856baaec3bde125fd442c592ab61c6584b714fb8a2dba9a98ca54afa0278522d",
+        "exterior_alpha_threshold": 2,
+        "near_neutral": {
+          "minimum_rgb": 150,
+          "maximum_channel_spread": 24
+        },
+        "cleared_pixel_count": 47,
+        "cleared_alpha_histogram": {
+          "1": 18,
+          "2": 29
+        },
+        "cleared_inclusive_bbox": [
+          3,
+          4,
+          170,
+          138
+        ],
+        "attached_pale_patch": {
+          "window_xyxy": [
+            64,
+            107,
+            136,
+            131
+          ],
+          "alpha_minimum": 128,
+          "minimum_rgb": 100,
+          "maximum_channel_spread": 30,
+          "cleared_pixel_count": 457,
+          "cleared_inclusive_bbox": [
+            64,
+            107,
+            135,
+            130
+          ],
+          "retained_brown_or_wood_pixels": 269,
+          "alpha_zeroed_rgb_preserved": true
+        },
+        "rgb_preserved": true
+      }
     },
     "writing_set": {
       "path": "assets/art/camp-2026-09-01/camp-writing-set.png",
@@ -615,16 +665,16 @@
     },
     "record_player": {
       "path": "assets/art/camp-2026-09-01/camp-record-player.png",
-      "sha256": "A75599C37967D5DD64D886D066C44AFC29E47E8428A2E5B288C2F2F9CD554737",
+      "sha256": "067820E5123E52111E8AF6DC819FD0212C37A01C497604D6263355D6F50F3873",
       "size": [
-        159,
-        242
+        166,
+        250
       ],
       "draw_rect_local": [
-        656,
-        227,
-        159,
-        242
+        652,
+        223,
+        166,
+        250
       ],
       "hitbox_local": null,
       "alpha_coverage": 0.640288,
@@ -645,7 +695,62 @@
         }
       ],
       "component_gate": null,
-      "owns": "only this module's props, contact shadow and local light"
+      "owns": "only this module's props, contact shadow and local light",
+      "stage1e_recipe": {
+        "source_sha256": "a75599c37967d5dd64d886d066c44afc29e47e8428a2e5b288c2f2f9cd554737",
+        "padding": [
+          4,
+          4,
+          3,
+          4
+        ],
+        "old_world_coordinate_preserved": true
+      }
+    },
+    "storage_chest": {
+      "path": "assets/art/camp-2026-09-01/camp-storage-chest.png",
+      "sha256": "E4728C749EEFDDDB02AA123130E7AF6227805F4B5F690D40F30A732C2D3D020F",
+      "size": [
+        108,
+        67
+      ],
+      "format": "RGBA8",
+      "draw_rect_local": [
+        224,
+        392,
+        108,
+        67
+      ],
+      "hitbox_local": [
+        230,
+        395,
+        96,
+        60
+      ],
+      "bottom_center_reference": [
+        54,
+        63
+      ],
+      "bottom_clearance": 4,
+      "alpha_bounds": [
+        8,
+        4,
+        100,
+        63
+      ],
+      "alpha_coverage": 0.514234,
+      "source": "art/concepts/camp/2026-09-01/storage-chest-master.png",
+      "source_sha256": "9FC7C1D961E2A9B0D13EA967866C3C6B4E91422E044D1EB7E894770238C3D1A3",
+      "source_size": [
+        1536,
+        1024
+      ],
+      "generation": "built-in image_gen",
+      "generated_result_id": "exec-f4220fc7-adab-4c44-9243-6cd76a83e082",
+      "normalization": "actual-alpha tight crop, premultiplied-alpha Lanczos fit into 108x67, bottom-center (54,63), 4px bottom clearance; no background removal, repaint or alpha cleanup",
+      "mask_components": null,
+      "component_gate": null,
+      "owns": "only the Storage Chest prop and its tight local contact shadow"
     }
   },
   "interactive_hitboxes": {
@@ -672,6 +777,12 @@
       268,
       72,
       66
+    ],
+    "storage_chest": [
+      230,
+      395,
+      96,
+      60
     ]
   }
 }

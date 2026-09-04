@@ -8,7 +8,10 @@ const Rules := preload("res://scripts/game/game_rules.gd")
 const PresentationSettings := preload("res://scripts/system/presentation_settings.gd")
 const CharacterSheetLayout := preload("res://scripts/ui/character_sheet_layout.gd")
 const CharacterArtwork := preload("res://scripts/ui/character_artwork.gd")
+const SheetSurface := preload("res://scripts/ui/character_sheet_surface.gd")
 const BaseLayout := preload("res://scripts/ui/base_layout.gd")
+const UiPaletteClass := preload("res://scripts/ui/ui_palette.gd")
+const UiThemeControllerClass := preload("res://scripts/ui/ui_theme_controller.gd")
 
 const CAMP_ART: Texture2D = preload("res://assets/art/camp-2026-09-01/camp-base.png")
 const DEATH_CAMP_BACKGROUND_ART: Texture2D = preload("res://assets/art/death-camp-background.png")
@@ -25,6 +28,7 @@ const CAMP_LAYER_ART := {
 	"kettle": preload("res://assets/art/camp-2026-09-01/camp-kettle.png"),
 	"rocking_chair": preload("res://assets/art/camp-2026-09-01/camp-rocking-chair.png"),
 	"record_player": preload("res://assets/art/camp-2026-09-01/camp-record-player.png"),
+	"storage_chest": preload("res://assets/art/camp-2026-09-01/camp-storage-chest.png"),
 }
 const DEATH_BONES_OVERLAY: Texture2D = preload("res://assets/art/death-bones-overlay.png")
 const INTRO_ART: Array[Texture2D] = [
@@ -84,12 +88,12 @@ static var stage1_textures: Dictionary = {}
 const BOARD_ORIGIN := Vector2(28, 82)
 const DUNGEON_VIEW_RECT := Rect2(8, 8, 1056, 660)
 const DUNGEON_SIDEBAR_RECT := Rect2(1072, 8, 200, 704)
-const DUNGEON_HP_RECT := Rect2(1080, 116, 184, 26)
-const DUNGEON_STATUS_RECT := Rect2(1080, 146, 184, 30)
-const DUNGEON_MANA_RECT := Rect2(1080, 180, 184, 26)
-const DUNGEON_INSPECTION_RECT := Rect2(1080, 238, 184, 262)
-const DUNGEON_HISTORY_RECT := Rect2(1080, 506, 184, 196)
-const DUNGEON_ENEMY_HP_RECT := Rect2(1090, 486, 164, 8)
+const DUNGEON_HP_RECT := Rect2(1080, 136, 184, 26)
+const DUNGEON_STATUS_RECT := Rect2(1080, 166, 184, 30)
+const DUNGEON_MANA_RECT := Rect2(1080, 200, 184, 26)
+const DUNGEON_INSPECTION_RECT := Rect2(1080, 260, 184, 152)
+const DUNGEON_HISTORY_RECT := Rect2(1080, 420, 184, 282)
+const DUNGEON_ENEMY_HP_RECT := Rect2(1090, 400, 164, 8)
 const SELECTION_BORDER_WIDTH := 2.0
 const PLAYER_FOOT_GLOW_FOOTPRINT := Vector2(0.46, 0.16)
 const PLAYER_FOOT_GLOW_ALPHA := 0.16
@@ -149,32 +153,39 @@ static func draw_frame(
 	show_base_layout: bool,
 	show_inspection: bool,
 	inspection_target: Dictionary = {},
+	ui_context := UiPaletteClass.WARM_ARCHIVE,
 ) -> void:
-	canvas.draw_rect(Rect2(Vector2.ZERO, viewport_size), COLOR_BACKGROUND)
+	var ui_background := UiPaletteClass.color(ui_context, "background")
+	var ui_panel := UiPaletteClass.color(ui_context, "panel")
+	var ui_inset := UiPaletteClass.color(ui_context, "inset")
+	var ui_border := UiPaletteClass.color(ui_context, "neutral_border")
+	var ui_soul := UiPaletteClass.color(ui_context, "soul")
+	canvas.draw_rect(Rect2(Vector2.ZERO, viewport_size), ui_background)
 	if not show_sidebar:
 		return
 	if show_inspection:
 		canvas.draw_rect(DUNGEON_VIEW_RECT, Color("0b0e13"))
 		canvas.draw_rect(Rect2(DUNGEON_SIDEBAR_RECT.position + Vector2(3, 4), DUNGEON_SIDEBAR_RECT.size), COLOR_PANEL_SHADOW)
-		canvas.draw_rect(DUNGEON_SIDEBAR_RECT, COLOR_PANEL)
-		canvas.draw_rect(DUNGEON_SIDEBAR_RECT, COLOR_PANEL_BORDER, false, 2.0)
+		canvas.draw_rect(DUNGEON_SIDEBAR_RECT, ui_panel)
+		canvas.draw_rect(DUNGEON_SIDEBAR_RECT, ui_border, false, 2.0)
 		canvas.draw_line(
 			DUNGEON_SIDEBAR_RECT.position + Vector2(2, 2),
 			Vector2(DUNGEON_SIDEBAR_RECT.end.x - 2, DUNGEON_SIDEBAR_RECT.position.y + 2),
-			Color(COLOR_SOUL, 0.38),
+			Color(ui_soul, 0.38),
 			2.0,
 		)
 		draw_resource_bar(
 			canvas, DUNGEON_HP_RECT, state.hp, state.get_max_hp(),
 			Loc.text("PARAM_HP"), Color("a84450"),
 			("+%d" % state.get_temporary_hp()) if state.get_temporary_hp() > 0 else "",
+			ui_context,
 		)
 		draw_resource_bar(
 			canvas, DUNGEON_MANA_RECT, state.mana, state.get_max_mana(),
-			Loc.text("PARAM_MANA"), Color("496ead"),
+			Loc.text("PARAM_MANA"), Color("496ead"), "", ui_context,
 		)
-		canvas.draw_rect(DUNGEON_INSPECTION_RECT, Color("171d27"))
-		canvas.draw_rect(DUNGEON_INSPECTION_RECT, COLOR_GOLD, false, 2.0)
+		canvas.draw_rect(DUNGEON_INSPECTION_RECT, ui_inset)
+		canvas.draw_rect(DUNGEON_INSPECTION_RECT, UiPaletteClass.color(ui_context, "focus"), false, 2.0)
 		if String(inspection_target.get("kind", "")) == "enemy":
 			var enemy: Dictionary = inspection_target.get("entity", {})
 			var maximum_hp := maxi(1, int(enemy.get("max_hp", 1)))
@@ -184,9 +195,9 @@ static func draw_frame(
 				DUNGEON_ENEMY_HP_RECT.position,
 				Vector2(DUNGEON_ENEMY_HP_RECT.size.x * float(current_hp) / maximum_hp, DUNGEON_ENEMY_HP_RECT.size.y),
 			), Color("a84450"))
-			canvas.draw_rect(DUNGEON_ENEMY_HP_RECT, COLOR_PANEL_BORDER, false, 1.0)
-		canvas.draw_rect(DUNGEON_HISTORY_RECT, Color("141a23"))
-		canvas.draw_rect(DUNGEON_HISTORY_RECT, COLOR_PANEL_BORDER, false, 2.0)
+			canvas.draw_rect(DUNGEON_ENEMY_HP_RECT, ui_border, false, 1.0)
+		canvas.draw_rect(DUNGEON_HISTORY_RECT, ui_inset)
+		canvas.draw_rect(DUNGEON_HISTORY_RECT, ui_border, false, 2.0)
 		return
 	var sidebar_rect := BaseLayout.SIDEBAR_RECT if show_base_layout else Rect2(828, 62, 428, 640)
 	var shadow_rect := (
@@ -196,12 +207,12 @@ static func draw_frame(
 	var hp_rect := BaseLayout.HP_RECT if show_base_layout else Rect2(846, 140, 400, 28)
 	var mana_rect := BaseLayout.MANA_RECT if show_base_layout else Rect2(846, 180, 400, 28)
 	canvas.draw_rect(shadow_rect, COLOR_PANEL_SHADOW)
-	canvas.draw_rect(sidebar_rect, COLOR_PANEL)
-	canvas.draw_rect(sidebar_rect, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(sidebar_rect, ui_panel)
+	canvas.draw_rect(sidebar_rect, ui_border, false, 2.0)
 	canvas.draw_line(
 		sidebar_rect.position + Vector2(2, 2),
 		Vector2(sidebar_rect.end.x - 2, sidebar_rect.position.y + 2),
-		Color(COLOR_SOUL, 0.38), 2.0,
+		Color(ui_soul, 0.38), 2.0,
 	)
 	draw_resource_bar(
 		canvas,
@@ -210,6 +221,8 @@ static func draw_frame(
 		state.get_max_hp(),
 		Loc.text("PARAM_HP"),
 		Color("a84450"),
+		"",
+		ui_context,
 	)
 	draw_resource_bar(
 		canvas,
@@ -218,6 +231,8 @@ static func draw_frame(
 		state.get_max_mana(),
 		Loc.text("PARAM_MANA"),
 		Color("496ead"),
+		"",
+		ui_context,
 	)
 	if show_inspection:
 		var inspection_frame := Rect2(Vector2(846, 494), Vector2(400, 188))
@@ -233,11 +248,12 @@ static func draw_resource_bar(
 	label: String,
 	fill_color: Color,
 	value_suffix := "",
+	ui_context := UiPaletteClass.WARM_ARCHIVE,
 ) -> void:
-	canvas.draw_rect(rect, Color("10151d"))
+	canvas.draw_rect(rect, UiPaletteClass.color(ui_context, "inset"))
 	var ratio := clampf(float(current_value) / float(maxi(1, maximum_value)), 0.0, 1.0)
 	canvas.draw_rect(Rect2(rect.position, Vector2(rect.size.x * ratio, rect.size.y)), fill_color)
-	canvas.draw_rect(rect, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(rect, UiPaletteClass.color(ui_context, "neutral_border"), false, 2.0)
 	_draw_centered_text(
 		canvas,
 		rect,
@@ -245,7 +261,7 @@ static func draw_resource_bar(
 			label, current_value, maximum_value,
 			("  %s" % value_suffix) if not value_suffix.is_empty() else "",
 		],
-		COLOR_TEXT,
+		UiPaletteClass.color(ui_context, "primary"),
 		15,
 	)
 
@@ -253,8 +269,8 @@ static func draw_resource_bar(
 static func draw_name_creation(canvas: CanvasItem) -> void:
 	var card := Rect2(Vector2(300, 140), Vector2(680, 482))
 	canvas.draw_rect(Rect2(card.position + Vector2(0, 6), card.size), COLOR_PANEL_SHADOW)
-	canvas.draw_rect(card, COLOR_PANEL)
-	canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "panel"))
+	canvas.draw_rect(card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 
 
 static func draw_stat_creation(canvas: CanvasItem) -> void:
@@ -262,12 +278,12 @@ static func draw_stat_creation(canvas: CanvasItem) -> void:
 		var x := 38.0 + index * 247.0
 		var card := Rect2(Vector2(x, 180), Vector2(216, 158))
 		canvas.draw_rect(Rect2(card.position + Vector2(0, 4), card.size), COLOR_PANEL_SHADOW)
-		canvas.draw_rect(card, COLOR_PANEL)
-		canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
+		canvas.draw_rect(card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "panel"))
+		canvas.draw_rect(card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 	var preview_card := Rect2(Vector2(170, 370), Vector2(940, 210))
 	canvas.draw_rect(Rect2(preview_card.position + Vector2(0, 5), preview_card.size), COLOR_PANEL_SHADOW)
-	canvas.draw_rect(preview_card, COLOR_PANEL)
-	canvas.draw_rect(preview_card, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(preview_card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "panel"))
+	canvas.draw_rect(preview_card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 
 
 static func draw_story(
@@ -295,39 +311,34 @@ static func draw_character_sheet(
 	selected_stage: String,
 ) -> void:
 	if panel_mode == "inventory":
+		SheetSurface.draw_panel(canvas, Rect2(8, 8, 1264, 704), false)
 		for card in [
 			CharacterSheetLayout.STATS_CARD_RECT,
 			CharacterSheetLayout.FIGURE_CARD_RECT,
 			CharacterSheetLayout.INVENTORY_CARD_RECT,
 		]:
 			canvas.draw_rect(Rect2(card.position + Vector2(0, 4), card.size), COLOR_PANEL_SHADOW)
-			canvas.draw_rect(card, COLOR_PANEL)
-			canvas.draw_rect(card, COLOR_PANEL_BORDER, false, 2.0)
+			SheetSurface.draw_panel(canvas, card)
 		var figure_rect: Rect2 = CharacterSheetLayout.FIGURE_RECT
-		canvas.draw_rect(figure_rect, Color("121720"))
-		var fullbody: Texture2D = CharacterArtwork.body(state)
-		if fullbody == null:
-			fullbody = FORM_FULLBODY.get(player_visual_form_id(state))
-		if fullbody != null:
+		SheetSurface.draw_niche(canvas, figure_rect)
+		var placement := CharacterArtwork.sheet_placement(state)
+		if not placement.is_empty():
 			canvas.draw_texture_rect_region(
-				fullbody,
-				figure_rect,
-				CharacterSheetLayout.FIGURE_SOURCE_RECT,
+				placement.texture,
+				placement.destination,
+				placement.source,
 				Color.WHITE,
 				false,
 				true,
 			)
-		canvas.draw_line(
-			Vector2(figure_rect.position.x + 24.0, CharacterSheetLayout.FIGURE_BASELINE_Y),
-			Vector2(figure_rect.end.x - 24.0, CharacterSheetLayout.FIGURE_BASELINE_Y),
-			Color(COLOR_PANEL_BORDER, 0.42), 1.0,
-		)
+		for y in [144.0, 360.0]:
+			canvas.draw_line(Vector2(28, y), Vector2(244, y), Color(SheetSurface.BRONZE, 0.65), 1.0)
 		return
 
 	var skills_card := CHARACTER_SKILLS_CARD
 	canvas.draw_rect(Rect2(skills_card.position + Vector2(0, 5), skills_card.size), COLOR_PANEL_SHADOW)
-	canvas.draw_rect(skills_card, COLOR_PANEL)
-	canvas.draw_rect(skills_card, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(skills_card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "panel"))
+	canvas.draw_rect(skills_card, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 	if selected_stage != "skeleton":
 		return
 	var node_edges := [
@@ -339,9 +350,9 @@ static func draw_character_sheet(
 		{"from": Vector2(815, 455), "to": Vector2(840, 455), "skill": "magic_missile_range"},
 	]
 	for edge in node_edges:
-		var edge_color := COLOR_PANEL_BORDER
+		var edge_color := UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border")
 		if state.get_skill_level(String(edge["skill"])) > 0:
-			edge_color = COLOR_SOUL
+			edge_color = UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "soul")
 		canvas.draw_line(edge["from"], edge["to"], edge_color, 4.0)
 
 
@@ -363,6 +374,7 @@ static func draw_dungeon(
 	lethal_hit_afterimages: Array[Dictionary] = [],
 	hearing_contact_cells: Array[Vector2i] = [],
 	player_visual: Dictionary = {},
+	melee_lunges: Dictionary = {},
 ) -> void:
 	var tiles: Dictionary = floor_data["tiles"]
 	var boss_door: Vector2i = floor_data.get("boss_door", Vector2i(-1, -1))
@@ -479,9 +491,10 @@ static func draw_dungeon(
 		if not _is_cell_visible(floor_data, enemy["pos"]):
 			continue
 		var enemy_rules: Dictionary = Rules.ENEMIES[enemy["id"]]
-		var rect := cell_rect(enemy["pos"]).grow(-runtime_cell_size * 0.12)
+		var enemy_lunge := _melee_lunge_offset(melee_lunges.get(String(enemy.get("uid", "")), {}))
+		var rect := lunge_cell_rect(enemy["pos"], enemy_lunge).grow(-runtime_cell_size * 0.12)
 		var footprint: Vector2 = enemy_rules.get("draw_footprint", Vector2.ONE)
-		var shadow_center := cell_rect(enemy["pos"]).get_center() + Vector2(0, runtime_cell_size * 0.30)
+		var shadow_center := cell_rect(enemy["pos"]).get_center() + lunge_pixel_offset(enemy_lunge, runtime_cell_size) + Vector2(0, runtime_cell_size * 0.30)
 		_draw_ellipse(
 			canvas, shadow_center,
 			Vector2(runtime_cell_size * 0.28, runtime_cell_size * 0.09),
@@ -492,7 +505,7 @@ static func draw_dungeon(
 		if enemy_texture != null:
 			_draw_entity_sprite(
 				canvas, enemy_texture, enemy["pos"], footprint,
-				_hit_flash_modulate(flash_remaining),
+				_hit_flash_modulate(flash_remaining), enemy_lunge,
 			)
 		else:
 			_draw_centered_text(canvas, rect, Loc.text(String(enemy_rules["glyph"])), Color.WHITE, 28)
@@ -525,9 +538,8 @@ static func draw_dungeon(
 
 	# Main supplies the active sex×form gait frame here; the static form texture is
 	# only a defensive fallback when that runtime set cannot be loaded.
-	var player_offset: Vector2 = player_visual.get("offset_cells", Vector2.ZERO)
-	var player_cell_rect := cell_rect(player_pos)
-	player_cell_rect.position += player_offset * runtime_cell_size
+	var player_offset: Vector2 = player_visual.get("offset_cells", Vector2.ZERO) + _melee_lunge_offset(melee_lunges.get("player", {}))
+	var player_cell_rect := lunge_cell_rect(player_pos, player_offset)
 	_draw_ellipse(
 		canvas,
 		player_cell_rect.position + Vector2(runtime_cell_size * 0.5, runtime_cell_size * 0.90),
@@ -546,6 +558,31 @@ static func draw_dungeon(
 static func player_visual_texture(state: RunState, visual: Dictionary = {}) -> Texture2D:
 	var texture: Texture2D = visual.get("texture")
 	return texture if texture != null else PLAYER_SPRITES.get(player_visual_form_id(state))
+
+
+static func _melee_lunge_offset(lunge: Dictionary) -> Vector2:
+	if lunge.is_empty():
+		return Vector2.ZERO
+	var elapsed := clampf(float(lunge.get("elapsed", 0.0)), 0.0, 0.150)
+	var amount := 0.0
+	if elapsed <= 0.063:
+		var phase := elapsed / 0.063
+		amount = 0.15 * (1.0 - pow(1.0 - phase, 3.0))
+	else:
+		var phase := (elapsed - 0.063) / 0.087
+		amount = 0.15 * (1.0 - phase * phase)
+	return Vector2(lunge.get("direction", Vector2.ZERO)) * amount
+
+
+static func lunge_pixel_offset(offset_cells: Vector2, cell_size: float) -> Vector2:
+	return offset_cells * cell_size
+
+
+static func lunge_cell_rect(cell: Vector2i, offset_cells := Vector2.ZERO, cell_size := -1) -> Rect2:
+	var rect := cell_rect(cell, cell_size)
+	var resolved_size := float(runtime_cell_size if cell_size <= 0 else cell_size)
+	rect.position += lunge_pixel_offset(offset_cells, resolved_size)
+	return rect
 
 
 static func player_visual_form_id(state: RunState) -> String:
@@ -637,13 +674,13 @@ static func draw_base(canvas: CanvasItem, state: RunState = null) -> void:
 					BaseLayout.camp_layer_rect(module_id),
 					false,
 				)
-	canvas.draw_rect(area, COLOR_PANEL_BORDER, false, 2.0)
+	canvas.draw_rect(area, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "neutral_border"), false, 2.0)
 
 
 static func draw_victory(canvas: CanvasItem) -> void:
 	var area := Rect2(BOARD_ORIGIN, Vector2(780, 458))
-	canvas.draw_rect(area, Color("2b2924"))
-	canvas.draw_rect(area, COLOR_GOLD, false, 3.0)
+	canvas.draw_rect(area, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "panel"))
+	canvas.draw_rect(area, UiPaletteClass.color(UiPaletteClass.WARM_ARCHIVE, "focus"), false, 3.0)
 	for index in range(18):
 		var x := area.position.x + 20 + index * 43
 		canvas.draw_line(
@@ -744,22 +781,20 @@ static func _draw_entity_sprite(
 		clampf(visual_footprint.x, 0.1, 1.5),
 		clampf(visual_footprint.y, 0.1, 2.0),
 	)
-	var available_size := Vector2(runtime_cell_size, runtime_cell_size) * footprint - Vector2(4, 4)
-	var scale_ratio := minf(
-		available_size.x / source_size.x,
-		available_size.y / source_size.y,
-	)
-	var draw_size := source_size * scale_ratio
-	var logical_rect := cell_rect(cell)
-	var draw_position := Vector2(
-		logical_rect.get_center().x - draw_size.x * 0.5,
-		logical_rect.end.y - draw_size.y - 2.0,
-	)
-	var draw_rect := Rect2(draw_position, draw_size)
-	draw_rect.position += offset_cells * runtime_cell_size
+	var draw_rect := entity_draw_rect(cell, source_size, footprint, offset_cells)
 	if flip_h:
 		draw_rect.size.x = -draw_rect.size.x
 	canvas.draw_texture_rect(texture, draw_rect, false, modulate)
+
+
+static func entity_draw_rect(cell: Vector2i, source_size: Vector2, visual_footprint := Vector2.ONE, offset_cells := Vector2.ZERO) -> Rect2:
+	var footprint := Vector2(clampf(visual_footprint.x, 0.1, 1.5), clampf(visual_footprint.y, 0.1, 2.0))
+	var available_size := Vector2(runtime_cell_size, runtime_cell_size) * footprint - Vector2(4, 4)
+	var draw_size := source_size * minf(available_size.x / source_size.x, available_size.y / source_size.y)
+	var logical_rect := cell_rect(cell)
+	var draw_rect := Rect2(Vector2(logical_rect.get_center().x - draw_size.x * 0.5, logical_rect.end.y - draw_size.y - 2.0), draw_size)
+	draw_rect.position += lunge_pixel_offset(offset_cells, runtime_cell_size)
+	return draw_rect
 
 
 static func _draw_boss_door(canvas: CanvasItem, rect: Rect2, open: bool) -> void:
@@ -945,7 +980,7 @@ static func _draw_hearing_contact(canvas: CanvasItem, cell: Vector2i) -> void:
 		center, HEARING_MARKER_RADIUS, 0.0, TAU, 32,
 		Color(0.604, 0.639, 0.698, 0.82), HEARING_MARKER_OUTLINE_WIDTH, true,
 	)
-	var font := ThemeDB.fallback_font
+	var font := UiThemeControllerClass.functional_font()
 	var glyph := "?"
 	var glyph_size := font.get_string_size(
 		glyph, HORIZONTAL_ALIGNMENT_LEFT, -1.0, HEARING_MARKER_FONT_SIZE,

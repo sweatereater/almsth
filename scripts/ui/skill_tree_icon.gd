@@ -6,21 +6,14 @@ extends Button
 ## purchases the represented entry.
 
 const GameRules := preload("res://scripts/game/game_rules.gd")
-
-const COLOR_TEXT := Color("e6e2d8")
-const COLOR_MUTED := Color("8d98aa")
-const COLOR_SOUL := Color("72d7cf")
-const COLOR_AVAILABLE := Color("9eb0c6")
-const COLOR_LEARNED := Color("5fc5b5")
-const COLOR_MAX := Color("e1bf71")
-const COLOR_LOCKED := Color("596274")
-const COLOR_PLACEHOLDER := Color("758093")
-const COLOR_SELECTION := Color("f2e6b6")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 const COST_BADGE_RADIUS := 8.0
 const COST_BADGE_OFFSET := Vector2(-46.0, -20.0)
 const COMPACT_COST_BADGE_OFFSET := Vector2(-20.0, -20.0)
 
 static var _texture_cache: Dictionary = {}
+static var _empty_style := StyleBoxEmpty.new()
 
 var node_id := ""
 var display_name := ""
@@ -28,17 +21,19 @@ var node_kind := "passive"
 var visual_state := "available"
 var selected := false
 var purchasable := false
+var show_cost := false
 var compact := false
 var skill_texture: Texture2D = null
 
 
 func _ready() -> void:
 	flat = true
+	theme = ThemeController.theme_for(Palette.WARM_ARCHIVE)
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	focus_mode = Control.FOCUS_ALL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state_name in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
-		add_theme_stylebox_override(state_name, StyleBoxEmpty.new())
+		add_theme_stylebox_override(state_name, _empty_style)
 	mouse_entered.connect(queue_redraw)
 	mouse_exited.connect(queue_redraw)
 	focus_entered.connect(queue_redraw)
@@ -55,6 +50,7 @@ func set_presentation(
 	selected_value: bool,
 	purchasable_value := false,
 	compact_value := false,
+	show_cost_value := false,
 ) -> void:
 	node_id = id_value
 	display_name = name_value
@@ -62,6 +58,7 @@ func set_presentation(
 	visual_state = state_value
 	selected = selected_value
 	purchasable = purchasable_value
+	show_cost = show_cost_value
 	compact = compact_value
 	skill_texture = load_skill_texture(node_id)
 	tooltip_text = display_name
@@ -89,19 +86,17 @@ func uses_raster_texture() -> bool:
 
 func _draw() -> void:
 	var center := Vector2(size.x * 0.5, 20.0 if not compact else size.y * 0.5)
+	center += depressed_offset(button_pressed, disabled or visual_state == "disabled")
 	var outline := _state_color()
-	var fill := Color("111720")
+	var fill := Palette.color(Palette.WARM_ARCHIVE, "inset")
 	if visual_state == "learned" or visual_state == "intrinsic_owned":
-		fill = Color("17302f")
+		fill = Palette.color(Palette.WARM_ARCHIVE, "selected_fill")
 	elif visual_state == "max":
-		fill = Color("302b1d")
-	elif visual_state == "locked" or visual_state == "intrinsic_locked":
-		fill = Color("141923")
+		fill = Palette.color(Palette.WARM_ARCHIVE, "raised")
+	elif visual_state in ["locked", "intrinsic_locked", "disabled"]:
+		fill = Palette.color(Palette.WARM_ARCHIVE, "background")
 	elif visual_state == "placeholder":
-		fill = Color("181d27")
-
-	if button_pressed:
-		fill = fill.lightened(0.10)
+		fill = Palette.color(Palette.WARM_ARCHIVE, "panel")
 
 	var diamond := PackedVector2Array()
 	if node_kind == "passive" or node_kind == "intrinsic":
@@ -129,19 +124,30 @@ func _draw() -> void:
 			diamond[0], diamond[1], diamond[2], diamond[3], diamond[0],
 		]), outline, 2.5, true)
 
-	if selected or has_focus() or is_hovered():
-		_draw_selection_outline(center, COLOR_SELECTION if selected else COLOR_SOUL)
+	if selected:
+		_draw_internal_selection_marker(center)
+	if is_hovered() and not has_focus():
+		_draw_selection_outline(center, Palette.color(Palette.WARM_ARCHIVE, "neutral_border"), 31.0, 2.0)
+	if has_focus():
+		_draw_selection_outline(center, Palette.color(Palette.WARM_ARCHIVE, "focus"), 34.0, 3.0)
 	_draw_state_badge(center, outline)
-	if purchasable:
+	if show_cost or purchasable:
 		_draw_cost_badge(center)
 	if not compact:
 		_draw_name()
 
 
+static func depressed_offset(held: bool, disabled_state: bool) -> Vector2:
+	# A two-pixel physical depression is readable without deriving a new color.
+	# Disabled specimens share the geometry so their unavailable purchase state
+	# remains explicit even in monochrome review.
+	return Vector2(0, 2) if held or disabled_state else Vector2.ZERO
+
+
 func _draw_raster(center: Vector2) -> void:
 	var texture_size := 64.0 if compact else 54.0
 	var modulation := Color.WHITE
-	if visual_state == "locked" or visual_state == "intrinsic_locked":
+	if visual_state in ["locked", "intrinsic_locked", "disabled"]:
 		modulation.a = 0.46
 	draw_texture_rect(
 		skill_texture,
@@ -153,56 +159,85 @@ func _draw_raster(center: Vector2) -> void:
 
 func _state_color() -> Color:
 	match visual_state:
-		"learned", "intrinsic_owned": return COLOR_LEARNED
-		"max": return COLOR_MAX
-		"locked", "intrinsic_locked": return COLOR_LOCKED
-		"placeholder": return COLOR_PLACEHOLDER
-	return COLOR_AVAILABLE
+		"learned", "intrinsic_owned": return Palette.color(Palette.WARM_ARCHIVE, "soul")
+		"max": return Palette.color(Palette.WARM_ARCHIVE, "focus")
+		"locked", "intrinsic_locked", "disabled": return Palette.color(Palette.WARM_ARCHIVE, "disabled")
+		"placeholder": return Palette.color(Palette.WARM_ARCHIVE, "secondary")
+	return Palette.color(Palette.WARM_ARCHIVE, "primary")
 
 
-func _draw_selection_outline(center: Vector2, color: Color) -> void:
+func _draw_internal_selection_marker(center: Vector2) -> void:
+	var color := Palette.color(Palette.WARM_ARCHIVE, "soul")
 	if node_kind == "passive" or node_kind == "intrinsic":
-		draw_arc(center, 31.0, 0.0, TAU, 48, color, 2.0, true)
+		draw_arc(center, 22.5, 0.0, TAU, 48, color, 5.0, true)
 		return
-	var half := 28.0
+	var half := 19.0
+	draw_polyline(PackedVector2Array([
+		center + Vector2(0, -half), center + Vector2(half, 0),
+		center + Vector2(0, half), center + Vector2(-half, 0),
+		center + Vector2(0, -half),
+	]), color, 5.0, true)
+
+
+func _draw_selection_outline(center: Vector2, color: Color, radius: float, width: float) -> void:
+	if node_kind == "passive" or node_kind == "intrinsic":
+		draw_arc(center, radius, 0.0, TAU, 48, color, width, true)
+		return
+	var half := radius - 3.0
 	var points := PackedVector2Array([
 		center + Vector2(0, -half), center + Vector2(half, 0),
 		center + Vector2(0, half), center + Vector2(-half, 0),
 		center + Vector2(0, -half),
 	])
-	draw_polyline(points, color, 2.0, true)
+	draw_polyline(points, color, width, true)
 
 
 func _draw_state_badge(center: Vector2, color: Color) -> void:
 	var badge_center := center + Vector2(20, -20)
-	if visual_state == "locked" or visual_state == "intrinsic_locked":
-		draw_rect(Rect2(badge_center + Vector2(-6, -1), Vector2(12, 10)), Color("121720"))
+	if visual_state == "disabled":
+		var disabled_rect := Rect2(badge_center + Vector2(-7, -7), Vector2(14, 14))
+		draw_rect(disabled_rect, Palette.color(Palette.WARM_ARCHIVE, "background"))
+		draw_rect(disabled_rect, color, false, 2.0)
+		draw_line(badge_center + Vector2(-4, 0), badge_center + Vector2(4, 0), color, 2.0, true)
+	elif visual_state == "locked" or visual_state == "intrinsic_locked":
+		draw_rect(Rect2(badge_center + Vector2(-6, -1), Vector2(12, 10)), Palette.color(Palette.WARM_ARCHIVE, "background"))
 		draw_rect(Rect2(badge_center + Vector2(-6, -1), Vector2(12, 10)), color, false, 2.0)
 		draw_arc(badge_center + Vector2(0, -1), 5.0, PI, TAU, 16, color, 2.0, true)
 	elif visual_state == "learned" or visual_state == "intrinsic_owned":
-		draw_circle(badge_center, 8.0, Color("111720"))
+		draw_circle(badge_center, 8.0, Palette.color(Palette.WARM_ARCHIVE, "inset"))
 		draw_arc(badge_center, 8.0, 0.0, TAU, 20, color, 2.0, true)
 		draw_polyline(PackedVector2Array([
 			badge_center + Vector2(-4, 0), badge_center + Vector2(-1, 4),
 			badge_center + Vector2(5, -4),
 		]), color, 2.0, true)
 	elif visual_state == "max":
-		draw_circle(badge_center, 8.0, Color("111720"))
-		draw_arc(badge_center, 8.0, 0.0, TAU, 20, color, 2.0, true)
-		draw_arc(badge_center, 4.5, 0.0, TAU, 16, color, 1.5, true)
+		var max_rect := Rect2(badge_center + Vector2(-18, -8), Vector2(36, 17))
+		draw_rect(max_rect, Palette.color(Palette.WARM_ARCHIVE, "inset"))
+		draw_rect(max_rect, color, false, 2.0)
+		draw_rect(max_rect.grow(-3.0), color, false, 1.0)
+		draw_string(
+			ThemeController.functional_font("semibold"), badge_center + Vector2(-15, 5),
+			"MAX", HORIZONTAL_ALIGNMENT_CENTER, 30.0, 12, color,
+		)
 	elif visual_state == "placeholder":
-		draw_circle(badge_center, 8.0, Color("111720"))
+		draw_circle(badge_center, 8.0, Palette.color(Palette.WARM_ARCHIVE, "inset"))
 		draw_arc(badge_center, 8.0, 0.0, TAU, 20, color, 2.0, true)
 		for offset in [-3.0, 0.0, 3.0]:
 			draw_circle(badge_center + Vector2(offset, 0), 0.9, color)
+	else:
+		# Available is explicit even without color: a plus denotes the next level.
+		draw_circle(badge_center, 8.0, Palette.color(Palette.WARM_ARCHIVE, "inset"))
+		draw_arc(badge_center, 8.0, 0.0, TAU, 20, color, 2.0, true)
+		draw_line(badge_center + Vector2(-4, 0), badge_center + Vector2(4, 0), color, 2.0, true)
+		draw_line(badge_center + Vector2(0, -4), badge_center + Vector2(0, 4), color, 2.0, true)
 
 
 func _draw_cost_badge(center: Vector2) -> void:
 	var badge_center := center + (
 		COMPACT_COST_BADGE_OFFSET if compact else COST_BADGE_OFFSET
 	)
-	var gold := COLOR_MAX
-	draw_circle(badge_center, COST_BADGE_RADIUS, Color("111720"))
+	var gold := Palette.color(Palette.WARM_ARCHIVE, "focus")
+	draw_circle(badge_center, COST_BADGE_RADIUS, Palette.color(Palette.WARM_ARCHIVE, "inset"))
 	draw_arc(badge_center, COST_BADGE_RADIUS, 0.0, TAU, 20, gold, 2.0, true)
 	draw_line(badge_center + Vector2(-3, -3), badge_center + Vector2(3, -3), gold, 1.5, true)
 	draw_line(badge_center + Vector2(-4, 0), badge_center + Vector2(4, 0), gold, 1.5, true)
@@ -296,18 +331,22 @@ func _draw_glyph(center: Vector2, color: Color) -> void:
 
 func _draw_name() -> void:
 	var font := get_theme_font("font")
-	var font_size := 11
+	var font_size := 12
 	var lines := _wrap_name(font, font_size)
-	var start_y := 68.0 if lines.size() == 1 else 64.0
+	var start_y := 70.0 if lines.size() == 1 else 65.0
 	for index in range(lines.size()):
 		draw_string(
 			font,
-			Vector2(0, start_y + index * 10.0),
+			Vector2(0, start_y + index * 12.0),
 			lines[index],
 			HORIZONTAL_ALIGNMENT_CENTER,
 			size.x,
 			font_size,
-			COLOR_TEXT if visual_state != "locked" else COLOR_MUTED,
+			(
+				Palette.color(Palette.WARM_ARCHIVE, "disabled_text_contrast")
+				if visual_state in ["locked", "intrinsic_locked", "disabled"]
+				else Palette.color(Palette.WARM_ARCHIVE, "primary")
+			),
 		)
 
 
@@ -316,14 +355,14 @@ func name_line_bounds() -> Array[Rect2]:
 	if compact:
 		return result
 	var font := get_theme_font("font")
-	var font_size := 11
+	var font_size := 12
 	var lines := _wrap_name(font, font_size)
-	var start_y := 68.0 if lines.size() == 1 else 64.0
+	var start_y := 70.0 if lines.size() == 1 else 65.0
 	for index in range(lines.size()):
 		var line_width := font.get_string_size(
 			lines[index], HORIZONTAL_ALIGNMENT_LEFT, -1, font_size,
 		).x
-		var baseline := start_y + index * 10.0
+		var baseline := start_y + index * 12.0
 		result.append(Rect2(
 			Vector2((size.x - line_width) * 0.5, baseline - font_size),
 			Vector2(line_width, font_size + 2.0),

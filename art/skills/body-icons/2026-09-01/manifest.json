@@ -1,20 +1,7 @@
 {
-  "schema_version": 1,
-  "set": "body-skill-icons-2026-09-01",
-  "generation_workflow": "one canonical generation plus ten precise edits from that canonical",
-  "canonical_skill_id": "strong_bones",
-  "canonical_source_bbox": [
-    315,
-    24,
-    939,
-    1205
-  ],
-  "master_destination_bbox": [
-    154,
-    64,
-    357,
-    448
-  ],
+  "schema_version": 2,
+  "set": "body-skill-icons-2026-09-02",
+  "generation_workflow": "eleven independent built-in ImageGen generations; deterministic nonsemantic packager",
   "master_size": [
     512,
     512
@@ -35,411 +22,644 @@
     112,
     112
   ],
-  "master_baseline": 448,
-  "runtime_baseline": 112,
   "palette": {
     "silhouette": "#59677A",
     "anatomy": "#E35D63"
   },
-  "alpha_contract": "identical byte-for-byte across all 11 masters and all 11 runtime icons",
-  "downsample": "Pillow LANCZOS alpha/accent masks; RGB requantized to exact palette",
-  "import": {
-    "compress/mode": 0,
-    "mipmaps/generate": false,
-    "process/fix_alpha_border": true,
-    "process/premult_alpha": false,
-    "process/size_limit": 0
+  "alpha_contract": "unique alpha silhouettes; meaningful alpha is inside published safe rectangles",
+  "packager": "crop/fit/palette/alpha/downsample only; no semantic drawing",
+  "preview_sha256": {
+    "contact-dark.png": "ca3017ea1e6ba561130dc5757ff344f0a95dba97258690a93aa2ca3f3e8ab8b3",
+    "contact-light.png": "23a3e60ace3df5a3b6af67d1355518173122f2f6f887391e9aa52a969414340f",
+    "contact-checker.png": "48d1a65ff9c742eff49fed7b9d85c1cfbb972a22e9df1e6516601e316231525f"
   },
   "icons": {
     "strong_bones": {
       "mapping": "res://assets/ui/skill-icons/body/strong_bones.png",
-      "imagegen_result_file": "exec-278da2d9-6187-4c48-8cc2-177b16ecefb3.png",
-      "candidate": "candidates/strong_bones.png",
-      "candidate_sha256": "484ec16a96bf49d46de522afec7be8e1c0a1b128812860d6bbe4e821f84e638f",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `symmetrical pelvis plus two load-bearing femurs planted outward; broad A silhouette; coral marrow; avoid crossed bones`. Composition: `pelvis-and-femurs`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-72913d58-637f-4da3-89bf-42640eb558b8.png",
+      "candidate": "candidates/strong_bones-stage1e.png",
+      "candidate_sha256": "675e0e3f0a60153b39dd3596e1f6475e174cd1141f139a1aa19e8d65083aa8b5",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        315,
-        24,
-        939,
-        1205
+        28,
+        50,
+        1227,
+        1204
       ],
+      "normalization": {
+        "crop_bbox": [
+          28,
+          50,
+          1227,
+          1204
+        ],
+        "fit_scale": 0.3202668890742285,
+        "master_destination_offset": [
+          64,
+          71
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/strong_bones.png",
-      "master_sha256": "9238fd217811ed1775912e1862873835b2ee2a9ec3c02f88a4c7ff88eb70ce82",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "da5697b32dfb500d6f40636554df3cde8beee6f991b733c3f182d237b5f1e858",
+      "master_pixel_sha256": "d5f59cbae431894c61e17b21ab83159114143fea709c51e5616dc45c803545ba",
+      "master_alpha_sha256": "812cbde42392e636e872b9636a4648d17c24e955d0f3d2edc0f75f0a36bc852c",
+      "master_alpha_bounds": [
+        64,
+        71,
+        448,
+        441
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/strong_bones.png",
-      "runtime_sha256": "ad4cd29e07fdd9cc0adac3131f3740015c7c57a27a632ec48e0d12138eebdf95",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "3950e489b95f270b9dad02aa8ffe5142e49250f88f9cb00168e6c2104059c895",
+      "runtime_pixel_sha256": "82578179d425cf613a11874cc4e0844422de674b92c3f87b27e2f3b8429da3e8",
+      "runtime_alpha_sha256": "e6d5cefb56915007e6e15d8f4f3a23077a0485800d1faec156e3949a3bc12b7b",
+      "runtime_alpha_bounds": [
         16,
-        92,
-        112
-      ],
-      "runtime_accent_rect": [
-        39,
         17,
-        89,
-        107
+        112,
+        111
       ],
-      "runtime_red_pixels": 863
+      "runtime_coral_ratio": 0.2825138201920279
     },
     "flexible_joints": {
       "mapping": "res://assets/ui/skill-icons/body/flexible_joints.png",
-      "imagegen_result_file": "exec-2ded0f3a-43b1-4ae0-90ab-82816392997f.png",
-      "candidate": "candidates/flexible_joints.png",
-      "candidate_sha256": "b68f487f1d493c69ba5f0fa01c1b9f195234b2c9747dad08c519e1d7a1d5b069",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `one bent knee/elbow hinge S/chevron; large rounded joint/patella; coral articulation only`. Composition: `hinge`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-36ad35c0-8f6c-45f1-9ae0-b9d6cfdd4b3d.png",
+      "candidate": "candidates/flexible_joints-stage1e.png",
+      "candidate_sha256": "82d0988d61306ab5d108d3435a584b5ca82c43a1f1f31ff246364e370b7213bf",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        316,
-        26,
-        937,
-        1206
+        283,
+        43,
+        985,
+        1211
       ],
+      "normalization": {
+        "crop_bbox": [
+          283,
+          43,
+          985,
+          1211
+        ],
+        "fit_scale": 0.3287671232876712,
+        "master_destination_offset": [
+          140,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/flexible_joints.png",
-      "master_sha256": "c6ad488dc6f803cb90dca473c60d0ad34cb8eb669996cb81535dc45166ff0873",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "7c1d690e1154dc48ca6f3d2e3bab005d43481b1d0b67e4ae7102bcbaf7130298",
+      "master_pixel_sha256": "62c145d8ec82830aa73355148d7df56df14fe3c225633e0031758db1e6f0019d",
+      "master_alpha_sha256": "e7fc4ed4ec4714860dec458a6f53b2cf92d82c67469939b6330ef17d939fe2f4",
+      "master_alpha_bounds": [
+        140,
+        64,
+        371,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/flexible_joints.png",
-      "runtime_sha256": "c04ac8782e2e3e4f632d230244d2eca3bf6abbf079d508d830110417cdcedf7a",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "037a7988760317f23a5a68345d8be538e2858cc09bbb8ac5fde6408700b4513e",
+      "runtime_pixel_sha256": "88f128a5cb1f932e8f0185d1110dd65f0abdf2910e4ab967413ca8ad2a8b59c9",
+      "runtime_alpha_sha256": "1d821f49f31a0d8cf07a5bb7a3b62c50585ec3dcb79e1a2d3b8d3acfd658b022",
+      "runtime_alpha_bounds": [
+        35,
         16,
-        92,
+        93,
         112
       ],
-      "runtime_accent_rect": [
-        48,
-        33,
-        80,
-        84
-      ],
-      "runtime_red_pixels": 177
+      "runtime_coral_ratio": 0.2433758586849853
     },
     "strong_spine": {
       "mapping": "res://assets/ui/skill-icons/body/strong_spine.png",
-      "imagegen_result_file": "exec-3feb93ee-e587-4ddb-b536-f9174c29e093.png",
-      "candidate": "candidates/strong_spine.png",
-      "candidate_sha256": "d82e928d812e3559bf9657d5d4be5fd8b34d27926eda8533612cb678ae1582a0",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `tall gently curved vertebral column ending sacrum/pelvis; vertical segmented; coral core`. Composition: `vertebral-column`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-2947deac-6d79-4c21-a8c4-99ebb8668990.png",
+      "candidate": "candidates/strong_spine-stage1e.png",
+      "candidate_sha256": "8e249415b32e2a84b8968bfe3722bce4a645a313b94d9cf671c8423d26d49b73",
       "candidate_size": [
-        1254,
-        1254
+        1024,
+        1536
       ],
       "candidate_foreground_bbox": [
-        313,
-        22,
-        938,
-        1207
+        256,
+        30,
+        769,
+        1483
       ],
+      "normalization": {
+        "crop_bbox": [
+          256,
+          30,
+          769,
+          1483
+        ],
+        "fit_scale": 0.264280798348245,
+        "master_destination_offset": [
+          188,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/strong_spine.png",
-      "master_sha256": "e767560f70e68846ffa3dd451907c40ec157c4b5deb202bf28a26062ed443990",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "ed4ace12f290ea58f56796e2118050d0bcc6d1ee80834b41652547d7378c138f",
+      "master_pixel_sha256": "34157acd0929b03dbba67312e3a6b40cf75b68b870feb38b918724670d555357",
+      "master_alpha_sha256": "6545dcc92615b586d350256d06fa5275c6298458babb731c5bdf6800447cbc70",
+      "master_alpha_bounds": [
+        188,
+        64,
+        324,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/strong_spine.png",
-      "runtime_sha256": "21955d39044fb095d76052e473a55cdae49e516e0a4b1e3ab81bd4ccd3962322",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "e2cdbfd63c82111757c18c502cbf66d64d283050ee72cd4c3e15cadf6f8130f5",
+      "runtime_pixel_sha256": "f8ad0cf187fdb522976e6f6c7c856f2d84bbc2a07b54e631b8a3846d22c66ed9",
+      "runtime_alpha_sha256": "dd175c643039306728257c38175522f6897a0c6cba20adcb9f380c06e58c8ba1",
+      "runtime_alpha_bounds": [
+        47,
         16,
-        92,
+        81,
         112
       ],
-      "runtime_accent_rect": [
-        59,
-        24,
-        69,
-        63
-      ],
-      "runtime_red_pixels": 289
+      "runtime_coral_ratio": 0.2063253012048193
     },
     "sharp_vision": {
       "mapping": "res://assets/ui/skill-icons/body/sharp_vision.png",
-      "imagegen_result_file": "exec-d5c2bef1-c23e-4291-9fa5-85227f55955f.png",
-      "candidate": "candidates/sharp_vision.png",
-      "candidate_sha256": "dbbc9c7dac0b3f82e48758a66d3f13c8bf5ee407a7e99fad12b708fbf0c0cfc9",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `wide anatomical almond eye; sharp lid; large iris/pupil; max 3 short rays; horizontal`. Composition: `anatomical-eye`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-44650f4c-b1c9-4b4c-8b2d-5b20235824e6.png",
+      "candidate": "candidates/sharp_vision-stage1e.png",
+      "candidate_sha256": "512c1f25de7544777753e03ca0b0a7a8da3ec4e85263932510a2e420fbb11060",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        317,
-        25,
-        936,
-        1206
+        14,
+        160,
+        1240,
+        1031
       ],
+      "normalization": {
+        "crop_bbox": [
+          14,
+          160,
+          1240,
+          1031
+        ],
+        "fit_scale": 0.3132137030995106,
+        "master_destination_offset": [
+          64,
+          119
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/sharp_vision.png",
-      "master_sha256": "75409986d757f9e3b03d3ef7b3f00141133e5ef0e214af6681582a0b5704c065",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "3342b13b809d9d510d6dbb5ad6fe872eebe4caed36b765b35e4168cdb95c7e7a",
+      "master_pixel_sha256": "c3fa08c200c326efda0113d51bb56199f2b437bf71770a618c90e13e8aecfdc5",
+      "master_alpha_sha256": "8065126639dc2c23797732631b8bdff950c3faa2d5b6cc4c7aea7d9c99ec5663",
+      "master_alpha_bounds": [
+        64,
+        119,
+        448,
+        392
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/sharp_vision.png",
-      "runtime_sha256": "c2e9503b2060223ae102d7dc1bcb06cac2389fbf6e4a7dce104156d14f52480e",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "3b6d86b2d8433f87d8630708ffc52e174e6f776b3a850641c0ac4a2e83e0ff99",
+      "runtime_pixel_sha256": "a0bb0837f5ea301acaf882587b09105a078459b6e59d824a5a6b7a4a0483c437",
+      "runtime_alpha_sha256": "d8dfe5be5305ba391942e00d047e105e25c2d0ef9ad0c4f9c6731cb37e19e100",
+      "runtime_alpha_bounds": [
         16,
-        92,
-        112
+        29,
+        112,
+        98
       ],
-      "runtime_accent_rect": [
-        52,
-        22,
-        76,
-        29
-      ],
-      "runtime_red_pixels": 108
+      "runtime_coral_ratio": 0.24606017191977078
     },
     "muscle_fibers": {
       "mapping": "res://assets/ui/skill-icons/body/muscle_fibers.png",
-      "imagegen_result_file": "exec-7ee2dcfc-86b4-44aa-9cc4-3e84b99b1ac1.png",
-      "candidate": "candidates/muscle_fibers.png",
-      "candidate_sha256": "292a8c8cce4a8fdf8e3431994361738646be3b42f3d751ed564d704abb97d5fe",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `diagonal flexed upper arm/biceps cutaway; 3 broad fiber bundles; coral follows direction`. Composition: `biceps-cutaway`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-b74fc6e8-7214-40f6-8570-d5f1bcc7a7f4.png",
+      "candidate": "candidates/muscle_fibers-stage1e.png",
+      "candidate_sha256": "2f62589c2f546b92cf57d22e06aa0c8a52dcebc69fd853a08e12cfae8abc2362",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        316,
-        23,
-        937,
-        1204
+        127,
+        57,
+        1148,
+        1106
       ],
+      "normalization": {
+        "crop_bbox": [
+          127,
+          57,
+          1148,
+          1106
+        ],
+        "fit_scale": 0.36606291706387034,
+        "master_destination_offset": [
+          69,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/muscle_fibers.png",
-      "master_sha256": "5e77c4b8ac8b40379b5e5ce8f2aaeb5c569bb9e87f355cced31b5e179d529d65",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "aa5ee2e2f313e3ac46c8829fde5e3864c5a080067cfbd9f9f027fcfe256b43f6",
+      "master_pixel_sha256": "ee72ee07f108f4699d57cc5c9b93ec840bb3bd03876446c1d55e171503997ca4",
+      "master_alpha_sha256": "81ace4be34b2ec5ee995f178742b0e4387457d6f36061a9b96274834c7cbcaa2",
+      "master_alpha_bounds": [
+        69,
+        64,
+        443,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/muscle_fibers.png",
-      "runtime_sha256": "7279fcad24aa099b23ec03b291da8a82bca6b69d5783a1cfbc33f988223b6a80",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "7c63a9adf487ebad141a2730dd8f82aa64268319be5af6742a2baa77768c871d",
+      "runtime_pixel_sha256": "9b7820d912374269585ac34cdb5f7cb2af920f84e50c69f2e2e0114e0ca17fe0",
+      "runtime_alpha_sha256": "ee471ba05e44477264be564d95e707bb74320680c74cd4bffeca15c933113fe4",
+      "runtime_alpha_bounds": [
+        17,
         16,
-        92,
+        111,
         112
       ],
-      "runtime_accent_rect": [
-        45,
-        33,
-        83,
-        104
-      ],
-      "runtime_red_pixels": 1067
+      "runtime_coral_ratio": 0.24434285714285714
     },
     "stomach": {
       "mapping": "res://assets/ui/skill-icons/body/stomach.png",
-      "imagegen_result_file": "exec-421f750a-08cf-44ca-9146-e1c660de166a.png",
-      "candidate": "candidates/stomach.png",
-      "candidate_sha256": "409915d170947f1ac51a3d1abaf97a88b9595d5c04f4660e820d90e1c0e304b9",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `asymmetric J stomach plus short esophagus/duodenum; bold pear/J; coral fold`. Composition: `stomach`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-4c4432b1-2597-481c-9068-c0792cc284a6.png",
+      "candidate": "candidates/stomach-stage1e.png",
+      "candidate_sha256": "13fc2f1afd2c4e496d15bf4e1b56688325900b53c7be892e4011ff4ca8e2d102",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        317,
-        23,
-        935,
-        1205
+        131,
+        28,
+        1156,
+        1215
       ],
+      "normalization": {
+        "crop_bbox": [
+          131,
+          28,
+          1156,
+          1215
+        ],
+        "fit_scale": 0.3235046335299073,
+        "master_destination_offset": [
+          90,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/stomach.png",
-      "master_sha256": "c27bc84dc5b8230a25c08e0365a13dd327f26b393ff3722216393eb65a82c33e",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "3d60773c8e3b24961cad53c0d1698ffb91f07ac4a539d5de2c6af87570efcca5",
+      "master_pixel_sha256": "753322de5b0b1e5415e7cf3bd05b2250d5c9271966fdc10f46e62a0b4fcc5463",
+      "master_alpha_sha256": "4ff1555cd192fa5f1b8cdadcbf4339f8dde707fae8504022ac4b6bbd9cd3512b",
+      "master_alpha_bounds": [
+        90,
+        64,
+        422,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/stomach.png",
-      "runtime_sha256": "2185623a5423f0a9cd116d6c57f8b2b2fd3700c4282614305bd77bf852ebcc08",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "31711c297faad2df1e9827d975f824d891292ce1b742668d12dafcb8309ed4d8",
+      "runtime_pixel_sha256": "8f2436548217d03651aa15531583fd33425bdcef34a228bcdbe21876011d0ccf",
+      "runtime_alpha_sha256": "053d2a6d905dab792b5987ecd47b180f6a01441688a8c051b90101ac97cb0564",
+      "runtime_alpha_bounds": [
+        22,
         16,
-        92,
+        106,
         112
       ],
-      "runtime_accent_rect": [
-        61,
-        43,
-        70,
-        54
-      ],
-      "runtime_red_pixels": 67
+      "runtime_coral_ratio": 0.19434931506849315
     },
     "flesh_regeneration": {
       "mapping": "res://assets/ui/skill-icons/body/flesh_regeneration.png",
-      "imagegen_result_file": "exec-4a4954c6-800a-4a17-b1be-e2956cfc9d9c.png",
-      "candidate": "candidates/flesh_regeneration.png",
-      "candidate_sha256": "d3dfe06d799ea86f991210cc40cb3b27ac043e77ad89afbed2c1dd709b9b5c7b",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `anatomical heart plus 2 thick arteries returning circulation loop; coral vessels; no cross/pulse`. Composition: `heart-loop`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-cd12bf96-5d6e-4679-9228-8381bab33bcc.png",
+      "candidate": "candidates/flesh_regeneration-stage1e.png",
+      "candidate_sha256": "37142f8c9ce3b5dcea09747f094292b00d4cbe56587a1d343aefa9ab9afcc51a",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        314,
-        23,
-        933,
-        1208
+        166,
+        42,
+        1076,
+        1207
       ],
+      "normalization": {
+        "crop_bbox": [
+          166,
+          42,
+          1076,
+          1207
+        ],
+        "fit_scale": 0.3296137339055794,
+        "master_destination_offset": [
+          106,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/flesh_regeneration.png",
-      "master_sha256": "e7dc0a082af2dbd0eee49961fbfc6d25b51d6f9c7cfc63ec7b2f8a342f2d711c",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "9517487a34898d0a3336eadc621c6c3358109b0b316198092ae316073a7b531e",
+      "master_pixel_sha256": "459090bc19241a8bf75a34a6f8e2c37af1a0c73dda7bc2550d93a88e56e6bcb0",
+      "master_alpha_sha256": "03e9086793bdb0f70dad283de5400fe6d6440a9a4da6cd431210311f1d28ba3c",
+      "master_alpha_bounds": [
+        106,
+        64,
+        406,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/flesh_regeneration.png",
-      "runtime_sha256": "653940b9e57007d3959854afa7a4249aa7fdf14255c039f5b68bb6bc18bda630",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "37c5994c2a513b8bcb348d03e7425d0d5c69c479ff21e634b8779c59e23e2097",
+      "runtime_pixel_sha256": "3272babde9b17d3fafa708084e41a18bdf990ee7a4e4d13e3b48955cc4b1bee4",
+      "runtime_alpha_sha256": "234899abdc376e6e837d3237cf0db9f00b4c8e02865261ba1456eb2996a37f63",
+      "runtime_alpha_bounds": [
+        26,
         16,
-        92,
+        102,
         112
       ],
-      "runtime_accent_rect": [
-        53,
-        27,
-        79,
-        111
-      ],
-      "runtime_red_pixels": 171
+      "runtime_coral_ratio": 0.2519043866561597
     },
     "ears": {
       "mapping": "res://assets/ui/skill-icons/body/ears.png",
-      "imagegen_result_file": "exec-6e09f4f7-4768-4c89-89e1-557534ff7112.png",
-      "candidate": "candidates/ears.png",
-      "candidate_sha256": "0cb6979a47baa33e9859d3c6a3dd83a3308526a1eab1dda5ca749999953c9ef8",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `large side-profile ear clear helix/concha plus one echo arc; C silhouette; no head`. Composition: `ear`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-7e4635b9-6c5e-4cb8-9e75-60b38e537f25.png",
+      "candidate": "candidates/ears-stage1e.png",
+      "candidate_sha256": "c946494b549f16bf2a692132cebbc0ea6dcdc648d65b8e52b8de0a6ac12a4611",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        318,
-        25,
-        934,
-        1203
+        195,
+        56,
+        1072,
+        1175
       ],
+      "normalization": {
+        "crop_bbox": [
+          195,
+          56,
+          1072,
+          1175
+        ],
+        "fit_scale": 0.34316353887399464,
+        "master_destination_offset": [
+          105,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/ears.png",
-      "master_sha256": "c04343dcdf1be5b731199047b1474b115b31620ce71a0223843859b2f25bd87a",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "44019b936a763eff6a07476893cb0e0a35fa70a1f2921e2ba57dbbab161230cc",
+      "master_pixel_sha256": "541c6264ad709d0a260c1f6425d483499e851f70e8fbb79d6d49b61352059125",
+      "master_alpha_sha256": "359a867123c2f27f2f79fb943055cd77f4a71e3661b283444f6616c60606c972",
+      "master_alpha_bounds": [
+        105,
+        64,
+        406,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/ears.png",
-      "runtime_sha256": "b4d70f463732a235de186316bfe1a7d572ed9b2c4afa0f48ef6f17d4a9608825",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "56791f88387de269f97249e0619cdfc1d89960bd52eeb087c49923686976a70d",
+      "runtime_pixel_sha256": "dd5cf9056685399fc6429fbce82ee183ac9db37589d6c0d3df9ccc37db3f29d2",
+      "runtime_alpha_sha256": "cfebd766c7baa365cee067f97db7ba73b35fb68ac59cf9484a7080bdd74662b8",
+      "runtime_alpha_bounds": [
+        26,
         16,
-        92,
+        102,
         112
       ],
-      "runtime_accent_rect": [
-        52,
-        20,
-        76,
-        33
-      ],
-      "runtime_red_pixels": 200
+      "runtime_coral_ratio": 0.2363391655450875
     },
     "nervous_system": {
       "mapping": "res://assets/ui/skill-icons/body/nervous_system.png",
-      "imagegen_result_file": "exec-2f075508-3d86-488b-a57d-a7a449008fbe.png",
-      "candidate": "candidates/nervous_system.png",
-      "candidate_sha256": "608db66c8d15ca25344efc3f4fe0be2d7bcd9ae07c69d6cbd4ec9963cf9e7d5b",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `brain crown plus straight spinal cord plus paired thick nerve roots; vertical tree/root; not vessels`. Composition: `brain-spine`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-afb56b5c-a82b-4c42-82ce-2e9aacb99255.png",
+      "candidate": "candidates/nervous_system-stage1e.png",
+      "candidate_sha256": "ed2c6b1ed59225d3a83864a06585a8a1e7448aebbfa66bb8425a239e5ccd9591",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        320,
-        22,
-        934,
-        1205
+        280,
+        46,
+        975,
+        1209
       ],
+      "normalization": {
+        "crop_bbox": [
+          280,
+          46,
+          975,
+          1209
+        ],
+        "fit_scale": 0.3301805674978504,
+        "master_destination_offset": [
+          141,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/nervous_system.png",
-      "master_sha256": "23cfe8f4b5ea9db3a8394acbb23b2fc2a2c8d3dc4e6dd442f3b9223f7ab462ec",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "43c2c0579e931e73cb174fdb3c2c458c137fa390cc7d51e366c17a603874d3e9",
+      "master_pixel_sha256": "374470fdfba9f7246e3c636eb547e030509162904c14b6a678471a021a32ac17",
+      "master_alpha_sha256": "2540247bd2a689c460e96d4215c62ee4f5419f8efa40edd7e09123d0b0e404fe",
+      "master_alpha_bounds": [
+        141,
+        64,
+        370,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/nervous_system.png",
-      "runtime_sha256": "2a498faa16e5c4d3ecd38e2d86aea2ba501b61790dee78b4da67c22e12b33090",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "90e04f86c4c6f02d163e11d5210b6c1036b849d1602017c83e8c9d3aa98d54a7",
+      "runtime_pixel_sha256": "f6f178f58465cca29d3b2f03e0ca5868e2f6573f4055553cc65402415ef7f386",
+      "runtime_alpha_sha256": "4be6a12803887e4934ac503601599690f2a401670263e4e28394b2012ed8aa01",
+      "runtime_alpha_bounds": [
+        35,
         16,
-        92,
+        93,
         112
       ],
-      "runtime_accent_rect": [
-        53,
-        17,
-        84,
-        111
-      ],
-      "runtime_red_pixels": 230
+      "runtime_coral_ratio": 0.2626005929690809
     },
     "choose_appearance": {
       "mapping": "res://assets/ui/skill-icons/body/choose_appearance.png",
-      "imagegen_result_file": "exec-54ab04ab-57f7-41c0-8e82-d53c76e94040.png",
-      "candidate": "candidates/choose_appearance.png",
-      "candidate_sha256": "2837bad4cb323f6713f06576e00be87beb619fa945e74d7806f8ffd345e76a22",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `two offset profiles sharing contour, skeletal/revenant behind and human front; split identity; not theatre masks`. Composition: `dual-profile`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-4cedddef-9b29-493f-8fc9-e6e1ca6f8ebd.png",
+      "candidate": "candidates/choose_appearance-stage1e.png",
+      "candidate_sha256": "f242b60bd0befb801d487cf1fd71113551e0e216212c3a7736f3ca6651ea57a2",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        318,
-        27,
-        936,
-        1204
-      ],
-      "master": "masters/choose_appearance.png",
-      "master_sha256": "99b0f2ecf36bf97ecd76288b493f49329fdcafcc1ef23e2e8bea3d6f16d1808e",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
-      "runtime": "../../../../assets/ui/skill-icons/body/choose_appearance.png",
-      "runtime_sha256": "e654eb443bf33b6abff25f52a7e27de0ed7da2734852d44521e73812dcc4209c",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
+        233,
         36,
+        1066,
+        1225
+      ],
+      "normalization": {
+        "crop_bbox": [
+          233,
+          36,
+          1066,
+          1225
+        ],
+        "fit_scale": 0.3229604709840202,
+        "master_destination_offset": [
+          121,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
+      "master": "masters/choose_appearance.png",
+      "master_sha256": "e08cb44c610c961e791bd8c0d9a8653c1171152705660e0776ebbabcfba8333d",
+      "master_pixel_sha256": "4d3d0a0ffc3a7c9ab6d0c173c2cc806da7f5406c6ac3c28352289b5f5f63f231",
+      "master_alpha_sha256": "fca9994b34645018e4869b8bcbe30a5a653c82127ad6809ceb05e31fe45d40bb",
+      "master_alpha_bounds": [
+        121,
+        64,
+        390,
+        448
+      ],
+      "runtime": "../../../../assets/ui/skill-icons/body/choose_appearance.png",
+      "runtime_sha256": "d2ed5f845956de8957b9126b8d8c438237cdfd47503b8932c80f0e7b2bf81929",
+      "runtime_pixel_sha256": "af05ad229e3956fc333a075dcb18a4cd80eac42b918261d1e048d690786d4314",
+      "runtime_alpha_sha256": "3de6b5ef781a9a140f41bb9bb1d94b171d10a3164a1ad105cda4349cd0580853",
+      "runtime_alpha_bounds": [
+        30,
         16,
-        92,
+        98,
         112
       ],
-      "runtime_accent_rect": [
-        39,
-        16,
-        89,
-        112
-      ],
-      "runtime_red_pixels": 645
+      "runtime_coral_ratio": 0.2675187307183781
     },
     "fundamentals": {
       "mapping": "res://assets/ui/skill-icons/body/fundamentals.png",
-      "imagegen_result_file": "exec-8c65bc86-1e8d-42a2-bd29-5ecdf397c1f3.png",
-      "candidate": "candidates/fundamentals.png",
-      "candidate_sha256": "4e57ae88ea5b64d5d73ccdd0be64e194977af859821889a87f79aaa8511a0933",
+      "generation_date": "2026-09-02",
+      "exact_prompt": "Create one original Almsth anatomical body-skill emblem on a transparent 512\u00d7512 canvas. Subject: `open palm five articulated fingers plus compact wrist/tendons; broad hand; no numeral`. Composition: `open-palm`. Fit every meaningful pixel inside x/y 64\u2013447. Use flat slate `#59677A` with restrained coral `#E35D63`, strong irregular anatomical shapes, broad negative space, and a unique alpha silhouette readable at 54 px. Minimum structural stroke 24 master px and primary gap 20 master px. No full-body mannequin unless explicitly required, background, checkerboard, cast shadow, glow, frame, UI state, lock, cost, text, letters, numerals, runes, logos, badge, gore, stock imagery, or copied anatomy.",
+      "references": [
+        "art/skills/body-icons/2026-09-01/previews/contact-dark.png",
+        ".tmp/stage1c-previews/ru-1280x720-skill-all-icons.png"
+      ],
+      "imagegen_result_file": "exec-8ffa8005-903d-4977-8533-951a02454e86.png",
+      "candidate": "candidates/fundamentals-stage1e.png",
+      "candidate_sha256": "45d7e044abb463e17c32af392f1fa84e582bd079757cbc3d427b63f320874e11",
       "candidate_size": [
         1254,
         1254
       ],
       "candidate_foreground_bbox": [
-        322,
-        29,
-        930,
-        1201
+        196,
+        18,
+        1007,
+        1218
       ],
+      "normalization": {
+        "crop_bbox": [
+          196,
+          18,
+          1007,
+          1218
+        ],
+        "fit_scale": 0.32,
+        "master_destination_offset": [
+          126,
+          64
+        ],
+        "runtime_downsample": "Lanczos RGBA 512->128"
+      },
       "master": "masters/fundamentals.png",
-      "master_sha256": "6753fd4f7500894fdc7c5c27eeb801c4026c4ce920dee13b604091c56ed0ff02",
-      "master_alpha_sha256": "a9f1f15a438d13015d0462f8607d4a2308874209ef464efa03ffa4ce4ab2dce3",
+      "master_sha256": "9f218e462a7dcca279d58d22da7faa062cc4f56f8549d564d8c4ce5535552733",
+      "master_pixel_sha256": "d49f86d238779bd4ea285466847bd89254f235bcaae8e25de79156bc4487cb28",
+      "master_alpha_sha256": "2c3d863babb81720c063f368078d27a7e2a4aaee7003913dbd58db9ec5a13a88",
+      "master_alpha_bounds": [
+        126,
+        64,
+        386,
+        448
+      ],
       "runtime": "../../../../assets/ui/skill-icons/body/fundamentals.png",
-      "runtime_sha256": "8f9b1c32a4ccc076cbae0680b8946c128b49386d9863ff568eaddcb35d569e26",
-      "runtime_alpha_sha256": "241d42a5ca9ab116338cf603462104a27facad428d9e6412fcdb4f2fda540587",
-      "runtime_used_rect": [
-        36,
+      "runtime_sha256": "92da29b6eec0cdb1d54c6fd8413fe7554af44611481e4ea62f5316187efd4d46",
+      "runtime_pixel_sha256": "5a05e9496cecdba88e23704c95e6a7e1eac7b32200117d6f43987b5060fdb9e1",
+      "runtime_alpha_sha256": "0412be7f139094ef2c0000778cf3e069753f8e0f67313c2d7c1cc5f64bdca3de",
+      "runtime_alpha_bounds": [
+        31,
         16,
-        92,
+        97,
         112
       ],
-      "runtime_accent_rect": [
-        41,
-        16,
-        86,
-        65
-      ],
-      "runtime_red_pixels": 117
+      "runtime_coral_ratio": 0.2511463844797178
     }
-  },
-  "contact_sheets": [
-    "previews/contact-dark.png",
-    "previews/contact-light.png",
-    "previews/contact-checker.png"
-  ]
+  }
 }

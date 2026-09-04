@@ -125,6 +125,7 @@
 | `record_player` | Проигрыватель / Record Player | — | — |
 | `ritual_table` | Ритуальный стол / Ritual Table | `cloth` 5, `stone` 10, `wood` 10 | — |
 | `rocking_chair` | Кресло-качалка / Rocking Chair | `wood` 30 | — |
+| `storage_chest` | Сундук хранения / Storage Chest | `cloth` 3, `stone` 4, `wood` 20 | — |
 | `textile_area` | Ткацкий уголок / Textile Area | — | — |
 | `whetstone` | Точильный камень / Whetstone | `cloth` 5, `stone` 10, `wood` 10 | — |
 | `workbench` | Верстак / Workbench | — | — |

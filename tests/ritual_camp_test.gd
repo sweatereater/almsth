@@ -5,6 +5,8 @@ const Loc := preload("res://scripts/localization/localization.gd")
 const PanelClass := preload("res://scripts/ui/inventory_panel.gd")
 const Renderer := preload("res://scripts/ui/game_renderer.gd")
 const BaseLayout := preload("res://scripts/ui/base_layout.gd")
+const Palette := preload("res://scripts/ui/ui_palette.gd")
+const ThemeController := preload("res://scripts/ui/ui_theme_controller.gd")
 
 var failures: Array[String] = []
 
@@ -142,11 +144,12 @@ func _test_build_registry_and_prerequisites() -> void:
 	var expected_ids := [
 		"campfire", "kettle", "bunk", "crusher", "whetstone", "ritual_table", "mural",
 		"workbench", "writing_set", "textile_area", "rocking_chair", "record_player",
+		"storage_chest",
 	]
 	var actual_ids := GameRules.CAMP_UPGRADES.keys()
 	actual_ids.sort()
 	expected_ids.sort()
-	_expect(actual_ids == expected_ids, "Camp registry must contain exactly the 12 stable IDs")
+	_expect(actual_ids == expected_ids, "Camp registry must contain exactly the 13 stable IDs")
 	var state := RunState.new()
 	var before := state.to_snapshot_data()
 	_expect(
@@ -198,7 +201,7 @@ func _test_ritual_interface(tree: SceneTree) -> void:
 	main.state.character_name = "Ritual QA"
 	main._show_base("")
 	_test_base_resource_strip(main)
-	_test_base_relayout(main)
+	await _test_base_relayout(main, tree)
 	_test_base_upgrade_list_absence(main)
 	main.state.add_resources({"wood": 30, "stone": 30, "cloth": 10})
 	main.state.banked_souls = 50
@@ -264,11 +267,11 @@ func _test_base_resource_strip(main) -> void:
 	var image_rect: Rect2 = BaseLayout.IMAGE_RECT
 	var sidebar_rect: Rect2 = BaseLayout.SIDEBAR_RECT
 	_expect(
-		strip_rect == Rect2(520, 18, 288, 44)
+		strip_rect == Rect2(520, 18, 326, 44)
 		and title_rect == main.BASE_TITLE_RECT
-		and soul_icon_rect == main.BASE_SOUL_ICON_RECT
-		and souls_rect == main.BASE_SOULS_RECT
-		and materials_rect == main.BASE_MATERIALS_RECT,
+		and soul_icon_rect == Rect2(520, 29, 22, 22)
+		and souls_rect == Rect2(544, 18, 104, 44)
+		and materials_rect == Rect2(648, 18, 198, 44),
 		"Base resources must use the exact compact 1280x720 top-strip geometry",
 	)
 	_expect(
@@ -290,9 +293,9 @@ func _test_base_resource_strip(main) -> void:
 		"Base resource counters must be visible, tooltip-capable and non-blocking",
 	)
 	var expected_counter_rects := {
-		"wood": Rect2(0, 0, 56, 44),
-		"stone": Rect2(56, 0, 57, 44),
-		"cloth": Rect2(113, 0, 57, 44),
+		"wood": Rect2(0, 0, 66, 44),
+		"stone": Rect2(66, 0, 66, 44),
+		"cloth": Rect2(132, 0, 66, 44),
 	}
 	var previous_counter_rect := Rect2()
 	for resource_id in ["wood", "stone", "cloth"]:
@@ -306,6 +309,25 @@ func _test_base_resource_strip(main) -> void:
 			and counter.mouse_filter == Control.MOUSE_FILTER_PASS
 			and counter.focus_mode == Control.FOCUS_ALL
 			and counter.clip_contents
+			and counter.value_label.get_theme_font_size("font_size") == 12
+			and counter.value_label.get_theme_font("font").get_instance_id()
+			== ThemeController.functional_font("regular", true).get_instance_id()
+			and counter.value_label.get_theme_color("font_color")
+			== Palette.color(Palette.WARM_ARCHIVE, "primary")
+			and counter.normal_style.get_instance_id()
+			== ThemeController.style_for(
+				Palette.WARM_ARCHIVE, "material_counter", "normal"
+			).get_instance_id()
+			and counter.hover_style.get_instance_id()
+			== ThemeController.style_for(
+				Palette.WARM_ARCHIVE, "material_counter", "hover"
+			).get_instance_id()
+			and counter.focus_style.get_instance_id()
+			== ThemeController.style_for(
+				Palette.WARM_ARCHIVE, "material_counter", "focus"
+			).get_instance_id()
+			and not counter.focus_neighbor_left.is_empty()
+			and not counter.focus_neighbor_right.is_empty()
 			and Rect2(Vector2.ZERO, counter.size).encloses(counter.icon_rect())
 			and Rect2(Vector2.ZERO, counter.size).encloses(
 				Rect2(counter.value_label.position, counter.value_label.size)
@@ -331,7 +353,7 @@ func _test_base_resource_strip(main) -> void:
 		and ProjectSettings.get_setting("display/window/stretch/mode", "") == "canvas_items"
 		and ProjectSettings.get_setting("display/window/stretch/aspect", "") == "keep"
 		and is_equal_approx(canvas_scale, 0.75)
-		and scaled_strip == Rect2(390, 13.5, 216, 33)
+		and scaled_strip == Rect2(390, 13.5, 244.5, 33)
 		and scaled_strip.end.x <= physical_size.x
 		and scaled_strip.end.y <= physical_size.y,
 		"Base resource strip must scale predictably to the supported 960x540 canvas",
@@ -445,7 +467,7 @@ func _test_base_resource_strip(main) -> void:
 	main._apply_locale()
 
 
-func _test_base_relayout(main) -> void:
+func _test_base_relayout(main, tree: SceneTree) -> void:
 	var image_rect: Rect2 = BaseLayout.IMAGE_RECT
 	var sidebar_rect: Rect2 = BaseLayout.SIDEBAR_RECT
 	_expect(
@@ -493,6 +515,76 @@ func _test_base_relayout(main) -> void:
 				),
 				"Base sidebar rows must not overlap after narrowing",
 			)
+	_expect(
+		BaseLayout.STATS_RECT == Rect2(876, 78, 362, 72)
+		and BaseLayout.HP_RECT == Rect2(876, 158, 362, 28)
+		and BaseLayout.MANA_RECT == Rect2(876, 196, 362, 28)
+		and BaseLayout.STATUS_RECT == Rect2(876, 232, 362, 30)
+		and BaseLayout.BUILD_CAMPFIRE_RECT.end.y == 699.0
+		and sidebar_rect.encloses(BaseLayout.BUILD_CAMPFIRE_RECT),
+		"The expanded identity block and shifted Base rows must keep their exact in-sidebar geometry",
+	)
+	var sequential_action_rects := [
+		BaseLayout.START_RECT,
+		BaseLayout.BUILD_CRUSHER_RECT,
+		BaseLayout.BUILD_WHETSTONE_RECT,
+		BaseLayout.BUILD_RITUAL_TABLE_RECT,
+		BaseLayout.BUILD_CAMPFIRE_RECT,
+	]
+	for first_index in range(sequential_action_rects.size()):
+		var first_rect: Rect2 = sequential_action_rects[first_index]
+		_expect(sidebar_rect.encloses(first_rect), "Every Base action must remain inside the sidebar")
+		for second_index in range(first_index + 1, sequential_action_rects.size()):
+			_expect(
+				not first_rect.intersects(sequential_action_rects[second_index]),
+				"Base camp actions must remain visually disjoint after the identity row expands",
+			)
+
+	var original_name: String = main.state.character_name
+	var original_form: String = main.state.current_form_id
+	for locale in Loc.SUPPORTED_LOCALES:
+		Loc.set_locale(locale)
+		main.state.character_name = (
+			"Странница Архивов с именем длиннее границ старой летописи"
+			if locale == "ru"
+			else "The Archive Wanderer Whose Name Outlives the Old Chronicle"
+		)
+		main.state.current_form_id = "almost_human"
+		main._apply_locale()
+		await tree.process_frame
+		RenderingServer.force_draw(false)
+		await tree.process_frame
+		var identity_font_size: int = main.stats_label.get_theme_font_size("font_size")
+		var identity_line_count: int = main.stats_label.get_line_count()
+		var visible_identity_lines: int = main.stats_label.get_visible_line_count()
+		var identity_rect := Rect2(main.stats_label.position, main.stats_label.size)
+		var form_text := Loc.text("SIDEBAR_FORM", [
+			Loc.text(String(GameRules.FORMS["almost_human"]["name"])),
+		])
+		var visual_gap: float = BaseLayout.HP_RECT.position.y - identity_rect.end.y
+		for output_size in [Vector2(1280, 720), Vector2(960, 540)]:
+			var canvas_scale: float = output_size.x / 1280.0
+			_expect(
+				main.stats_label.text.begins_with(main.state.character_name + "\n")
+				and main.stats_label.text.ends_with(form_text)
+				and identity_line_count >= 3
+				and visible_identity_lines == identity_line_count
+				and ThemeController.is_approved_font_size(identity_font_size)
+				and identity_font_size >= 12
+				and visual_gap * canvas_scale >= 3.0
+				and main.stats_label.clip_text
+				and main.stats_label.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+				and main.stats_label.tooltip_text == main.stats_label.text
+				and main.stats_label.accessibility_name == main.stats_label.text,
+				"Full long %s Base identity and Form must remain readable above HP at %dx%d" % [
+					locale, int(output_size.x), int(output_size.y),
+				],
+			)
+	main.state.character_name = original_name
+	main.state.current_form_id = original_form
+	Loc.set_locale("ru")
+	main._apply_locale()
+	await tree.process_frame
 	_expect(
 		Rect2(main.character_button.position, main.character_button.size)
 			== BaseLayout.CHARACTER_BUTTON_RECT
@@ -612,11 +704,12 @@ func _test_base_upgrade_list_absence(main) -> void:
 	main._open_camp_build_panel()
 	_expect(
 		main.camp_build_panel.visible
-		and main.camp_build_panel.rows.size() == 11
+		and main.camp_build_panel.rows.size() == 12
 		and not main.camp_build_panel.rows.has("mural")
 		and main.camp_build_panel.rows.has("record_player")
+		and main.camp_build_panel.rows.has("storage_chest")
 		and main.camp_build_panel.rows["writing_set"].button.disabled
-		and main.camp_build_panel.rows["record_player"].panel.get_index()
+		and main.camp_build_panel.rows["storage_chest"].panel.get_index()
 			== main.camp_build_panel.rows_box.get_child_count() - 1,
 		"Blocking Build modal must list all revealed rows, hide Mural and keep the last row scroll-reachable",
 	)

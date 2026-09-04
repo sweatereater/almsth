@@ -142,24 +142,20 @@ func _test_slot_registry() -> void:
 func _test_character_layout_contract() -> void:
 	_expect(CharacterSheetLayout.NAME_FORM_RECT == Rect2(20, 14, 365, 34), "Character name/form rect must match the approved canvas")
 	_expect(CharacterSheetLayout.SOULS_RECT == Rect2(20, 49, 365, 24), "Character souls rect must match the approved canvas")
-	_expect(CharacterSheetLayout.STATS_CARD_RECT == Rect2(16, 76, 276, 570), "Character stats card rect must match the approved canvas")
-	_expect(CharacterSheetLayout.FIGURE_CARD_RECT == Rect2(307, 76, 368, 570), "Character figure card rect must match the approved canvas")
+	_expect(CharacterSheetLayout.STATS_CARD_RECT == Rect2(16, 76, 240, 570), "Character stats card rect must match the approved canvas")
+	_expect(CharacterSheetLayout.FIGURE_CARD_RECT == Rect2(270, 76, 405, 570), "Character figure card rect must match the approved canvas")
 	_expect(CharacterSheetLayout.INVENTORY_CARD_RECT == Rect2(691, 76, 573, 570), "Character inventory card rect must match the approved canvas")
 	_expect(CharacterSheetLayout.SKILLS_CARD_RECT == Rect2(16, 76, 1248, 570), "Character Skills card must use the full content width")
 	_expect(CharacterSheetLayout.FIGURE_SOURCE_RECT == Rect2(7, 8, 250, 692), "All forms must share the approved safe source crop")
-	_expect(CharacterSheetLayout.FIGURE_RECT == Rect2(402, 122, 178, 493), "Character full-body figure rect must use the approved +12% presentation")
-	_expect(CharacterSheetLayout.FIGURE_RECT.get_center().x == 491.0 and CharacterSheetLayout.FIGURE_BASELINE_Y == 612.0, "Character crop must preserve the centered shared foot anchor")
-	var old_scale := 448.0 / 704.0
-	var new_scale_y := CharacterSheetLayout.FIGURE_RECT.size.y / CharacterSheetLayout.FIGURE_SOURCE_RECT.size.y
-	var new_scale_x := CharacterSheetLayout.FIGURE_RECT.size.x / CharacterSheetLayout.FIGURE_SOURCE_RECT.size.x
-	_expect(absf(new_scale_x - new_scale_y) < 0.001 and absf(new_scale_y / old_scale - 1.1195) < 0.0001, "Shared source crop must enlarge every form by approximately 12% at one scale")
+	_expect(CharacterSheetLayout.FIGURE_RECT == Rect2(350, 102, 245, 530), "Character niche must contain the native anatomical fit")
+	_expect(CharacterSheetLayout.FIGURE_BASELINE_Y == 620.0, "Native sheet art must share the new foot baseline")
 	var expected_rects := {
-		"head": Rect2(323, 96, 64, 64), "body": Rect2(323, 190, 64, 64),
-		"hands": Rect2(323, 284, 64, 64), "legs": Rect2(323, 378, 64, 64),
-		"feet": Rect2(323, 472, 64, 64), "ring_1": Rect2(323, 566, 64, 64),
-		"jacket": Rect2(595, 96, 64, 64), "talisman": Rect2(595, 190, 64, 64),
-		"back": Rect2(595, 284, 64, 64), "right_hand": Rect2(595, 378, 64, 64),
-		"left_hand": Rect2(595, 472, 64, 64), "ring_2": Rect2(595, 566, 64, 64),
+		"head": Rect2(282, 96, 64, 64), "body": Rect2(282, 190, 64, 64),
+		"hands": Rect2(282, 284, 64, 64), "legs": Rect2(282, 378, 64, 64),
+		"feet": Rect2(282, 472, 64, 64), "ring_1": Rect2(282, 566, 64, 64),
+		"jacket": Rect2(599, 96, 64, 64), "talisman": Rect2(599, 190, 64, 64),
+		"back": Rect2(599, 284, 64, 64), "right_hand": Rect2(599, 378, 64, 64),
+		"left_hand": Rect2(599, 472, 64, 64), "ring_2": Rect2(599, 566, 64, 64),
 	}
 	var slots: Array[Rect2] = []
 	for slot_id in Rules.EQUIPMENT_SLOT_ORDER:
@@ -181,15 +177,15 @@ func _test_character_layout_contract() -> void:
 	for row in range(6):
 		var left_rect: Rect2 = CharacterSheetLayout.slot_rect(left_column[row])
 		var right_rect: Rect2 = CharacterSheetLayout.slot_rect(right_column[row])
-		_expect(left_rect.position == Vector2(323, 96 + row * 94) and right_rect.position == Vector2(595, 96 + row * 94), "Equipment row %d must use exact paired positions" % row)
+		_expect(left_rect.position == Vector2(282, 96 + row * 94) and right_rect.position == Vector2(599, 96 + row * 94), "Equipment row %d must use exact paired positions" % row)
 		if row < 5:
 			_expect(CharacterSheetLayout.slot_rect(left_column[row + 1]).position.y - left_rect.end.y == 30.0, "Left slot rows must retain a 30 px gap")
 			_expect(CharacterSheetLayout.slot_rect(right_column[row + 1]).position.y - right_rect.end.y == 30.0, "Right slot rows must retain a 30 px gap")
 	var ring_1 := CharacterSheetLayout.slot_rect("ring_1")
 	var ring_2 := CharacterSheetLayout.slot_rect("ring_2")
-	_expect(ring_1.get_center().y == ring_2.get_center().y and is_equal_approx((ring_1.get_center().x + ring_2.get_center().x) * 0.5, 491.0), "Ring slots must be symmetric around x=491 at the same y")
-	for stats_rect in [CharacterSheetLayout.SOUL_FORM_RECT, CharacterSheetLayout.PRIMARY_ATTRIBUTES_RECT, CharacterSheetLayout.FREE_STATS_RECT, CharacterSheetLayout.STATUS_STRIP_RECT, CharacterSheetLayout.DERIVED_STATS_RECT, CharacterSheetLayout.CHEAT_BUTTON_RECT]:
-		_expect(CharacterSheetLayout.STATS_CARD_RECT.encloses(stats_rect), "Every stats/status/cheat rect must fit inside the left card")
+	_expect(ring_1.get_center().y == ring_2.get_center().y and is_equal_approx((ring_1.get_center().x + ring_2.get_center().x) * 0.5, 472.5), "Ring slots must be symmetric around x=472.5 at the same y")
+	for stats_rect in [CharacterSheetLayout.SOUL_FORM_RECT, CharacterSheetLayout.PRIMARY_ATTRIBUTES_RECT, CharacterSheetLayout.FREE_STATS_RECT, CharacterSheetLayout.STATUS_STRIP_RECT, CharacterSheetLayout.DERIVED_STATS_RECT]:
+		_expect(CharacterSheetLayout.STATS_CARD_RECT.encloses(stats_rect), "Every stats/status rect must fit inside the left card")
 	var ring_slots: Array[String] = ["ring_1", "ring_2"]
 	_expect(
 		Rules.resolve_physical_slot(ring_slots, "almost_human", {"ring_1": "occupied"}).get("slot", "") == "ring_2",
@@ -296,12 +292,6 @@ func _test_character_fullbody_asset(path: String) -> void:
 		and source.end.y - used.end.y >= 4,
 		"Shared source crop must preserve at least four transparent pixels around %s" % path,
 	)
-	var mapped_alpha_bottom := (
-		CharacterSheetLayout.FIGURE_RECT.position.y
-		+ float(used.end.y - source.position.y)
-		* CharacterSheetLayout.FIGURE_RECT.size.y / CharacterSheetLayout.FIGURE_SOURCE_RECT.size.y
-	)
-	_expect(absf(mapped_alpha_bottom - CharacterSheetLayout.FIGURE_BASELINE_Y) <= 1.0, "Every form must retain the same visible foot anchor at the Character baseline: %s" % path)
 	_expect(used.size.x >= 224 and used.size.x <= 248, "Full-body cutout width must follow the approved runtime contract: %s" % path)
 	_expect(used.size.y >= 676 and used.size.y <= 688, "Full-body cutout height must follow the approved runtime contract: %s" % path)
 	_expect(used.position.x >= 8 and used.end.x <= 256, "Full-body cutout must keep eight transparent horizontal pixels: %s" % path)
@@ -343,7 +333,7 @@ func _test_renderer_contracts() -> void:
 	_expect(Renderer.DUNGEON_ENEMY_HP_RECT.size.y <= 8.0, "Enemy HP must use only the compact right-inspection gauge")
 	var renderer_source := FileAccess.get_file_as_string("res://scripts/ui/game_renderer.gd")
 	_expect(not renderer_source.contains("_draw_health_bar"), "World renderer must contain no permanent entity HP-bar draw path")
-	_expect(renderer_source.contains("draw_texture_rect_region") and renderer_source.contains("CharacterSheetLayout.FIGURE_SOURCE_RECT"), "Character-sheet renderer must use the one shared clipped source region")
+	_expect(renderer_source.contains("draw_texture_rect_region") and renderer_source.contains("placement.source"), "Character-sheet renderer must use cached native alpha bounds")
 	_expect(
 		not Loc.STRINGS["ru"].has("BASE_SUBTITLE")
 		and not Loc.STRINGS["en"].has("BASE_SUBTITLE")
@@ -402,7 +392,7 @@ func _test_hit_feedback_and_character_slots(tree: SceneTree) -> void:
 	_expect(
 		main.character_soul_level_label.text.contains("\n")
 		and Rect2(main.character_soul_level_label.position, main.character_soul_level_label.size)
-		== Rect2(28, 88, 252, 48),
+		== CharacterSheetLayout.SOUL_FORM_RECT,
 		"Soul Level, actual form and appearance must use the dedicated Inventory stats area",
 	)
 	_expect(

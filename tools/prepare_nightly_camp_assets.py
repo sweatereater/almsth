@@ -4,7 +4,8 @@ The empty v2 concept supplies the base.  A reviewed built-in ImageGen background
 edit of the furnished v2 concept supplies isolated prop pixels; its baked light checker is
 removed by an edge-connected neutral-light matte.  No furnished-minus-empty subtraction is
 used.  Each module is placed into the approved v2 composition and cropped to its own tight
-RGBA bounds.
+RGBA bounds. The thirteenth Storage Chest is an independently generated transparent
+source, normalized without background removal and appended after the historical atlas layers.
 """
 
 from __future__ import annotations
@@ -23,6 +24,21 @@ CONCEPT = ROOT / "art" / "concepts" / "camp" / "2026-09-01"
 ASSET_ROOT = ROOT / "assets" / "art" / "camp-2026-09-01"
 REVIEW_ROOT = CONCEPT / "runtime-review"
 ISOLATION_CANDIDATE = CONCEPT / "candidates" / "camp-isolation-attempt-03.png"
+STORAGE_CHEST_SOURCE = CONCEPT / "storage-chest-master.png"
+STORAGE_CHEST_SIZE = (108, 67)
+STORAGE_CHEST_DRAW_RECT = [224, 392, 108, 67]
+STORAGE_CHEST_BOTTOM_CENTER = [54, 63]
+STORAGE_CHEST_PROMPT = """Use case: stylized-concept
+Asset type: original game environment prop master for the Almsth underground camp
+Primary request: create one low, broad, CLOSED storage chest as a standalone transparent-background cutout.
+Visual reference context: match the project's own underground camp assets already inspected: realistic painterly dark-fantasy materials, elevated three-quarter camp camera, compact readable silhouette, subdued detail and grounded lighting. Do not copy or include any existing prop.
+Scene/backdrop: none; genuine transparent background across the entire canvas outside the prop.
+Subject: a sturdy low broad storage chest, weathered dark wood, restrained aged-iron bands and corner guards, one small dull iron latch, clearly readable closed lid seam.
+Composition/framing: single chest centered, elevated 3/4 view consistent with looking slightly down into the camp; broad horizontal silhouette; tight but complete cutout with modest transparent padding; bottom-center grounding reference; no cropping.
+Lighting/mood: cool ambient stone-room light with only a subtle warm hearth edge light; quiet utilitarian camp storage, not treasure.
+Materials/textures: worn dark timber grain, matte oxidized iron, subtle age and scuffs; one tight local contact shadow directly under the chest contained within the cutout.
+Constraints: brand-new original project-owned design suitable for future commercial sale without royalties; actual alpha transparency; closed lid; readable at small game scale; no text; no logo; no watermark.
+Avoid: open lid, visible loot, coins, gems, runes, glow, magic, text, labels, UI symbols, arrows, rugs, sacks, loose containers, broad floor patches, room/background pixels, neighboring props, halo, outline, bloom, dramatic treasure-light, ornate fantasy excess."""
 ISOLATION_ATTEMPTS = [
     {
         "attempt": 1,
@@ -55,7 +71,9 @@ ISOLATION_ATTEMPTS = [
 DRAW_ORDER = [
     "mural", "bunk", "textile_area", "workbench", "writing_set", "ritual_table",
     "crusher", "whetstone", "campfire", "kettle", "rocking_chair", "record_player",
+    "storage_chest",
 ]
+HISTORICAL_ATLAS_DRAW_ORDER = DRAW_ORDER[:-1]
 
 # Attempt 03 supplies reviewed isolated RGB; a deterministic neutral-light matte supplies
 # alpha. Source/target rectangles place each disjoint atlas cell into the approved v2
@@ -80,6 +98,7 @@ HITBOXES = {
     "whetstone": [237, 298, 93, 91],
     "ritual_table": [430, 181, 132, 77],
     "kettle": [397, 268, 72, 66],
+    "storage_chest": [230, 395, 96, 60],
 }
 
 # The two standalone workshop machines are each one contiguous owned silhouette.
@@ -313,6 +332,60 @@ def _assert_independence(
             )
 
 
+def _storage_chest_layer() -> tuple[Image.Image, list[int], float]:
+    """Normalize the accepted native alpha source into its exact camp-local canvas."""
+
+    if not STORAGE_CHEST_SOURCE.is_file():
+        raise FileNotFoundError(f"missing approved Storage Chest source: {STORAGE_CHEST_SOURCE}")
+    source = Image.open(STORAGE_CHEST_SOURCE).convert("RGBA")
+    if source.size != (1536, 1024):
+        raise ValueError(f"unexpected Storage Chest master size: {source.size}")
+    alpha = source.getchannel("A")
+    alpha_extrema = alpha.getextrema()
+    if alpha_extrema[0] != 0 or alpha_extrema[1] < 250:
+        raise ValueError("Storage Chest master must preserve genuine transparent alpha")
+    bounds = alpha.getbbox()
+    if bounds is None:
+        raise ValueError("Storage Chest master has no visible pixels")
+    cropped = source.crop(bounds)
+    available_width = STORAGE_CHEST_SIZE[0]
+    available_height = STORAGE_CHEST_BOTTOM_CENTER[1]
+    scale = min(
+        available_width / float(cropped.width),
+        available_height / float(cropped.height),
+    )
+    resized_size = (
+        max(1, min(available_width, round(cropped.width * scale))),
+        max(1, min(available_height, round(cropped.height * scale))),
+    )
+    # Resize premultiplied values so invisible RGB never contaminates the alpha edge.
+    resized = cropped.convert("RGBa").resize(
+        resized_size, Image.Resampling.LANCZOS,
+    ).convert("RGBA")
+    resized_bounds = resized.getchannel("A").getbbox()
+    if resized_bounds is None:
+        raise ValueError("Storage Chest vanished during normalization")
+    resized = resized.crop(resized_bounds)
+    canvas = Image.new("RGBA", STORAGE_CHEST_SIZE, (0, 0, 0, 0))
+    x = (STORAGE_CHEST_SIZE[0] - resized.width) // 2
+    y = STORAGE_CHEST_BOTTOM_CENTER[1] - resized.height
+    if x < 0 or y < 0:
+        raise ValueError(f"Storage Chest does not fit runtime canvas: {resized.size}")
+    canvas.alpha_composite(resized, (x, y))
+    runtime_bounds = canvas.getchannel("A").getbbox()
+    if runtime_bounds is None or runtime_bounds[3] != STORAGE_CHEST_BOTTOM_CENTER[1]:
+        raise ValueError(f"Storage Chest bottom reference drifted: {runtime_bounds}")
+    if STORAGE_CHEST_SIZE[1] - runtime_bounds[3] != 4:
+        raise ValueError(f"Storage Chest must retain exact 4px bottom clearance: {runtime_bounds}")
+    occupied = sum(
+        count
+        for count, value in canvas.getchannel("A").getcolors(canvas.width * canvas.height)
+        if value > 8
+    )
+    coverage = occupied / float(canvas.width * canvas.height)
+    return canvas, list(runtime_bounds), coverage
+
+
 def _generate(asset_root: Path, review_root: Path) -> None:
     asset_root.mkdir(parents=True, exist_ok=True)
     review_root.mkdir(parents=True, exist_ok=True)
@@ -339,7 +412,7 @@ def _generate(asset_root: Path, review_root: Path) -> None:
 
     composite = base.convert("RGBA")
     layer_records = {}
-    for layer_id in DRAW_ORDER:
+    for layer_id in HISTORICAL_ATLAS_DRAW_ORDER:
         layer, bounds, coverage, component_cleanup = _layer(
             isolation, catalog_alpha, layer_id,
         )
@@ -373,10 +446,39 @@ def _generate(asset_root: Path, review_root: Path) -> None:
             ),
             "owns": "only this module's props, contact shadow and local light",
         }
+    storage_layer, storage_alpha_bounds, storage_coverage = _storage_chest_layer()
+    storage_target = asset_root / "camp-storage-chest.png"
+    storage_layer.save(storage_target, optimize=True)
+    composite.alpha_composite(
+        storage_layer,
+        (STORAGE_CHEST_DRAW_RECT[0], STORAGE_CHEST_DRAW_RECT[1]),
+    )
+    layer_records["storage_chest"] = {
+        "path": (ASSET_ROOT / "camp-storage-chest.png").relative_to(ROOT).as_posix(),
+        "sha256": _sha256(storage_target),
+        "size": list(STORAGE_CHEST_SIZE),
+        "format": "RGBA8",
+        "draw_rect_local": STORAGE_CHEST_DRAW_RECT,
+        "hitbox_local": HITBOXES["storage_chest"],
+        "bottom_center_reference": STORAGE_CHEST_BOTTOM_CENTER,
+        "bottom_clearance": 4,
+        "alpha_bounds": storage_alpha_bounds,
+        "alpha_coverage": round(storage_coverage, 6),
+        "source": STORAGE_CHEST_SOURCE.relative_to(ROOT).as_posix(),
+        "source_sha256": _sha256(STORAGE_CHEST_SOURCE),
+        "source_size": [1536, 1024],
+        "generation": "built-in image_gen",
+        "generated_result_id": "exec-f4220fc7-adab-4c44-9243-6cd76a83e082",
+        "normalization": "actual-alpha tight crop, premultiplied-alpha Lanczos fit into 108x67, bottom-center (54,63), 4px bottom clearance; no background removal, repaint or alpha cleanup",
+        "mask_components": None,
+        "component_gate": None,
+        "owns": "only the Storage Chest prop and its tight local contact shadow",
+    }
     composite.save(review_root / "all-modules-runtime.png", optimize=True)
     manifest = {
-        "schema_version": 2,
-        "approved_v2_lineage_only": True,
+        "schema_version": 3,
+        "approved_v2_lineage_only": False,
+        "base_and_historical_layers_use_approved_v2_lineage_only": True,
         "empty_source": empty_source.relative_to(ROOT).as_posix(),
         "empty_source_sha256": _sha256(empty_source),
         "furnished_source": furnished_source.relative_to(ROOT).as_posix(),
@@ -394,6 +496,14 @@ def _generate(asset_root: Path, review_root: Path) -> None:
             for attempt in ISOLATION_ATTEMPTS
         ],
         "exact_prompts": "art/concepts/camp/2026-09-01/PROMPTS.md#runtime-layer-isolation-attempts",
+        "storage_chest_source": {
+            "path": STORAGE_CHEST_SOURCE.relative_to(ROOT).as_posix(),
+            "sha256": _sha256(STORAGE_CHEST_SOURCE),
+            "generation": "built-in image_gen",
+            "generated_result_id": "exec-f4220fc7-adab-4c44-9243-6cd76a83e082",
+            "exact_prompt": STORAGE_CHEST_PROMPT,
+            "commercial_origin": "fresh original project-owned generation; no external material",
+        },
         "normalization": "crop x=1..1636 (one left/two right pixels removed), duplicate source row 958 as row 959, exact 0.5 resize",
         "subtraction_used": False,
         "base": {
@@ -427,6 +537,29 @@ def _assert_fresh(staged_asset_root: Path, staged_review_root: Path) -> None:
         raise ValueError("stale generated camp assets: " + ", ".join(stale))
 
 
+def _apply_stage1e_corrections(asset_root: Path) -> None:
+    """Canonical finalization shared by write/check staging, never a one-shot."""
+    from patch_stage1e_camp_art import RECORD_HASH, WORKBENCH_HASH, clean_workbench, sha
+    record = asset_root / "camp-record-player.png"
+    workbench = asset_root / "camp-workbench.png"
+    if sha(record) != RECORD_HASH or sha(workbench) != WORKBENCH_HASH:
+        raise ValueError("Stage1E camp finalizer received an unapproved generated source")
+    old = Image.open(record).convert("RGBA")
+    padded = Image.new("RGBA", (166, 250))
+    padded.alpha_composite(old, (4, 4))
+    padded.save(record, optimize=False)
+    bench = Image.open(workbench).convert("RGBA")
+    clean_workbench(bench)
+    bench.save(workbench, optimize=False)
+    manifest_path = asset_root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    record_layer = manifest["layers"]["record_player"]
+    record_layer.update({"sha256": sha(record).upper(), "size": [166, 250], "draw_rect_local": [652, 223, 166, 250], "stage1e_recipe": {"source_sha256": RECORD_HASH, "padding": [4, 4, 3, 4], "old_world_coordinate_preserved": True}})
+    bench_layer = manifest["layers"]["workbench"]
+    bench_layer.update({"sha256": sha(workbench).upper(), "alpha_coverage": 0.631825, "stage1e_recipe": {"source_sha256": WORKBENCH_HASH, "exterior_alpha_threshold": 2, "near_neutral": {"minimum_rgb": 150, "maximum_channel_spread": 24}, "cleared_pixel_count": 47, "cleared_alpha_histogram": {"1": 18, "2": 29}, "cleared_inclusive_bbox": [3, 4, 170, 138], "attached_pale_patch": {"window_xyxy": [64, 107, 136, 131], "alpha_minimum": 128, "minimum_rgb": 100, "maximum_channel_spread": 30, "cleared_pixel_count": 457, "cleared_inclusive_bbox": [64, 107, 135, 130], "retained_brown_or_wood_pixels": 269, "alpha_zeroed_rgb_preserved": True}, "rgb_preserved": True}})
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
@@ -437,11 +570,13 @@ def main() -> None:
             staged_assets = staging_root / "assets"
             staged_review = staging_root / "review"
             _generate(staged_assets, staged_review)
+            _apply_stage1e_corrections(staged_assets)
             _assert_fresh(staged_assets, staged_review)
-        print("CAMP ASSET CHECK PASSED: deterministic base, layers, component gates and manifest")
+        print("CAMP ASSET CHECK PASSED: deterministic base, 13 layers, component gates and manifest")
         return
     _generate(ASSET_ROOT, REVIEW_ROOT)
-    print("prepared camp base and 12 independently-gated tight layers without concept subtraction")
+    _apply_stage1e_corrections(ASSET_ROOT)
+    print("prepared camp base and 13 approved tight layers without concept subtraction")
 
 
 if __name__ == "__main__":

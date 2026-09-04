@@ -521,7 +521,7 @@ func _test_malformed_and_versioned_saves() -> void:
 	_expect(
 		SaveSystem.load_game(MALFORMED_SAVE_PATH).is_empty()
 		and FileAccess.get_file_as_bytes(MALFORMED_SAVE_PATH) == strict_partial_bytes,
-		"Current v17 disk validation must reject a sparse setup payload without mutation",
+		"Current v18 disk validation must reject a sparse setup payload without mutation",
 	)
 	var legacy := RunState.new()
 	_expect(
@@ -559,7 +559,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		_write_json(SAVE_PATH, {"version": 12, "state": legacy_data}) == OK,
 		"A true v12 fixture without the additive v13 ids must be writable",
 	)
-	_expect(SaveSystem.load_game(SAVE_PATH).is_empty(), "Old v12 test files are deliberately excluded by strict v17")
+	_expect(SaveSystem.load_game(SAVE_PATH).is_empty(), "Old v12 test files are deliberately excluded by strict v18")
 	var migrated := RunState.new()
 	_expect(
 		migrated.restore_save_data(legacy_data)
@@ -580,7 +580,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		"Current save preflight must preserve an occupied unsupported family byte-for-byte",
 	)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
-	# The direct setup helper is intentionally tolerant, while a durable v17 file
+	# The direct setup helper is intentionally tolerant, while a durable v18 file
 	# must still satisfy current progression semantics before publication.
 	migrated.active_statuses.clear()
 	migrated.lifetime_souls_earned = (
@@ -588,7 +588,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 	)
 	_expect(
 		SaveSystem.save_game(migrated, SAVE_PATH) == OK,
-		"A semantically valid explicitly constructed setup state publishes as v17",
+		"A semantically valid explicitly constructed setup state publishes as v18",
 	)
 	var migrated_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var migrated_roundtrip := RunState.new()
@@ -600,7 +600,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and migrated_roundtrip.get_skill_level("stomach") == 0
 		and migrated_roundtrip.get_skill_level("ears") == 0
 		and not migrated_roundtrip.has_status("satiated"),
-		"A current v17 state-only helper must round-trip without inventing new progression",
+		"A current v18 state-only helper must round-trip without inventing new progression",
 	)
 
 	var current := RunState.new()
@@ -615,7 +615,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 	current.add_or_refresh_status("satiated", 222, 3)
 	_expect(
 		SaveSystem.save_game(current, SAVE_PATH) == OK,
-		"A current v17 state-only save with additive ids must be writable",
+		"A current v18 state-only save with additive ids must be writable",
 	)
 	var current_envelope = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	var current_roundtrip := RunState.new()
@@ -630,7 +630,7 @@ func _test_v12_to_v13_additive_ids() -> void:
 		and current_roundtrip.has_status("satiated")
 		and current_roundtrip.status_remaining("satiated") == 222
 		and int(current_roundtrip.active_statuses["satiated"].get("temporary_hp", 0)) == 3,
-		"A current v17 state-only save must preserve learned Stomach/Ears and Satiated exactly",
+		"A current v18 state-only save must preserve learned Stomach/Ears and Satiated exactly",
 	)
 	_expect(
 		SaveSystem.delete_game(SAVE_PATH) == OK
